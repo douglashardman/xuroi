@@ -1,4 +1,10 @@
 import type { Post, ReportReason } from './api';
+import {
+  closeAllModPopovers,
+  syncThreadLockLabel,
+  syncThreadPinLabel,
+  syncThreadReportCount,
+} from './mod-gear';
 import { initLightbox } from './lightbox';
 import { findPostEditor } from './post-edit-form';
 import {
@@ -430,6 +436,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
 
     const reportsBtn = target.closest('[data-thread-reports]') as HTMLButtonElement | null;
     if (reportsBtn) {
+      closeAllModPopovers();
       const bar = reportsBtn.closest('[data-thread-id]');
       const threadId = bar?.getAttribute('data-thread-id');
       if (!threadId) return;
@@ -484,12 +491,8 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
         if (!res.ok) throw new Error(data.error || 'Dismiss failed');
         const item = dismissReportBtn.closest('[data-report-id]');
         item?.remove();
-        const reportsBtn = document.querySelector('[data-thread-reports]');
         const count = document.querySelectorAll('[data-report-id]').length;
-        if (reportsBtn) {
-          reportsBtn.textContent = count > 0 ? `Reports (${count})` : 'Reports';
-          reportsBtn.setAttribute('data-report-count', String(count));
-        }
+        syncThreadReportCount(count);
         const panelBody = document.getElementById('mod-panel-body');
         if (panelBody && !panelBody.querySelector('[data-report-id]')) {
           panelBody.innerHTML = '<p>No open reports on this thread.</p>';
@@ -504,6 +507,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
 
     const warnBtn = target.closest('[data-warn]') as HTMLButtonElement | null;
     if (warnBtn && !warnBtn.disabled) {
+      closeAllModPopovers();
       const postId = warnBtn.getAttribute('data-warn');
       if (!postId) return;
       const message = await promptDialog(
@@ -525,7 +529,9 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `Warning failed (${res.status})`);
-        warnBtn.textContent = 'Warned';
+        const warnLabel = warnBtn.querySelector('.mod-popover-label');
+        if (warnLabel) warnLabel.textContent = 'Already warned';
+        else warnBtn.textContent = 'Warned';
         const warnedPost = warnBtn.closest('article.post');
         const authorName = warnedPost?.querySelector('.pname a')?.textContent?.trim();
         if (authorName) {
@@ -552,6 +558,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
 
     const removeBtn = target.closest('[data-remove]') as HTMLButtonElement | null;
     if (removeBtn && isStaffViewer()) {
+      closeAllModPopovers();
       const postId = removeBtn.getAttribute('data-remove');
       if (!postId) return;
       if (!(await confirm('Remove this post from the thread?'))) return;
@@ -578,6 +585,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
 
     const modBtn = target.closest('[data-mod]') as HTMLButtonElement | null;
     if (modBtn && isStaffViewer()) {
+      closeAllModPopovers();
       const postId = modBtn.getAttribute('data-mod');
       if (!postId) return;
       openPanel('Moderator tools', '<p>Loading…</p>');
@@ -704,6 +712,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
   });
 
   document.querySelector('[data-thread-pin]')?.addEventListener('click', async (e) => {
+    closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;
     const bar = btn.closest('[data-thread-id]');
     const threadId = bar?.getAttribute('data-thread-id');
@@ -718,8 +727,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
       });
       if (!res.ok) throw new Error((await res.json()).error);
       const nowPinned = !pinned;
-      btn.setAttribute('data-pinned', nowPinned ? '1' : '0');
-      btn.textContent = nowPinned ? 'Unpin' : 'Pin';
+      syncThreadPinLabel(nowPinned);
       setThreadPinned(nowPinned);
       showToast(nowPinned ? 'Thread pinned' : 'Thread unpinned', 'success');
     } catch {
@@ -730,6 +738,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
   });
 
   document.querySelector('[data-thread-delete]')?.addEventListener('click', async (e) => {
+    closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;
     const bar = btn.closest('[data-thread-id]');
     const threadId = bar?.getAttribute('data-thread-id');
@@ -755,6 +764,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
   });
 
   document.querySelector('[data-thread-lock]')?.addEventListener('click', async (e) => {
+    closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;
     const bar = btn.closest('[data-thread-id]');
     const threadId = bar?.getAttribute('data-thread-id');
@@ -769,8 +779,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
       });
       if (!res.ok) throw new Error((await res.json()).error);
       const nowLocked = !locked;
-      btn.setAttribute('data-locked', nowLocked ? '1' : '0');
-      btn.textContent = nowLocked ? 'Unlock' : 'Lock';
+      syncThreadLockLabel(nowLocked);
       setThreadLocked(nowLocked);
       showToast(nowLocked ? 'Thread locked' : 'Thread unlocked', 'success');
     } catch {

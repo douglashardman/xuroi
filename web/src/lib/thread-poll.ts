@@ -36,7 +36,7 @@ export function initThreadPoll(intervalMs = 8000) {
   if (!threadId) return () => {};
 
   const signedIn = root.dataset.signedIn === '1';
-  const isAdmin = root.dataset.isAdmin === '1';
+  const isStaff = root.dataset.isStaff === '1';
 
   const poll = async () => {
     const res = await fetch(`/api/threads/${threadId}?page=${page}`);
@@ -49,7 +49,7 @@ export function initThreadPoll(intervalMs = 8000) {
 
     for (const post of posts) {
       if (known.has(post.id)) continue;
-      const article = insertThreadPost(post, { signedIn, isAdmin });
+      const article = insertThreadPost(post, { signedIn, isStaff });
       bindNewPost(article);
       known.add(post.id);
       added++;

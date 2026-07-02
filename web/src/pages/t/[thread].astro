@@ -16,6 +16,8 @@ import {
   sessionFromCookieHeader,
 } from '../../lib/server-api';
 import Avatar from '../../components/Avatar.astro';
+import PostModGear from '../../components/PostModGear.astro';
+import ThreadModGear from '../../components/ThreadModGear.astro';
 import { ACCENT_CLASSES, PAV_CLASSES, accentIndex } from '../../lib/theme';
 
 const { thread: threadParam } = Astro.params;
@@ -76,42 +78,31 @@ const jsonLd = threadJsonLd(data, data.site.url);
         {data.thread.summary}
       </div>
     )}
-    <div
-      class="tmeta"
-      id="thread-tmeta"
-      data-pinned={data.thread.is_pinned ? '1' : '0'}
-      data-locked={data.thread.is_locked ? '1' : '0'}
-      data-reply-count={data.thread.reply_count}
-      data-started={formatDate(data.thread.created_at)}
-      data-last-activity={formatDate(data.thread.last_activity_at)}
-    >
-      {data.thread.reply_count} {data.thread.reply_count === 1 ? 'reply' : 'replies'}
-      · started {formatDate(data.thread.created_at)}
-      · last activity {formatDate(data.thread.last_activity_at)}
-      {data.thread.is_locked && ' · Locked'}
-      {data.thread.is_pinned && ' · Pinned'}
-    </div>
-    {(user?.is_admin || user?.is_moderator) && (
-      <div class="thread-modbar" data-thread-id={data.thread.id}>
-        <button type="button" class="post-action" data-thread-pin data-pinned={data.thread.is_pinned ? '1' : '0'}>
-          {data.thread.is_pinned ? 'Unpin' : 'Pin'}
-        </button>
-        <button type="button" class="post-action" data-thread-lock data-locked={data.thread.is_locked ? '1' : '0'}>
-          {data.thread.is_locked ? 'Unlock' : 'Lock'}
-        </button>
-        <button
-          type="button"
-          class="post-action"
-          data-thread-reports
-          data-report-count={data.ui?.open_report_count ?? 0}
-        >
-          Reports{(data.ui?.open_report_count ?? 0) > 0 ? ` (${data.ui?.open_report_count})` : ''}
-        </button>
-        <a class="post-action" href="/mod/reports">All reports</a>
-        <a class="post-action" href="/mod/queue">Approval queue</a>
-        <button type="button" class="post-action post-action--danger" data-thread-delete>Delete thread</button>
+    <div class="tmeta-row">
+      <div
+        class="tmeta"
+        id="thread-tmeta"
+        data-pinned={data.thread.is_pinned ? '1' : '0'}
+        data-locked={data.thread.is_locked ? '1' : '0'}
+        data-reply-count={data.thread.reply_count}
+        data-started={formatDate(data.thread.created_at)}
+        data-last-activity={formatDate(data.thread.last_activity_at)}
+      >
+        {data.thread.reply_count} {data.thread.reply_count === 1 ? 'reply' : 'replies'}
+        · started {formatDate(data.thread.created_at)}
+        · last activity {formatDate(data.thread.last_activity_at)}
+        {data.thread.is_locked && ' · Locked'}
+        {data.thread.is_pinned && ' · Pinned'}
       </div>
-    )}
+      {(user?.is_admin || user?.is_moderator) && (
+        <ThreadModGear
+          threadId={data.thread.id}
+          pinned={data.thread.is_pinned}
+          locked={data.thread.is_locked}
+          reportCount={data.ui?.open_report_count ?? 0}
+        />
+      )}
+    </div>
   </div>
 
   <div
@@ -202,25 +193,6 @@ const jsonLd = threadJsonLd(data, data.site.url);
                 Report
               </button>
             )}
-            {(user?.is_admin || user?.is_moderator) && (
-              <>
-                <button
-                  type="button"
-                  class="post-action post-action--warn"
-                  data-warn={post.id}
-                  disabled={post.is_warned}
-                  title={post.is_warned ? 'Already warned' : 'Warn author about this post'}
-                >
-                  {post.is_warned ? 'Warned' : 'Warn'}
-                </button>
-                <button type="button" class="post-mod" data-mod={post.id} title="Moderator tools">
-                  Mod
-                </button>
-                <button type="button" class="post-action post-action--danger" data-remove={post.id} title="Remove this post">
-                  Remove
-                </button>
-              </>
-            )}
             <button
               type="button"
               class={`post-like ${post.reacted_by_me ? 'is-liked' : ''}`}
@@ -231,6 +203,9 @@ const jsonLd = threadJsonLd(data, data.site.url);
             >
               ♥ <span class="like-count">{post.reaction_count}</span>
             </button>
+            {(user?.is_admin || user?.is_moderator) && (
+              <PostModGear postId={post.id} warned={post.is_warned} />
+            )}
           </div>
         </div>
       </article>
@@ -267,6 +242,7 @@ const jsonLd = threadJsonLd(data, data.site.url);
 )}
 
 <script>
+  import { initModGear } from '../../lib/mod-gear.ts';
   import { initThreadInteractions } from '../../lib/thread-interactions.ts';
   import { initThreadPoll } from '../../lib/thread-poll.ts';
 
@@ -295,6 +271,7 @@ const jsonLd = threadJsonLd(data, data.site.url);
     if (e.key === 'Escape' && modPanel && !modPanel.hidden) closeModPanel();
   });
 
+  initModGear();
   initThreadInteractions(openPanel, closeModPanel);
   initThreadPoll();
 

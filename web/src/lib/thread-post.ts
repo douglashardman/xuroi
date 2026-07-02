@@ -1,6 +1,7 @@
 import type { Post } from './api';
 import { formatDate } from './api';
 import { postEditFormHTML } from './post-edit-form';
+import { postModGearHTML } from './mod-gear';
 import { ACCENT_CLASSES, PAV_CLASSES, accentIndex, avatarSrc, initials } from './theme';
 
 function escapeText(s: string): string {
@@ -15,7 +16,7 @@ function excerptFromHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
 }
 
-export function renderPostArticle(post: Post, opts: { signedIn: boolean; isAdmin: boolean }): HTMLElement {
+export function renderPostArticle(post: Post, opts: { signedIn: boolean; isStaff: boolean }): HTMLElement {
   const idx = accentIndex(post.id);
   const excerpt = excerptFromHtml(post.body_html);
   const article = document.createElement('article');
@@ -48,9 +49,7 @@ export function renderPostArticle(post: Post, opts: { signedIn: boolean; isAdmin
   const reportBtn = opts.signedIn
     ? `<button type="button" class="post-action post-action--muted" data-report="${post.id}">Report</button>`
     : '';
-  const modBtn = opts.isAdmin
-    ? `<button type="button" class="post-mod" data-mod="${post.id}" title="Moderator info">Mod</button>`
-    : '';
+  const modGear = opts.isStaff ? postModGearHTML(post.id, !!post.is_warned) : '';
 
   const editForm = post.can_edit ? postEditFormHTML(post.id) : '';
 
@@ -79,10 +78,10 @@ export function renderPostArticle(post: Post, opts: { signedIn: boolean; isAdmin
         ${deleteBtn}
         ${quoteBtn}
         ${reportBtn}
-        ${modBtn}
         <button type="button" class="post-like" data-post-id="${post.id}" data-liked="0" title="Like this post">
           ♥ <span class="like-count">0</span>
         </button>
+        ${modGear}
       </div>
     </div>
   `;
@@ -143,7 +142,7 @@ export function removePostArticle(postId: string) {
   window.setTimeout(done, 450);
 }
 
-export function insertThreadPost(post: Post, opts: { signedIn: boolean; isAdmin: boolean }): HTMLElement {
+export function insertThreadPost(post: Post, opts: { signedIn: boolean; isStaff: boolean }): HTMLElement {
   const anchor = document.getElementById('thread-posts-end');
   const article = renderPostArticle(post, opts);
   if (anchor) {
