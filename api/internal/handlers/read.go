@@ -73,10 +73,27 @@ func (a *API) getUserProfile(w http.ResponseWriter, r *http.Request) {
 	if profile.Bio != "" {
 		out["bio"] = profile.Bio
 	}
-	if profile.LastActiveAt != nil {
+	viewer, viewerErr := a.actorFromRequest(r)
+	showPresence := profile.LastActiveAt != nil
+	if showPresence && viewerErr == nil {
+		enriched, err := a.auth.EnrichActor(r.Context(), viewer, a.siteCfg.Admin.Emails, a.siteCfg.Admin.ModeratorEmails, a.siteCfg.Admin.PermBanModeratorEmails)
+		if err == nil {
+			isSelf := enriched.ID == profile.ID
+			isStaff := enriched.IsAdmin || enriched.IsModerator
+			if !isSelf && !isStaff && profile.HideOnline {
+				showPresence = false
+			}
+			if isSelf {
+				out["hide_online"] = profile.HideOnline
+			}
+		}
+	} else if showPresence && profile.HideOnline {
+		showPresence = false
+	}
+	if showPresence {
 		out["last_active_at"] = profile.LastActiveAt
 	}
-	if viewer, err := a.actorFromRequest(r); err == nil && viewer.ID != profile.ID {
+	if viewerErr == nil && viewer.ID != profile.ID {
 		if rel, rerr := a.friends.Relationship(r.Context(), viewer.ID, profile.ID); rerr == nil {
 			out["friendship"] = rel
 			if rel == friends.RelPendingReceived {

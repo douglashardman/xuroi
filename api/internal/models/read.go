@@ -130,6 +130,7 @@ type UserProfile struct {
 	PostCount     int        `json:"post_count"`
 	JoinedAt      time.Time  `json:"joined_at"`
 	LastActiveAt  *time.Time `json:"last_active_at,omitempty"`
+	HideOnline    bool       `json:"hide_online,omitempty"`
 }
 
 type QuotedPost struct {

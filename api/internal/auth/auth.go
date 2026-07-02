@@ -230,7 +230,11 @@ func (s *Service) TouchLastActive(ctx context.Context, actorID string) {
 	if actorID == "" {
 		return
 	}
-	_, _ = s.pool.Exec(ctx, `UPDATE actors SET last_active_at = now() WHERE id = $1`, actorID)
+	_, _ = s.pool.Exec(ctx, `
+		UPDATE actors SET last_active_at = now()
+		WHERE id = $1
+		  AND (last_active_at IS NULL OR last_active_at < now() - interval '2 minutes')
+	`, actorID)
 }
 
 func (s *Service) Logout(ctx context.Context, token string) error {

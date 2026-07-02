@@ -30,6 +30,7 @@ func (a *API) viewerFromRequest(r *http.Request) (access.Viewer, error) {
 	if err != nil {
 		return v, err
 	}
+	a.auth.TouchLastActive(r.Context(), actor.ID)
 	ents, err := a.auth.LoadEntitlements(r.Context(), actor.ID)
 	if err != nil {
 		return v, err

@@ -35,7 +35,9 @@ const avIdx = accentIndex(profile.id);
       <div class="profile-karma">{profile.karma.toLocaleString()} karma</div>
       <div class="profile-meta">
         {profile.post_count.toLocaleString()} posts · joined {formatDate(profile.joined_at)}
-        {profile.last_active_at && ` · last seen ${formatLastSeen(profile.last_active_at)}`}
+        {profile.last_active_at && (
+          <span> · last seen {formatLastSeen(profile.last_active_at)}</span>
+        )}
       </div>
       {profile.bio && !isOwnProfile && (
         <p class="profile-bio">{profile.bio}</p>
@@ -84,6 +86,21 @@ const avIdx = accentIndex(profile.id);
         Control thread reply and @mention emails.
         <a href="/settings/email">Manage email preferences →</a>
       </p>
+    </section>
+  )}
+
+  {isOwnProfile && (
+    <section class="profile-privacy">
+      <h2>Online status</h2>
+      <p class="profile-privacy-meta">Control whether others see you in the online list and last-seen on your profile.</p>
+      <form id="online-privacy-form" class="profile-privacy-form">
+        <label>
+          <input type="checkbox" name="hide_online" checked={profile.hide_online === true} />
+          Hide my online status from other members
+        </label>
+        <p class="profile-privacy-hint">Staff can always see who is online.</p>
+        <button type="submit" class="btn btn--sm">Save visibility</button>
+      </form>
     </section>
   )}
 

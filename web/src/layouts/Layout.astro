@@ -24,6 +24,7 @@ interface Props {
   noIndex?: boolean;
   skipBanCheck?: boolean;
   adminPage?: boolean;
+  llmDigestUrl?: string;
 }
 
 const {
@@ -40,6 +41,7 @@ const {
   noIndex = false,
   skipBanCheck = false,
   adminPage = false,
+  llmDigestUrl,
 } = Astro.props;
 
 if (!skipBanCheck && !Astro.url.pathname.startsWith('/banned')) {
@@ -98,6 +100,19 @@ if (!skipBanCheck && !Astro.url.pathname.startsWith('/banned')) {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
     {jsonLd && (
       <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    )}
+    {llmDigestUrl && (
+      <>
+        <link rel="alternate" type="text/plain" href={`${llmDigestUrl}`} title="LLM thread digest" />
+        <link rel="llms-txt" href={`${llmDigestUrl}`} />
+        <meta name="xuroi-llm-digest" content={`${siteBase}${llmDigestUrl}`} />
+        <meta name="xuroi-llm-digest-alt" content={`${siteBase}${llmDigestUrl.replace('/llm.txt', '/llms.txt')}`} />
+      </>
+    )}
+    {llmDigestUrl && (
+      <script type="text/plain" id="xuroi-llm-hint" style="display:none">
+        {`Xuroi LLM export: append /llm.txt or /llms.txt to this thread URL for a plain-text digest. Canonical: ${siteBase}${llmDigestUrl}`}
+      </script>
     )}
     <script is:inline>
       (function () {

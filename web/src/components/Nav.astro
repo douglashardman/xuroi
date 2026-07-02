@@ -11,6 +11,7 @@ interface Props {
 
 const { active, user, guestCta = 'join' } = Astro.props;
 const navAccent = user ? PAV_CLASSES[accentIndex(user.id)] : '';
+const profileUrl = user ? userURL(user.display_name) : '';
 ---
 <nav>
   <div class="wrap nav">
@@ -24,8 +25,27 @@ const navAccent = user ? PAV_CLASSES[accentIndex(user.id)] : '';
       <a href="/c/bst">Classifieds</a>
       <a href="#">The Vault</a>
     </div>
+    <div class="nav-actions">
+      <div class="nav-online-wrap" id="nav-online-wrap">
+        <button
+          type="button"
+          class="nav-online-btn"
+          id="nav-online-btn"
+          data-nav-popover-trigger
+          aria-expanded="false"
+          aria-haspopup="true"
+          hidden
+        >
+          <span class="nav-online-dot" aria-hidden="true"></span>
+          <span id="nav-online-count">0</span> online
+        </button>
+        <div class="nav-online-panel" id="nav-online-panel" data-nav-popover hidden>
+          <div class="nav-popover-head">Online now</div>
+          <div class="nav-online-list" id="nav-online-list"></div>
+        </div>
+      </div>
     {user ? (
-      <div class="nav-actions">
+      <>
         <a
           href="/messages"
           class="nav-messages"
@@ -51,30 +71,40 @@ const navAccent = user ? PAV_CLASSES[accentIndex(user.id)] : '';
             <span class="nav-bell-badge">{user.unread_notifications! > 99 ? '99+' : user.unread_notifications}</span>
           )}
         </a>
-        <a href={userURL(user.display_name)} class="nav-account" title={user.display_name}>
-          <Avatar
-            name={user.display_name}
-            avatarUrl={user.avatar_url}
-            size="nav"
-            accentClass={navAccent}
-          />
-          <span class="nav-account-name">{user.display_name}</span>
-        </a>
-        <button type="button" class="nav-signout" id="nav-logout">Sign out</button>
-      </div>
+        <div class="nav-user-wrap" id="nav-user-wrap">
+          <button
+            type="button"
+            class="nav-account nav-account-trigger"
+            id="nav-user-trigger"
+            data-nav-popover-trigger
+            aria-expanded="false"
+            aria-haspopup="true"
+            title={user.display_name}
+          >
+            <Avatar
+              name={user.display_name}
+              avatarUrl={user.avatar_url}
+              size="nav"
+              accentClass={navAccent}
+            />
+            <span class="nav-account-name">{user.display_name}</span>
+          </button>
+          <div class="nav-user-menu" id="nav-user-menu" data-nav-popover hidden>
+            <a class="nav-user-menu-item" href={profileUrl}>View profile</a>
+            <button type="button" class="nav-user-menu-item nav-user-menu-logout" id="nav-logout">Log out</button>
+          </div>
+        </div>
+      </>
     ) : guestCta === 'signin' ? (
       <a class="signin" href="/join">Sign in</a>
     ) : (
       <a class="btn btn--pink btn--sm" href="/join">Join the Community</a>
     )}
+    </div>
   </div>
 </nav>
 
-{user && (
-  <script>
-    document.getElementById('nav-logout')?.addEventListener('click', async () => {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/';
-    });
-  </script>
-)}
+<script>
+  import { initNavMenus } from '../lib/nav-menu';
+  initNavMenus();
+</script>

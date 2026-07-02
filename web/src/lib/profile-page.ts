@@ -184,6 +184,23 @@ export function initOwnProfileActions() {
     showToast('Bio saved', 'success');
   });
 
+  document.getElementById('online-privacy-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const hideOnline = new FormData(form).get('hide_online') === 'on';
+    const res = await fetch('/api/me/online-privacy', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hide_online: hideOnline }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Could not save visibility', 'error');
+      return;
+    }
+    showToast('Online visibility updated', 'success');
+  });
+
   document.getElementById('dm-privacy-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;

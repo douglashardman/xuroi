@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/xuroi/xuroi/api/internal/intelligence"
 )
@@ -43,7 +44,7 @@ func (r *Reader) ThreadLLMText(ctx context.Context, id string) (string, error) {
 	for rows.Next() {
 		var author string
 		var body string
-		var createdAt string
+		var createdAt time.Time
 		var isOP bool
 		if err := rows.Scan(&author, &body, &createdAt, &isOP); err != nil {
 			return "", err

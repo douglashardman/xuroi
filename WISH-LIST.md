@@ -152,7 +152,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | C18 | Display name vs username | P3 | — | Display name is primary; slug from name; case-insensitive unique |
 | — | C19 | User groups / roles beyond 5 | P2 | All | v1: Guest/Member/Mod/Admin/Agent |
 | — | C20 | Ranks (post count titles) | P3 | [PB] | "200+ posts" |
-| ✓ | C21 | Online now / last seen | P1 | All | `last_active_at` on profile · session touch |
+| ✓ | C21 | Online now / last seen | P1 | All | Nav online count + panel · profile last seen · hide-online privacy · staff override |
 | — | C22 | Member list | P2 | All | |
 | — | C23 | User search | P2 | All | |
 | — | C24 | Ignore / block user | P2 | [PB] | |

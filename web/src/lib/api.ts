@@ -181,6 +181,8 @@ export interface UserProfile {
   karma: number;
   post_count: number;
   joined_at: string;
+  last_active_at?: string;
+  hide_online?: boolean;
   friendship?: 'none' | 'friends' | 'pending_sent' | 'pending_received';
   incoming_friend_request_id?: string;
   can_message?: boolean;

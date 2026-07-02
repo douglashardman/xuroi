@@ -321,7 +321,7 @@ func (r *Reader) ThreadMeta(ctx context.Context, id string) (models.ThreadMeta, 
 func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserProfile, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT a.id, a.display_name, a.karma, a.created_at, COALESCE(a.avatar_url, ''), COALESCE(a.bio, ''),
-		       a.last_active_at,
+		       a.last_active_at, a.hide_online_status,
 		       (SELECT count(*) FROM posts p WHERE p.author_id = a.id AND p.deleted_at IS NULL)
 		FROM actors a
 		WHERE a.type = 'human'
@@ -334,7 +334,7 @@ func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserPr
 	want := strings.ToLower(nameSlug)
 	for rows.Next() {
 		var profile models.UserProfile
-		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.Bio, &profile.LastActiveAt, &profile.PostCount); err != nil {
+		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.Bio, &profile.LastActiveAt, &profile.HideOnline, &profile.PostCount); err != nil {
 			return models.UserProfile{}, fmt.Errorf("scan actor: %w", err)
 		}
 		if slug.FromDisplayName(profile.DisplayName) == want {

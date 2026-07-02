@@ -79,6 +79,7 @@ const jsonLd = threadJsonLd(data, data.site.url);
   jsonLd={jsonLd}
   ogType="article"
   canonical={`${data.site.url.replace(/\/$/, '')}${data.thread.url}`}
+  llmDigestUrl={`${data.thread.url}/llm.txt`}
 >
   <div class="crumb">
     <a href="/community">Community</a>

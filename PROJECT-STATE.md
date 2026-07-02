@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — Mod tools + search batch (12 items)  
+**Last updated:** July 2, 2026 — Nav UX + online presence + llms.txt  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** Mod/search/engagement batch shipped (12 items) · **Next:** Doug test pass · more P1 pecking
+**Session status:** Nav popover · online list · last seen · llms.txt fix shipped · **Next:** Doug test pass · more P1 pecking
 
 ---
 
