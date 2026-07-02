@@ -35,5 +35,4 @@ CREATE TABLE IF NOT EXISTS email_category_queue (
 );
 
 CREATE INDEX IF NOT EXISTS email_category_queue_due_idx
-    ON email_category_queue (scheduled_at)
-    WHERE next_retry_at IS NULL OR next_retry_at <= now();
+    ON email_category_queue (scheduled_at, next_retry_at);
