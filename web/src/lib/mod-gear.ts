@@ -1,5 +1,7 @@
 const GEAR_SVG = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
 
+const popoverHomes = new WeakMap<HTMLElement, HTMLElement>();
+
 export function modGearButtonHTML(label = 'Moderator tools'): string {
   return `<button type="button" class="mod-gear-btn" data-mod-gear-toggle aria-label="${label}" aria-expanded="false" aria-haspopup="true">${GEAR_SVG}</button>`;
 }
@@ -26,33 +28,96 @@ export function postModGearHTML(postId: string, warned: boolean): string {
   `;
 }
 
+function rememberPopoverHome(popover: HTMLElement, wrap: HTMLElement) {
+  if (!popoverHomes.has(popover)) {
+    popoverHomes.set(popover, wrap);
+  }
+}
+
+function positionFloatingPopover(toggle: HTMLElement, popover: HTMLElement) {
+  const btn = toggle.getBoundingClientRect();
+  const alignRight = popover.classList.contains('mod-popover--thread');
+  const margin = 12;
+
+  popover.style.visibility = 'hidden';
+  popover.hidden = false;
+  const pop = popover.getBoundingClientRect();
+
+  let top = btn.bottom + 8;
+  let left = alignRight ? btn.right - pop.width : btn.left;
+
+  if (top + pop.height > window.innerHeight - margin) {
+    top = btn.top - pop.height - 8;
+  }
+  if (left + pop.width > window.innerWidth - margin) {
+    left = window.innerWidth - pop.width - margin;
+  }
+  if (left < margin) left = margin;
+  if (top < margin) top = margin;
+
+  popover.style.top = `${Math.round(top)}px`;
+  popover.style.left = `${Math.round(left)}px`;
+  popover.style.visibility = '';
+}
+
+function openModPopover(toggle: HTMLElement, popover: HTMLElement) {
+  const wrap = toggle.closest('.mod-gear-wrap');
+  if (!wrap) return;
+
+  rememberPopoverHome(popover, wrap);
+  document.body.appendChild(popover);
+  popover.classList.add('mod-popover--floating');
+  positionFloatingPopover(toggle, popover);
+  toggle.setAttribute('aria-expanded', 'true');
+}
+
 export function closeAllModPopovers() {
   document.querySelectorAll('[data-mod-popover]').forEach((el) => {
-    (el as HTMLElement).hidden = true;
+    const popover = el as HTMLElement;
+    popover.hidden = true;
+    popover.classList.remove('mod-popover--floating');
+    popover.style.top = '';
+    popover.style.left = '';
+    popover.style.visibility = '';
+    const home = popoverHomes.get(popover);
+    if (home && popover.parentElement !== home) {
+      home.appendChild(popover);
+    }
   });
   document.querySelectorAll('[data-mod-gear-toggle]').forEach((el) => {
     el.setAttribute('aria-expanded', 'false');
   });
 }
 
+function findPopoverForWrap(wrap: HTMLElement): HTMLElement | null {
+  const local = wrap.querySelector('[data-mod-popover]') as HTMLElement | null;
+  if (local) return local;
+  for (const el of document.querySelectorAll('[data-mod-popover]')) {
+    if (popoverHomes.get(el as HTMLElement) === wrap) {
+      return el as HTMLElement;
+    }
+  }
+  return null;
+}
+
 export function initModGear() {
   document.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
-    const toggle = target.closest('[data-mod-gear-toggle]');
+    const toggle = target.closest('[data-mod-gear-toggle]') as HTMLElement | null;
     if (toggle) {
       e.stopPropagation();
       const wrap = toggle.closest('.mod-gear-wrap');
-      const popover = wrap?.querySelector('[data-mod-popover]') as HTMLElement | null;
+      if (!wrap) return;
+      const popover = findPopoverForWrap(wrap);
       if (!popover) return;
-      const willOpen = popover.hidden;
+      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
       closeAllModPopovers();
-      if (willOpen) {
-        popover.hidden = false;
-        toggle.setAttribute('aria-expanded', 'true');
+      if (!isOpen) {
+        openModPopover(toggle, popover);
       }
       return;
     }
-    if (!target.closest('.mod-gear-wrap')) {
+    if (!target.closest('[data-mod-popover]') && !target.closest('[data-mod-gear-toggle]')) {
       closeAllModPopovers();
     }
   });
@@ -60,6 +125,9 @@ export function initModGear() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeAllModPopovers();
   });
+
+  window.addEventListener('scroll', closeAllModPopovers, { passive: true });
+  window.addEventListener('resize', closeAllModPopovers, { passive: true });
 }
 
 export function syncThreadPinLabel(pinned: boolean) {

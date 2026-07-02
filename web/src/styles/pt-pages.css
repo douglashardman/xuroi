@@ -233,10 +233,6 @@
 }
 
 .mod-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 120;
   min-width: 210px;
   padding: 8px 0;
   border: var(--line);
@@ -245,13 +241,14 @@
   box-shadow: 6px 6px 0 var(--blue);
 }
 
-.mod-popover--thread {
-  min-width: 228px;
+.mod-popover--floating {
+  position: fixed;
+  z-index: 500;
+  margin: 0;
 }
 
-.mod-popover--post {
-  right: auto;
-  left: 0;
+.mod-popover--thread {
+  min-width: 228px;
 }
 
 .mod-popover-head {
