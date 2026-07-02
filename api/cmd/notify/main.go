@@ -55,11 +55,15 @@ func main() {
 	run := func() {
 		n, err := svc.ProcessQueue(ctx, *limit)
 		if err != nil {
-			log.Printf("notify: %v", err)
-			return
-		}
-		if n > 0 {
+			log.Printf("notify thread: %v", err)
+		} else if n > 0 {
 			log.Printf("sent %d thread notification(s)", n)
+		}
+		m, err := svc.ProcessMentionQueue(ctx, *limit)
+		if err != nil {
+			log.Printf("notify mention: %v", err)
+		} else if m > 0 {
+			log.Printf("sent %d mention notification(s)", m)
 		}
 	}
 

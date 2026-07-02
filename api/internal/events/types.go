@@ -21,6 +21,7 @@ const (
 	TypeThreadUnpinned      = "thread.unpinned"
 	TypeThreadDeleted       = "thread.deleted"
 	TypePostReported        = "post.reported"
+	TypePostModerated       = "post.moderated"
 )
 
 type Event struct {
@@ -51,19 +52,21 @@ type CategoryCreated struct {
 	Description string  `json:"description"`
 	SortOrder   int     `json:"sort_order"`
 	ParentID    *string `json:"parent_id"`
-	AccessLevel string `json:"access_level,omitempty"`
-	ListPublic  *bool  `json:"list_public,omitempty"`
+	AccessLevel     string `json:"access_level,omitempty"`
+	ListPublic      *bool  `json:"list_public,omitempty"`
+	PostModeration  *bool  `json:"post_moderation,omitempty"`
 }
 
 type CategoryUpdated struct {
-	CategoryID  string  `json:"category_id"`
-	Slug        string  `json:"slug"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	SortOrder   int     `json:"sort_order"`
-	ParentID    *string `json:"parent_id"`
-	AccessLevel string  `json:"access_level,omitempty"`
-	ListPublic  *bool   `json:"list_public,omitempty"`
+	CategoryID     string  `json:"category_id"`
+	Slug           string  `json:"slug"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	SortOrder      int     `json:"sort_order"`
+	ParentID       *string `json:"parent_id"`
+	AccessLevel    string  `json:"access_level,omitempty"`
+	ListPublic     *bool   `json:"list_public,omitempty"`
+	PostModeration *bool   `json:"post_moderation,omitempty"`
 }
 
 type CategoryDeleted struct {
@@ -132,6 +135,12 @@ type PostReported struct {
 	ThreadID   string `json:"thread_id"`
 	ReporterID string `json:"reporter_id"`
 	Reason     string `json:"reason"`
+}
+
+type PostModerated struct {
+	PostID   string `json:"post_id"`
+	ThreadID string `json:"thread_id"`
+	Status   string `json:"status"`
 }
 
 type PostEdited struct {

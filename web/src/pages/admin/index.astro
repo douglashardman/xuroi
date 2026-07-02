@@ -14,7 +14,7 @@ if (!user?.is_admin) {
 
 const [home, overview] = await Promise.all([getHome(), getAdminOverview(session!)]);
 ---
-<Layout title="Admin" site={home.site} user={user} noIndex={true} skipBanCheck={true}>
+<Layout title="Admin" site={home.site} user={user} noIndex={true} skipBanCheck={true} adminPage={true}>
   <div class="crumb">
     <a href="/community">Community</a>
     › Admin
@@ -51,32 +51,3 @@ const [home, overview] = await Promise.all([getHome(), getAdminOverview(session!
     </a>
   </div>
 </Layout>
-
-<style>
-  .admin-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 12px;
-    margin: 16px 0 24px;
-  }
-  .admin-stat {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-    text-align: center;
-  }
-  .admin-stat .n {
-    display: block;
-    font: 700 1.5rem/1.2 Poppins, sans-serif;
-  }
-  .admin-stat .l {
-    color: var(--muted);
-    font-size: 0.85rem;
-  }
-  .admin-links {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-  }
-</style>

@@ -69,4 +69,17 @@ go run ./cmd/notify          # poll every 60s
 
 Visiting a thread (signed in) marks it read and cancels any pending digest for that thread.
 
+## Search indexing (H7)
+
+Postgres FTS — decoupled from the write path via `search_index_queue`.
+
+```bash
+cd xuroi/api
+go run ./cmd/searchindex --rebuild   # full reindex once
+go run ./cmd/searchindex --once      # drain queue batch
+go run ./cmd/searchindex             # poll every 15s
+```
+
+Public search: `GET /v1/search?q=...` · web UI at `/search`.
+
 Phase 3–4: magic link + password reset emails (same templates), AI moderation assist.

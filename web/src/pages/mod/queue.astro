@@ -1,0 +1,101 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { formatDate } from '../../lib/api';
+import { getHome } from '../../lib/api';
+import { getMe, sessionFromCookieHeader } from '../../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+
+if (!user?.is_admin && !user?.is_moderator) {
+  return Astro.redirect('/community');
+}
+
+const home = await getHome();
+const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/mod/queue`, {
+  headers: { 'X-Session-Token': session! },
+});
+const data = res.ok ? await res.json() : { items: [], count: 0 };
+const items = data.items ?? [];
+---
+<Layout title="Approval queue" site={home.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Mod tools
+    › Approval queue
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Posts awaiting approval</h2>
+    <span class="lab">{items.length} pending</span>
+  </div>
+
+  <p class="mod-hint">Classifieds and other moderated forums. Approve to publish; reject hides the post.</p>
+
+  {items.length === 0 ? (
+    <p class="mod-empty">Queue is empty — nothing waiting.</p>
+  ) : (
+    <div class="mod-report-list">
+      {items.map((item: {
+        post_id: string;
+        thread_title: string;
+        thread_url: string;
+        category_name: string;
+        author_name: string;
+        excerpt: string;
+        is_op: boolean;
+        created_at: string;
+      }) => (
+        <article class="mod-report-card" data-queue-id={item.post_id}>
+          <div class="mod-report-meta">
+            <time datetime={item.created_at}>{formatDate(item.created_at)}</time>
+            · <strong>{item.author_name}</strong>
+            {item.is_op && ' · new thread'}
+            · {item.category_name}
+          </div>
+          <h3 class="mod-report-thread">
+            <a href={item.thread_url}>{item.thread_title}</a>
+          </h3>
+          <p class="mod-report-excerpt">{item.excerpt}</p>
+          <div class="mod-report-actions">
+            <button type="button" class="btn btn--sm btn--pink" data-approve={item.post_id}>Approve</button>
+            <button type="button" class="btn btn--sm btn--ghost" data-reject={item.post_id}>Reject</button>
+            <a class="btn btn--sm" href={item.thread_url}>View thread</a>
+          </div>
+        </article>
+      ))}
+    </div>
+  )}
+</Layout>
+
+<script>
+  import { showToast } from '../../lib/toast';
+
+  async function act(btn: HTMLButtonElement, path: string, label: string) {
+    const id = btn.getAttribute('data-approve') ?? btn.getAttribute('data-reject');
+    if (!id) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch(path, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      const card = btn.closest('[data-queue-id]');
+      card?.classList.add('mod-report-card--out');
+      window.setTimeout(() => card?.remove(), 220);
+      showToast(label, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Action failed', 'error');
+      btn.disabled = false;
+    }
+  }
+
+  document.querySelectorAll('[data-approve]').forEach((btn) => {
+    btn.addEventListener('click', () => act(btn as HTMLButtonElement, `/api/mod/posts/${btn.getAttribute('data-approve')}/approve`, 'Post approved'));
+  });
+  document.querySelectorAll('[data-reject]').forEach((btn) => {
+    btn.addEventListener('click', () => act(btn as HTMLButtonElement, `/api/mod/posts/${btn.getAttribute('data-reject')}/reject`, 'Post rejected'));
+  });
+</script>

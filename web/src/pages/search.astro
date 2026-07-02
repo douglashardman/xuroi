@@ -1,0 +1,82 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome } from '../lib/api';
+import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+
+const q = Astro.url.searchParams.get('q')?.trim() ?? '';
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, user] = await Promise.all([getHome(), getMe(session)]);
+
+let results: Array<{
+  thread_title: string;
+  thread_url: string;
+  category_name: string;
+  author_name: string;
+  excerpt: string;
+}> = [];
+
+if (q.length >= 2) {
+  const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/search?q=${encodeURIComponent(q)}&limit=25`, {
+    headers: session ? { 'X-Session-Token': session } : {},
+  });
+  if (res.ok) {
+    const data = await res.json();
+    results = data.results ?? [];
+  }
+}
+---
+<Layout title={q ? `Search: ${q}` : 'Search'} site={home.site} user={user}>
+  <div class="crumb"><a href="/community">Community</a> › Search</div>
+
+  <form class="search-form" method="get" action="/search">
+    <input type="search" name="q" value={q} placeholder="Search threads and posts…" minlength="2" required />
+    <button type="submit" class="btn btn--pink">Search</button>
+  </form>
+
+  {q.length >= 2 ? (
+    results.length === 0 ? (
+      <p class="mod-empty">No results for “{q}”. Try different words.</p>
+    ) : (
+      <div class="search-results">
+        <p class="search-meta">{results.length} result{results.length === 1 ? '' : 's'} for “{q}”</p>
+        {results.map((r) => (
+          <article class="search-hit">
+            <h3><a href={r.thread_url}>{r.thread_title}</a></h3>
+            <p class="search-hit-meta">{r.category_name} · {r.author_name}</p>
+            <p class="search-hit-excerpt">{r.excerpt}</p>
+          </article>
+        ))}
+      </div>
+    )
+  ) : (
+    <p class="mod-empty">Search the community — putter models, brands, techniques, BST listings.</p>
+  )}
+</Layout>
+
+<style>
+  .search-form {
+    display: flex;
+    gap: 10px;
+    margin: 16px 0 24px;
+    max-width: 560px;
+  }
+  .search-form input[type='search'] {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .search-meta { color: var(--muted); margin-bottom: 12px; }
+  .search-hit {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-hit h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .search-hit-meta { margin: 0; font-size: 0.85rem; color: var(--muted); }
+  .search-hit-excerpt { margin: 6px 0 0; color: var(--ink); line-height: 1.45; }
+</style>

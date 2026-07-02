@@ -2,6 +2,14 @@ export const ACCENT_CLASSES = ['c-pink', 'c-blue', 'c-green'] as const;
 export const ACCENT_VARS = ['var(--pink)', 'var(--blue)', 'var(--green)'] as const;
 export const PAV_CLASSES = ['pav--pink', 'pav--blue', 'pav--green'] as const;
 
+/** Pick display size from stored full avatar URL (/api/media/avt_….webp). */
+export function avatarSrc(url: string | null | undefined, size: 'sm' | 'lg' = 'sm'): string | null {
+  if (!url) return null;
+  if (size === 'lg') return url;
+  if (url.includes('_sm.webp')) return url;
+  return url.replace(/\.webp$/, '_sm.webp');
+}
+
 export function forumAccentIndex(groupIndex: number, forumIndex: number): number {
   return (groupIndex + forumIndex) % 3;
 }

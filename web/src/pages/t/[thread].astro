@@ -8,8 +8,9 @@ import PostEditForm from '../../components/PostEditForm.astro';
 import ReplyForm from '../../components/ReplyForm.astro';
 import { formatDate } from '../../lib/api';
 import { threadJsonLd } from '../../lib/seo';
-import { getMe, getThread, sessionFromCookieHeader } from '../../lib/server-api';
-import { ACCENT_CLASSES, PAV_CLASSES, accentIndex, initials } from '../../lib/theme';
+import { getMe, getThread, markThreadRead, sessionFromCookieHeader } from '../../lib/server-api';
+import Avatar from '../../components/Avatar.astro';
+import { ACCENT_CLASSES, PAV_CLASSES, accentIndex } from '../../lib/theme';
 
 const { thread: threadParam } = Astro.params;
 const sep = threadParam!.lastIndexOf('--');
@@ -21,10 +22,15 @@ const page = Number(Astro.url.searchParams.get('page') ?? '1');
 const quoteParam = Astro.url.searchParams.get('quote');
 const cookie = Astro.request.headers.get('cookie');
 const session = sessionFromCookieHeader(cookie);
-const [data, user] = await Promise.all([
+const [data, initialUser] = await Promise.all([
   getThread(id, page, session),
   getMe(session),
 ]);
+
+if (session) {
+  await markThreadRead(session, id);
+}
+const user = session ? await getMe(session) : initialUser;
 
 let quotePostId: string | null = null;
 let quoteAuthor: string | null = null;
@@ -95,6 +101,8 @@ const jsonLd = threadJsonLd(data, data.site.url);
           Reports{(data.ui?.open_report_count ?? 0) > 0 ? ` (${data.ui?.open_report_count})` : ''}
         </button>
         <a class="post-action" href="/mod/reports">All reports</a>
+        <a class="post-action" href="/mod/queue">Approval queue</a>
+        <button type="button" class="post-action post-action--danger" data-thread-delete>Delete thread</button>
       </div>
     )}
   </div>
@@ -111,12 +119,14 @@ const jsonLd = threadJsonLd(data, data.site.url);
     return (
       <article class={`post ${ACCENT_CLASSES[idx]}`} id={`post-${post.id}`}>
         <div class="pside">
-          <div
-            class={`pav ${PAV_CLASSES[idx]}${post.author.active_warning ? ' pav--warned' : ''}`}
+          <Avatar
+            name={post.author.name}
+            avatarUrl={post.author.avatar_url}
+            size="post"
+            accentClass={PAV_CLASSES[idx]}
+            warned={post.author.active_warning}
             title={post.author.active_warning ? 'Active warning' : undefined}
-          >
-            {initials(post.author.name)}
-          </div>
+          />
           <div class="pname">
             <a href={post.author.url}>{post.author.name}</a>
           </div>
@@ -129,6 +139,9 @@ const jsonLd = threadJsonLd(data, data.site.url);
         <div class="pbody">
           <div class="pdate">
             <time datetime={post.created_at}>{formatDate(post.created_at)}</time>
+            {post.pending_moderation && (
+              <span class="post-pending-badge" title="Awaiting moderator approval">Pending approval</span>
+            )}
             {post.edited_at && (post.can_edit || user?.is_admin) ? (
               <button type="button" class="post-edited-stamp" data-history={post.id} title="View edit history">
                 Edited

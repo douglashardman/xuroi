@@ -165,6 +165,9 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	out := a.actorJSON(r.Context(), enriched)
 	out["has_password"] = hasPassword
 	out["has_passkey"] = hasPasskey
+	if unread, err := a.reader.NotificationUnreadCount(r.Context(), enriched.ID); err == nil {
+		out["unread_notifications"] = unread
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 

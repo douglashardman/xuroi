@@ -24,6 +24,12 @@ export function defaultOgImage(siteUrl: string) {
   return absoluteUrl(siteUrl, '/brand/pt-bug.svg');
 }
 
+function looksLikeQuestion(title: string): boolean {
+  const t = title.trim();
+  if (t.endsWith('?')) return true;
+  return /^(how|what|why|when|where|which|who|best|anyone|recommend|help)\b/i.test(t);
+}
+
 export function threadJsonLd(data: ThreadPageResponse, siteUrl: string) {
   const threadUrl = `${siteUrl}${data.thread.url}`;
   const comments = data.posts
@@ -36,10 +42,10 @@ export function threadJsonLd(data: ThreadPageResponse, siteUrl: string) {
     }));
 
   const op = data.posts.find((p) => p.is_op);
+  const opText = op ? stripHtml(op.body_html).slice(0, 800) : '';
 
-  return {
+  const base = {
     '@context': 'https://schema.org',
-    '@type': 'DiscussionForumPosting',
     headline: data.thread.title,
     url: threadUrl,
     datePublished: data.thread.created_at,
@@ -51,6 +57,48 @@ export function threadJsonLd(data: ThreadPageResponse, siteUrl: string) {
     articleSection: data.category.name,
     commentCount: data.thread.reply_count,
     comment: comments,
+  };
+
+  if (looksLikeQuestion(data.thread.title) && opText) {
+    return {
+      ...base,
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: data.thread.title,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: opText,
+            dateCreated: data.thread.created_at,
+            author: op ? { '@type': 'Person', name: op.author.name } : undefined,
+          },
+        },
+      ],
+    };
+  }
+
+  return {
+    ...base,
+    '@type': 'DiscussionForumPosting',
+  };
+}
+
+export function siteSearchJsonLd(siteUrl: string, siteName: string) {
+  const base = siteUrl.replace(/\/$/, '');
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: siteName,
+    url: base + '/',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: base + '/search?q={search_term_string}',
+      },
+      'query-input': 'required name=search_term_string',
+    },
   };
 }
 

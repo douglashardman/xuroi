@@ -1,4 +1,12 @@
 ---
+import type { Actor } from '../lib/server-api';
+
+interface Props {
+  user?: Actor | null;
+}
+
+const { user = null } = Astro.props;
+const showReports = user?.is_admin || user?.is_moderator;
 ---
 <footer>
   <div class="wrap">
@@ -31,6 +39,7 @@
       <div class="fcol">
         <h4>Community</h4>
         <a href="/community">All forums</a>
+        <a href="/search">Search</a>
         <a href="#">What's new</a>
         <a href="#">Members</a>
         <a href="/c/bst">Classifieds</a>
@@ -41,7 +50,18 @@
         <a href="#">Community rules</a>
         <a href="mailto:hello@puttertalk.com">Contact</a>
         <a href="#">Report a problem</a>
+        {user && (
+          <button type="button" class="f-signout" id="footer-logout">Sign out</button>
+        )}
       </div>
+      {(user?.is_admin || showReports) && (
+        <div class="fcol fcol--staff">
+          <h4>Staff</h4>
+          {user?.is_admin && <a href="/admin">Admin</a>}
+          {showReports && <a href="/mod/reports">Reports</a>}
+          {showReports && <a href="/mod/queue">Approval queue</a>}
+        </div>
+      )}
     </div>
     <div class="fbar">
       <span>© 2006–2026 PutterTalk LLC.</span>
@@ -69,3 +89,12 @@
     </div>
   </div>
 </footer>
+
+{user && (
+  <script>
+    document.getElementById('footer-logout')?.addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    });
+  </script>
+)}

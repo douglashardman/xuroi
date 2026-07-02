@@ -1,6 +1,7 @@
 package intelligence
 
 import (
+	"html"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -9,13 +10,15 @@ import (
 var htmlTagRe = regexp.MustCompile(`<[^>]+>`)
 var wsRe = regexp.MustCompile(`\s+`)
 
-func StripHTML(html string) string {
-	text := htmlTagRe.ReplaceAllString(html, " ")
-	text = strings.ReplaceAll(text, "&nbsp;", " ")
-	text = strings.ReplaceAll(text, "&amp;", "&")
-	text = strings.ReplaceAll(text, "&lt;", "<")
-	text = strings.ReplaceAll(text, "&gt;", ">")
+func StripHTML(htmlStr string) string {
+	text := htmlTagRe.ReplaceAllString(htmlStr, " ")
+	text = html.UnescapeString(text)
 	return strings.TrimSpace(wsRe.ReplaceAllString(text, " "))
+}
+
+// NormalizePlainText decodes HTML entities left in stored plain text (e.g. legacy summaries).
+func NormalizePlainText(s string) string {
+	return strings.TrimSpace(html.UnescapeString(s))
 }
 
 func TruncatePlain(s string, max int) string {

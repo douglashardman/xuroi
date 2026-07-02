@@ -45,8 +45,14 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/categories", a.listCategories)
 	mux.HandleFunc("GET /v1/categories/{slug}", a.getCategory)
 	mux.HandleFunc("GET /v1/threads/recent", a.listRecentThreads)
+	mux.HandleFunc("GET /v1/search", a.searchContent)
 	mux.HandleFunc("GET /v1/threads/{id}", a.getThread)
+	mux.HandleFunc("DELETE /v1/threads/{id}", a.deleteThread)
 	mux.HandleFunc("POST /v1/threads/{id}/read", a.markThreadRead)
+	mux.HandleFunc("GET /v1/notifications", a.listNotifications)
+	mux.HandleFunc("GET /v1/notifications/unread-count", a.notificationUnreadCount)
+	mux.HandleFunc("POST /v1/notifications/read-all", a.markAllNotificationsRead)
+	mux.HandleFunc("POST /v1/notifications/{id}/read", a.markNotificationRead)
 	mux.HandleFunc("GET /v1/threads/{id}/meta.json", a.getThreadMeta)
 	mux.HandleFunc("POST /v1/categories", a.createCategory)
 	mux.HandleFunc("POST /v1/threads", a.createThread)
@@ -60,6 +66,9 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/admin/posts/{id}", a.getPostAdminAudit)
 	mux.HandleFunc("GET /v1/admin/reports", a.listReports)
 	mux.HandleFunc("POST /v1/admin/reports/{id}/dismiss", a.dismissReport)
+	mux.HandleFunc("GET /v1/mod/queue", a.listModQueue)
+	mux.HandleFunc("POST /v1/mod/posts/{id}/approve", a.approvePost)
+	mux.HandleFunc("POST /v1/mod/posts/{id}/reject", a.rejectPost)
 	mux.HandleFunc("GET /v1/posts/{id}/revisions", a.getPostRevisions)
 	mux.HandleFunc("PATCH /v1/threads/{id}", a.moderateThread)
 	mux.HandleFunc("POST /v1/admin/rebuild-projections", a.rebuildProjections)
@@ -74,6 +83,8 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/auth/magic-link/consume", a.magicLinkConsume)
 	mux.HandleFunc("POST /v1/auth/logout", a.logout)
 	mux.HandleFunc("GET /v1/auth/me", a.me)
+	mux.HandleFunc("POST /v1/me/avatar", a.uploadAvatar)
+	mux.HandleFunc("DELETE /v1/me/avatar", a.deleteAvatar)
 	mux.HandleFunc("GET /v1/auth/ban-status", a.banStatus)
 	mux.HandleFunc("POST /v1/auth/passkey/signup/begin", a.passkeySignupBegin)
 	mux.HandleFunc("POST /v1/auth/passkey/signup/finish", a.passkeySignupFinish)
@@ -220,6 +231,8 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 	if a.rateLimited(w, "thread:actor:"+req.AuthorID, ratelimit.ThreadActorLimit, ratelimit.ThreadActorWindow) {
 		return
 	}
+	var mentioned []string
+	req.BodyMarkdown, mentioned = a.processPostMentions(r, req.BodyMarkdown, req.AuthorID)
 	if req.BodyHTML == "" {
 		req.BodyHTML = markdown.ToHTML(req.BodyMarkdown)
 	}
@@ -239,6 +252,7 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 
 	var payload struct {
 		ThreadID string `json:"thread_id"`
+		PostID   string `json:"post_id"`
 		Slug     string `json:"slug"`
 	}
 	_ = json.Unmarshal(evt.Payload, &payload)
@@ -247,10 +261,22 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 		threadURL = "/t/" + payload.Slug + "--" + payload.ThreadID
 	}
 
+	if payload.PostID != "" && len(mentioned) > 0 && a.notify != nil {
+		_ = a.notify.NotifyMentions(r.Context(), payload.PostID, payload.ThreadID, req.AuthorID, mentioned)
+	}
+
+	pending := false
+	if payload.PostID != "" {
+		if status, err := query.PostModerationStatus(r.Context(), a.pool, payload.PostID); err == nil && status == "pending" {
+			pending = true
+		}
+	}
+
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"event":      evt,
-		"thread_id":  payload.ThreadID,
-		"thread_url": threadURL,
+		"event":               evt,
+		"thread_id":           payload.ThreadID,
+		"thread_url":          threadURL,
+		"pending_moderation":  pending,
 	})
 }
 
@@ -308,6 +334,8 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 	if a.rateLimited(w, "post:actor:"+req.AuthorID, ratelimit.PostActorLimit, ratelimit.PostActorWindow) {
 		return
 	}
+	var mentioned []string
+	req.BodyMarkdown, mentioned = a.processPostMentions(r, req.BodyMarkdown, req.AuthorID)
 	if req.BodyHTML == "" {
 		req.BodyHTML = markdown.ToHTML(req.BodyMarkdown)
 	}
@@ -348,19 +376,31 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 
 	if payload.PostID != "" && a.notify != nil {
 		_ = a.notify.EnqueueThreadReply(r.Context(), threadID, payload.PostID, req.AuthorID)
+		if len(mentioned) > 0 {
+			_ = a.notify.NotifyMentions(r.Context(), payload.PostID, threadID, req.AuthorID, mentioned)
+		}
+		_ = a.notify.NotifyThreadReply(r.Context(), threadID, payload.PostID, req.AuthorID, mentioned)
 	}
 
 	post, perr := a.reader.PostByID(r.Context(), payload.PostID, &viewerID, viewerIsAdmin)
+	pending := false
+	if status, serr := query.PostModerationStatus(r.Context(), a.pool, payload.PostID); serr == nil && status == "pending" {
+		pending = true
+	}
 	if perr != nil {
-		writeJSON(w, http.StatusCreated, evt)
+		writeJSON(w, http.StatusCreated, map[string]any{
+			"event":              evt,
+			"pending_moderation": pending,
+		})
 		return
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"id":      evt.ID,
-		"type":    evt.Type,
-		"payload": json.RawMessage(evt.Payload),
-		"post":    post,
+		"id":                 evt.ID,
+		"type":               evt.Type,
+		"payload":            json.RawMessage(evt.Payload),
+		"post":               post,
+		"pending_moderation": pending,
 	})
 }
 

@@ -46,9 +46,10 @@ type CreateCategoryInput struct {
 	Description string
 	SortOrder   int
 	ParentID    *string
-	AccessLevel string
-	ListPublic  *bool
-	ActorID     string
+	AccessLevel    string
+	ListPublic     *bool
+	PostModeration *bool
+	ActorID        string
 }
 
 type CreateThreadInput struct {
@@ -88,8 +89,9 @@ func (f *Forum) CreateCategory(ctx context.Context, in CreateCategoryInput) (eve
 		Description: in.Description,
 		SortOrder:   in.SortOrder,
 		ParentID:    in.ParentID,
-		AccessLevel: access.NormalizeLevel(in.AccessLevel),
-		ListPublic:  in.ListPublic,
+		AccessLevel:    access.NormalizeLevel(in.AccessLevel),
+		ListPublic:     in.ListPublic,
+		PostModeration: in.PostModeration,
 	}
 
 	return f.appendAndProject(ctx, events.AppendInput{
@@ -107,9 +109,10 @@ type UpdateCategoryInput struct {
 	Description string
 	SortOrder   int
 	ParentID    *string
-	AccessLevel string
-	ListPublic  *bool
-	ActorID     string
+	AccessLevel    string
+	ListPublic     *bool
+	PostModeration *bool
+	ActorID        string
 }
 
 func (f *Forum) UpdateCategory(ctx context.Context, in UpdateCategoryInput) (events.Event, error) {
@@ -126,8 +129,9 @@ func (f *Forum) UpdateCategory(ctx context.Context, in UpdateCategoryInput) (eve
 		Description: in.Description,
 		SortOrder:   in.SortOrder,
 		ParentID:    in.ParentID,
-		AccessLevel: access.NormalizeLevel(in.AccessLevel),
-		ListPublic:  in.ListPublic,
+		AccessLevel:    access.NormalizeLevel(in.AccessLevel),
+		ListPublic:     in.ListPublic,
+		PostModeration: in.PostModeration,
 	}
 	return f.appendAndProject(ctx, events.AppendInput{
 		StreamID: events.StreamSite(),
@@ -176,10 +180,10 @@ func (f *Forum) ReorderCategories(ctx context.Context, in ReorderCategoriesInput
 	var out []events.Event
 	for _, item := range in.Items {
 		var slug, name, description, accessLevel string
-		var listPublic bool
+		var listPublic, postModeration bool
 		err := f.pool.QueryRow(ctx, `
-			SELECT slug, name, description, access_level, list_public FROM categories WHERE id = $1
-		`, item.CategoryID).Scan(&slug, &name, &description, &accessLevel, &listPublic)
+			SELECT slug, name, description, access_level, list_public, post_moderation FROM categories WHERE id = $1
+		`, item.CategoryID).Scan(&slug, &name, &description, &accessLevel, &listPublic, &postModeration)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("category %s not found", item.CategoryID)
 		}
@@ -189,16 +193,18 @@ func (f *Forum) ReorderCategories(ctx context.Context, in ReorderCategoriesInput
 		if err := f.validateCategoryParent(ctx, item.CategoryID, item.ParentID); err != nil {
 			return nil, err
 		}
+		pm := postModeration
 		evt, err := f.UpdateCategory(ctx, UpdateCategoryInput{
-			CategoryID:  item.CategoryID,
-			Slug:        slug,
-			Name:        name,
-			Description: description,
-			SortOrder:   item.SortOrder,
-			ParentID:    item.ParentID,
-			AccessLevel: accessLevel,
-			ListPublic:  &listPublic,
-			ActorID:     in.ActorID,
+			CategoryID:     item.CategoryID,
+			Slug:           slug,
+			Name:           name,
+			Description:    description,
+			SortOrder:      item.SortOrder,
+			ParentID:       item.ParentID,
+			AccessLevel:    accessLevel,
+			ListPublic:     &listPublic,
+			PostModeration: &pm,
+			ActorID:        in.ActorID,
 		})
 		if err != nil {
 			return nil, err
@@ -757,6 +763,56 @@ func (f *Forum) PurgeAuthorContent(ctx context.Context, authorID, staffID string
 		return result, err
 	}
 	return result, nil
+}
+
+// ModeratePost approves or rejects a pending post.
+func (f *Forum) ModeratePost(ctx context.Context, postID, moderatorID, status string) (events.Event, error) {
+	if status != "approved" && status != "rejected" {
+		return events.Event{}, errors.New("status must be approved or rejected")
+	}
+	var threadID string
+	err := f.pool.QueryRow(ctx, `
+		SELECT thread_id FROM posts WHERE id = $1 AND moderation_status = 'pending' AND deleted_at IS NULL
+	`, postID).Scan(&threadID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return events.Event{}, fmt.Errorf("post not found")
+	}
+	if err != nil {
+		return events.Event{}, err
+	}
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypePostModerated,
+		ActorID:  strPtr(moderatorID),
+		Payload: events.PostModerated{
+			PostID:   postID,
+			ThreadID: threadID,
+			Status:   status,
+		},
+	})
+}
+
+// DeleteThread soft-deletes a thread (staff action).
+func (f *Forum) DeleteThread(ctx context.Context, threadID, staffID string) (events.Event, error) {
+	var exists bool
+	err := f.pool.QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM threads WHERE id = $1 AND deleted_at IS NULL)
+	`, threadID).Scan(&exists)
+	if err != nil {
+		return events.Event{}, err
+	}
+	if !exists {
+		return events.Event{}, fmt.Errorf("thread not found")
+	}
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypeThreadDeleted,
+		ActorID:  strPtr(staffID),
+		Payload: events.ThreadDeleted{
+			ThreadID: threadID,
+			Reason:   "staff removal",
+		},
+	})
 }
 
 func Slugify(title string) string {

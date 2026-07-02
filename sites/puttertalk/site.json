@@ -105,17 +105,20 @@
         {
           "slug": "free-classifieds",
           "name": "Free Putter Classifieds",
-          "description": "Items members have for sale."
+          "description": "Items members have for sale.",
+          "post_moderation": true
         },
         {
           "slug": "wanted-trade",
           "name": "Wanted To Buy or Trade",
-          "description": "Items members want."
+          "description": "Items members want.",
+          "post_moderation": true
         },
         {
           "slug": "ebay-items",
           "name": "eBay Items",
-          "description": "Your eBay listings."
+          "description": "Your eBay listings.",
+          "post_moderation": true
         }
       ]
     },

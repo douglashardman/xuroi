@@ -235,6 +235,118 @@ func stripTags(s string) string {
 	return strings.Join(strings.Fields(b.String()), " ")
 }
 
+// MentionData is rendered into @mention notification emails.
+type MentionData struct {
+	CommunityName string
+	SiteURL       string
+	LogoURL       string
+	Recipient     string
+	AuthorName    string
+	ThreadTitle   string
+	PostURL       string
+	Excerpt       string
+	CommunityURL  string
+	SettingsURL   string
+	Copyright     string
+}
+
+// RenderMention builds HTML + plain text for a mention email.
+func RenderMention(data MentionData) (subject, htmlBody, textBody string, err error) {
+	if data.LogoURL == "" {
+		data.LogoURL = LogoURL(data.SiteURL)
+	}
+	if data.CommunityURL == "" {
+		data.CommunityURL = strings.TrimRight(data.SiteURL, "/") + "/community"
+	}
+	if data.SettingsURL == "" {
+		data.SettingsURL = strings.TrimRight(data.SiteURL, "/") + "/settings/email"
+	}
+	if data.Copyright == "" {
+		data.Copyright = "© 2006–2026 PutterTalk LLC."
+	}
+
+	subject = fmt.Sprintf("%s mentioned you in %s", data.AuthorName, data.ThreadTitle)
+
+	var htmlBuf bytes.Buffer
+	if err := mentionHTML.Execute(&htmlBuf, data); err != nil {
+		return "", "", "", err
+	}
+
+	var text strings.Builder
+	fmt.Fprintf(&text, "%s\n\n", data.CommunityName)
+	fmt.Fprintf(&text, "%s mentioned you in \"%s\".\n\n", data.AuthorName, data.ThreadTitle)
+	fmt.Fprintf(&text, "%s\n\n", data.Excerpt)
+	fmt.Fprintf(&text, "View the post: %s\n", data.PostURL)
+	fmt.Fprintf(&text, "\n%s\n", data.Copyright)
+
+	return subject, htmlBuf.String(), strings.TrimSpace(text.String()), nil
+}
+
+var mentionHTML = template.Must(template.New("mention").Funcs(template.FuncMap{
+	"e": html.EscapeString,
+}).Parse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{e .CommunityName}}</title>
+</head>
+<body style="margin:0;padding:0;background:#ececec;font-family:'Open Sans',Helvetica,Arial,sans-serif;color:` + colorInk + `;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ececec;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #d8d8d8;border-radius:8px;overflow:hidden;">
+          <tr>
+            <td style="padding:24px 28px 16px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td width="56" valign="middle" style="padding-right:14px;">
+                    <img src="{{e .LogoURL}}" width="48" height="48" alt="{{e .CommunityName}}" style="display:block;border:0;" />
+                  </td>
+                  <td valign="middle" style="font-family:Poppins,'Helvetica Neue',Arial,sans-serif;font-size:22px;font-weight:800;color:` + colorInk + `;">{{e .CommunityName}}</td>
+                </tr>
+              </table>
+              <div style="height:1px;background:` + colorInk + `;margin-top:18px;"></div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 28px 0;font-size:16px;line-height:1.55;">
+              <p style="margin:0 0 14px;color:` + colorPink + `;font-weight:600;">{{e .AuthorName}} mentioned you</p>
+              <p style="margin:0 0 18px;font-family:Poppins,'Helvetica Neue',Arial,sans-serif;font-size:20px;font-weight:800;color:` + colorInk + `;">{{e .ThreadTitle}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 28px 14px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f3f3;border-left:4px solid ` + colorBlue + `;">
+                <tr>
+                  <td style="padding:14px 16px;font-size:15px;line-height:1.55;color:#333333;">{{e .Excerpt}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:6px 28px 22px;">
+              <a href="{{e .PostURL}}" style="display:inline-block;background:` + colorPink + `;color:#ffffff;text-decoration:none;font-family:Poppins,'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:700;padding:12px 22px;border-radius:999px;">View post</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 28px 18px;font-size:14px;line-height:1.55;color:#666666;">
+              <p style="margin:0;">Automated heads-up from {{e .CommunityName}} — reply on the site, not to this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px;background:` + colorFoot + `;text-align:center;">
+              <a href="{{e .CommunityURL}}" style="color:#ffffff;font-family:Poppins,'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:700;text-decoration:none;">Open {{e .CommunityName}}</a>
+              <div style="margin-top:12px;font-size:12px;color:#9a9a9a;">{{e .Copyright}}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`))
+
 var authEmailHTML = template.Must(template.New("auth").Funcs(template.FuncMap{
 	"e":    html.EscapeString,
 	"safe": func(s string) string { return s },

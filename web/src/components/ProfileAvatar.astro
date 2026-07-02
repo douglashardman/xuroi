@@ -1,0 +1,27 @@
+---
+import Avatar from './Avatar.astro';
+
+interface Props {
+  name: string;
+  avatarUrl?: string | null;
+  accentClass?: string;
+  editable?: boolean;
+}
+
+const { name, avatarUrl, accentClass = '', editable = false } = Astro.props;
+const hasAvatar = Boolean(avatarUrl);
+const overlayLabel = hasAvatar ? 'Change photo' : 'Upload photo';
+---
+
+{editable ? (
+  <button type="button" class="profile-avatar-btn" id="profile-avatar-trigger" aria-label={overlayLabel}>
+    <Avatar name={name} avatarUrl={avatarUrl} size="profile" accentClass={accentClass} />
+    <span class="profile-avatar-overlay" aria-hidden="true">
+      <span class="profile-avatar-overlay-label">{overlayLabel}</span>
+      {hasAvatar && <span class="profile-avatar-overlay-remove" id="profile-avatar-remove">Remove</span>}
+    </span>
+  </button>
+  <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+) : (
+  <Avatar name={name} avatarUrl={avatarUrl} size="profile" accentClass={accentClass} />
+)}

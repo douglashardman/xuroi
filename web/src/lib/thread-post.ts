@@ -1,7 +1,7 @@
 import type { Post } from './api';
 import { formatDate } from './api';
 import { postEditFormHTML } from './post-edit-form';
-import { ACCENT_CLASSES, PAV_CLASSES, accentIndex, initials } from './theme';
+import { ACCENT_CLASSES, PAV_CLASSES, accentIndex, avatarSrc, initials } from './theme';
 
 function escapeText(s: string): string {
   return s
@@ -54,9 +54,14 @@ export function renderPostArticle(post: Post, opts: { signedIn: boolean; isAdmin
 
   const editForm = post.can_edit ? postEditFormHTML(post.id) : '';
 
+  const avSrc = avatarSrc(post.author.avatar_url, 'sm');
+  const avHtml = avSrc
+    ? `<img src="${escapeText(avSrc)}" alt="" class="avatar avatar--post${post.author.active_warning ? ' avatar--warned' : ''}" loading="lazy" decoding="async"${post.author.active_warning ? ' title="Active warning"' : ''} />`
+    : `<div class="avatar avatar--initials avatar--post ${PAV_CLASSES[idx]}${post.author.active_warning ? ' avatar--warned' : ''}"${post.author.active_warning ? ' title="Active warning"' : ''} aria-hidden="true">${initials(post.author.name)}</div>`;
+
   article.innerHTML = `
     <div class="pside">
-      <div class="pav ${PAV_CLASSES[idx]}${post.author.active_warning ? ' pav--warned' : ''}"${post.author.active_warning ? ' title="Active warning"' : ''}>${initials(post.author.name)}</div>
+      ${avHtml}
       <div class="pname"><a href="${escapeText(post.author.url)}">${escapeText(post.author.name)}</a></div>
       ${post.author.is_agent ? '<div class="prole agent-badge">Agent</div>' : ''}
       ${post.is_op ? '<div class="prole">Original post</div>' : ''}

@@ -75,6 +75,10 @@ func (a *API) actorJSON(ctx context.Context, actor auth.Actor) map[string]any {
 	if warning, err := a.auth.ActiveWarning(ctx, actor.ID); err == nil && warning != nil {
 		out["active_warning"] = warning
 	}
+	var avatarURL *string
+	if err := a.pool.QueryRow(ctx, `SELECT avatar_url FROM actors WHERE id = $1`, actor.ID).Scan(&avatarURL); err == nil && avatarURL != nil && *avatarURL != "" {
+		out["avatar_url"] = *avatarURL
+	}
 	return out
 }
 

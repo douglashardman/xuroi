@@ -120,6 +120,7 @@ type UserProfile struct {
 	ID          string    `json:"id"`
 	DisplayName string    `json:"display_name"`
 	URL         string    `json:"url"`
+	AvatarURL   string    `json:"avatar_url,omitempty"`
 	Karma       int       `json:"karma"`
 	PostCount   int       `json:"post_count"`
 	JoinedAt    time.Time `json:"joined_at"`
@@ -144,8 +145,10 @@ type Post struct {
 	ReactionCount int         `json:"reaction_count"`
 	ReactedByMe   bool        `json:"reacted_by_me,omitempty"`
 	CanEdit       bool        `json:"can_edit,omitempty"`
-	CanDelete     bool        `json:"can_delete,omitempty"`
-	IsWarned      bool        `json:"is_warned,omitempty"`
+	CanDelete         bool        `json:"can_delete,omitempty"`
+	IsWarned          bool        `json:"is_warned,omitempty"`
+	ModerationStatus  string      `json:"moderation_status,omitempty"`
+	PendingModeration bool        `json:"pending_moderation,omitempty"`
 }
 
 type CategoryRef struct {

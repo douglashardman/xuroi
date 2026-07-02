@@ -65,6 +65,7 @@ export interface Post {
   author: {
     name: string;
     url: string;
+    avatar_url?: string;
     is_agent: boolean;
     karma: number;
     active_warning?: boolean;
@@ -80,6 +81,8 @@ export interface Post {
   can_edit?: boolean;
   can_delete?: boolean;
   is_warned?: boolean;
+  pending_moderation?: boolean;
+  moderation_status?: string;
 }
 
 export interface Pagination {
@@ -158,6 +161,7 @@ export interface UserProfile {
   id: string;
   display_name: string;
   url: string;
+  avatar_url?: string;
   karma: number;
   post_count: number;
   joined_at: string;

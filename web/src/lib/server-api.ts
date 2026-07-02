@@ -25,6 +25,27 @@ export interface Actor {
   has_passkey?: boolean;
   active_warning?: ActiveWarning;
   entitlements?: string[];
+  unread_notifications?: number;
+  avatar_url?: string;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  url: string;
+  from_actor_id?: string;
+  from_actor_name?: string;
+  post_id?: string;
+  thread_id?: string;
+  read_at?: string;
+  created_at: string;
+}
+
+export interface NotificationsResponse {
+  notifications: Notification[];
+  unread_count: number;
 }
 
 export interface AdminOverview {
@@ -220,6 +241,34 @@ export async function getPermissionCatalog(sessionToken: string): Promise<StaffP
   if (!res.ok) throw new Error(`API permissions: ${res.status}`);
   const data = (await res.json()) as { permissions: StaffPermissionInfo[] };
   return data.permissions ?? [];
+}
+
+export async function markAllNotificationsRead(sessionToken: string): Promise<void> {
+  const res = await backendFetch('/v1/notifications/read-all', { method: 'POST' }, sessionToken);
+  if (!res.ok) throw new Error(`API mark notifications read: ${res.status}`);
+}
+
+export async function markThreadRead(sessionToken: string, threadId: string): Promise<void> {
+  const res = await backendFetch(`/v1/threads/${threadId}/read`, { method: 'POST' }, sessionToken);
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`API mark thread read: ${res.status}`);
+  }
+}
+
+export async function getNotifications(
+  sessionToken: string,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<NotificationsResponse> {
+  const params = new URLSearchParams();
+  if (opts.limit) params.set('limit', String(opts.limit));
+  if (opts.offset) params.set('offset', String(opts.offset));
+  const q = params.toString();
+  const res = await backendFetch(q ? `/v1/notifications?${q}` : '/v1/notifications', {}, sessionToken);
+  if (!res.ok) throw new Error(`API notifications: ${res.status}`);
+  const data = (await res.json()) as NotificationsResponse;
+  data.notifications = data.notifications ?? [];
+  data.unread_count = data.unread_count ?? 0;
+  return data;
 }
 
 export function sessionFromCookieHeader(cookieHeader: string | null): string | null {

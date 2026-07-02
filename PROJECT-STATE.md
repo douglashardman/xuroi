@@ -1,9 +1,10 @@
 # Xuroi Project State
 
-**Grok: read `.grok/session/CHANGELOG.md` first** — then this file. Living handoff doc — update every meaningful work session.
+**Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — session-aware community/category API (staff rooms visible to admins)
-**Session status:** Phase 0/1 · P0 code complete — ready for P1 (@mentions, bell, messaging)
+**Last updated:** July 2, 2026 — P0 code sweep shipped (search, mod queue, thread delete)  
+**Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
+**Session status:** P0 code ~done · **Next:** P1 messaging (D1) + DM privacy (D7)
 
 ---
 
@@ -27,121 +28,145 @@
 
 ---
 
-## Key docs (read order)
+## Key docs
 
-1. **../.grok/session/CHANGELOG.md** — mandatory first read every session
-2. **PROJECT-STATE.md** (this file) — where we are now
-3. **WISH-LIST.md** — master backlog ~280 items, P0–P4 priorities
-4. **../NEXT-GEN-FORUM-BATTLE-PLAN.md** — vision, archaeology, phases, theme contract
-5. **../.grok/session/README.md** — handoff protocol
-6. **theme-contract/THEMING.md** — designer/AI handoff
-7. **sites/puttertalk/site.json** — PutterTalk categories + config
+| Doc | Path |
+|---|---|
+| Changelog (agent) | `../.grok/session/CHANGELOG.md` (local workspace) |
+| This file | `PROJECT-STATE.md` |
+| Backlog | `WISH-LIST.md` |
+| Battle plan | `../NEXT-GEN-FORUM-BATTLE-PLAN.md` (local) |
+| Theme contract | `theme-contract/THEMING.md` |
+| Site config | `sites/puttertalk/site.json` |
 
 ---
 
-## Repo structure
+## Repo layout (current)
 
 ```
-Forum-Idea/
-  NEXT-GEN-FORUM-BATTLE-PLAN.md
-  xuroi/                          ← active codebase
-    api/          (Go — skeleton running)
-    web/          (Astro — SSR home/category/thread)
-    worker/       (not started)
-    theme-contract/  (scaffolded)
-    themes/puttertalk/  (stub)
-    sites/puttertalk/   (site.json seeded)
-    infra/docker-compose.yml  (postgres, redis, minio)
-  xenforo_.../    ← reference only
-  phpBB3/         ← reference only
-  smf_2-1-7_install/  ← reference only
+xuroi/                    ← git root on GitHub
+  api/                    Go API, auth, events, migrations (001–023)
+  web/                    Astro SSR — production UI for launch
+  worker/                 README only; jobs run via api/cmd/* for now
+  theme-contract/         Schema, fixtures, THEMING.md
+  themes/puttertalk/      Brand theme + HTML mockups
+  sites/puttertalk/       Categories, admin emails, feature flags
+  infra/                  docker-compose, backup.sh, uploads
+  docs/event-schema.md
 ```
 
----
-
-## What's done
-
-- [x] Strategic vision and battle plan
-- [x] Archaeological review of XenForo, phpBB, SMF
-- [x] Theme contract concept locked (Section 6 of battle plan)
-- [x] Xuroi + PutterTalk naming and strategy locked
-- [x] Master wish list (~280 items, priority tiers)
-- [x] `xuroi/` scaffold — docker-compose, site config, theme contract, fixtures
-- [x] PutterTalk thread + category fixtures (realistic gear data)
-- [x] Grok session handoff — `.grok/session/`, `AGENTS.md`, CHANGELOG
+Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference only — not in git).
 
 ---
 
-## What's NOT done yet
+## Shipped in dev (P0)
 
-- [x] Event schema spec (`docs/event-schema.md`)
-- [x] Go API skeleton (`api/cmd/xuroi`)
-- [x] Postgres migrations (`api/internal/db/migrations/001_initial.sql`)
-- [x] Event sourcing primitives (append, project, rebuild)
-- [x] Seed PutterTalk categories (`cmd/seed`)
-- [x] Integration test + smoke test (Docker on :5433)
-- [x] Auth stub (register/login/session via email — dev)
-- [x] Read API (list categories, get thread/posts)
-- [x] Astro public site (mockup theme, home/category/thread)
-- [x] Reply composer (signed-in users post replies)
-- [x] JSON-LD DiscussionForumPosting on thread pages
-- [x] New thread composer (`/c/{slug}/new`)
-- [x] Nav account chip (signed-in) + profile stub (`/u/{name}`)
-- [x] `/meta.json` per thread (participants, summary, model_version)
-- [x] Marketing home (`/`) + community index (`/community`)
-- [x] Intelligence worker stub (heuristic summaries, `cmd/intelligence`)
-- [x] Backup script (`infra/backup.sh` — manual; schedule TBD)
-- [x] Quote post (B7) — reference by post ID, quote block in UI
-- [x] Post reactions / likes (B28) — single type, event-sourced
-- [x] Karma from likes received (self-likes excluded) — profile + post sidebar
-- [x] Edit own post (B8) — site.json policy (30 min for PutterTalk), revisions via events
-- [x] Post author IP capture + admin audit popup
-- [x] Mod tools — pin/lock thread, soft delete post, edit history overlay
-- [x] Delete policy (`delete_enabled` in site.json) + editable partial quotes with jump links
-- [x] Quote excerpt validation (trim only, no invented text) + markdown sanitizer (B24)
-- [x] Login throttling + post/thread flood control (in-memory limiter v1)
-- [x] Image upload — WebP conversion, local `infra/uploads/`, editor Image btn + paste
-- [x] Image lightbox on thread pages — full-res viewer, prev/next, arrow keys
-- [x] Multiple images per post — gallery grid, multi-select/paste/drop
-- [x] Report post (E3) — member reports + admin queue at `/mod/reports`
-- [x] Reply redirect — scroll to new post at bottom of thread
-- [x] Inline edit + delete on thread page (no reload)
-- [x] Passkeys (WebAuthn) — signup, login, add on profile *(parked — Chrome/GPM issue on Doug's machine)*
-- [x] Password login — registration + sign-in; legacy email stub for unmigrated accounts
-- [x] Password reset — forgot-password flow with styled email (in-forum)
-- [x] Magic link login — emergency parachute on /join; single-use 15 min links
-- [x] Rich-text inline post edit — same editor as compose (formatting, images, paste/drop)
-- [x] Email verification — register sends 48h link; posting blocked until confirmed
-- [x] User states + ban management — valid/discouraged/banned; admin UI at `/admin/users`
-- [x] SEO pack — sitemap, robots.txt, canonical, OG/Twitter, JSON-LD on threads
-- [x] Terms + Privacy pages — `/terms`, `/privacy`; footer links wired
-- [x] Admin panel (minimal) — `/admin` overview, user search, ban/restore
-- [x] Category groups + forums — nested tree on `/community`; admin CRUD at `/admin/categories`
-- [x] Authorized access rooms — per-forum `access_level`; supporter/sponsor entitlements; staff/admin stealth rooms
-- [x] Warning system — 8h red overlay; 3 strikes → 7-day auto-ban; one warn per post; 24h incident window
-- [x] Mod ban tiers — mods 7d timeout; admin 30d/perm; per-actor `perm_ban` permission; purge content on ban
-- [ ] Theme renderer (Mustache) — deferred; Astro mockup theme is production UI for launch
-- [x] LLM summaries — optional via env API key; heuristic-v1 fallback; `summary_label` in site.json
-- [x] Automated backup schedule (launchd every 6h locally; `install-backup-schedule.sh`)
+### Platform core
+- [x] Event log + projections + rebuild (`docs/event-schema.md`, migrations 001+)
+- [x] Go API (`cmd/xuroi`) · Postgres on :5433 · seed (`cmd/seed`)
+- [x] Intelligence worker stub (`cmd/intelligence` — heuristic summaries)
+- [x] Notify worker (`cmd/notify` — thread-reply email digests)
+- [x] **Search indexer** (`cmd/searchindex` — async FTS, migration 023)
+- [x] Backup script + launchd schedule (`infra/backup.sh`, `install-backup-schedule.sh`)
 
----
+### Forum content
+- [x] Categories, threads, posts, pagination, new thread + reply composers
+- [x] Nested category groups (7 sections, 22 forums incl. Supporter + Staff areas)
+- [x] Community index with latest activity per forum
+- [x] Quote post · reactions/likes · karma · edit own post (30 min) · revision overlay
+- [x] Pin/lock thread · soft-delete post · **staff thread delete** · mod bar on threads
+- [x] Markdown → sanitized HTML · image upload (WebP, EXIF strip, thumbs) · lightbox gallery
+- [x] **Full-text search** — `/search` · `GET /v1/search`
 
-## Current phase
+### Auth & members
+- [x] Registration · password login · magic link · email verification
+- [x] Passkeys (WebAuthn) — code complete; *parked on Doug's Chrome/GPM setup*
+- [x] Password reset · session cookie · public profiles `/u/{name}`
+- [x] User states (valid/discouraged/banned) · login throttling · flood limits
+- [x] Display names case-insensitive · reserved names anti-impersonation (K19)
+- [x] Warning system (3 strikes → 7-day ban) · mod/admin ban tiers · perm_ban permission
+- [x] Avatar upload (C10) — square crop · WebP · profile hover
 
-**Phase 0/1: P0 closed (code)**
+### Access control
+- [x] Per-forum `access_level` (public, members, staff, admin, supporters, sponsors)
+- [x] `list_public` toggle — locked row vs completely hidden on `/community`
+- [x] Manual supporter/sponsor entitlements · staff/admin stealth rooms
+- [x] Session-aware API on community/category pages (staff rooms visible when signed in)
 
-Forum skeleton, auth, moderation, email digests, SEO, legal pages, and admin tools are live in dev.
+### Moderation & admin
+- [x] Report post · mod queue `/mod/reports`
+- [x] **Post approval queue** `/mod/queue` — classifieds forums moderated (E2)
+- [x] Admin panel `/admin` — overview, users, categories CRUD, ban/restore/warn
+- [x] Post author IP audit · email verification resend
 
-**Next (P1):** @mentions, notification bell, private messaging — per prior architecture plan.
+### SEO, legal, marketing
+- [x] Sitemap · robots.txt · canonical · OG/Twitter · JSON-LD (DiscussionForumPosting + FAQPage)
+- [x] `/meta.json` per thread · Terms · Privacy · home hero (“we’re back”)
+- [x] **Powered by Xuroi** footer (engine-injected)
 
-**Ops still on Doug/Simmons:** SES production approval (ticket submitted), puttertalk.com DNS + Cloudflare (P7), CDN/SSL at cutover.
+### Email
+- [x] SES + log mailer · styled auth/notification templates · unsubscribe
+- [x] @mention emails (I2) — queued via `cmd/notify`
+
+### Notifications (P1)
+- [x] @mentions in posts/threads (B23) — `@slug`, `@"Name"`, `@[Name]` → profile links
+- [x] In-app notification feed (I4) — bell badge in nav · `/notifications` · mark read
+
+### Theme / tooling
+- [x] Theme validator CLI (`cmd/themevalidate`) — contract check (J4 partial)
+- [x] Astro PutterTalk theme = production UI (J2 Mustache deferred)
 
 ---
 
-## Session log
+## Partial / parked
 
-→ See **`.grok/session/CHANGELOG.md`** for full history.  
-→ See **`.grok/session/notes/`** for detailed write-ups.
+| Item | Status |
+|---|---|
+| Mustache theme renderer (J2) | **Deferred** — Astro mockup theme is production UI for launch |
+| LLM thread summaries (A1) | Heuristic v1 live; LLM via env API key optional |
+| Passkeys (C3) | Built; blocked on Doug's local passkey provider |
+| Thread report (E3) | Post reports yes; thread report TBD |
+| Redis cache / job workers (M3–M4) | In-memory limiter v1; Redis wired in compose, not used yet |
+| S3/CDN (G5, M5, M8) | Local uploads; Cloudflare at cutover |
+| Site settings UI (K2) | `site.json` is source of truth; no admin editor yet |
+| Stripe/Patreon entitlements (L8) | Manual grants only; webhook stub |
+| A12 CDN read/write split | Architectural — at hosting cutover |
+
+---
+
+## Not started (P0 ops — blocking launch)
+
+- [ ] **puttertalk.com DNS + Cloudflare** (P7)
+- [ ] **SES production approval** (ticket submitted)
+- [ ] SSL/TLS at cutover (M9)
+- [ ] G5/M5/M8 CDN + object storage at cutover
+
+---
+
+## Next up (P1 — product)
+
+1. **Private messaging** (D1) + **DM privacy setting** (D7: everyone / friends-only / off)
+2. Notification preferences (I5) — per-type email toggles in settings UI
+3. Configurable report reasons (E4)
+
+---
+
+## PutterTalk categories (seeded)
+
+7 sections · 22 forums — General Putter Talk (6) · Popular Manufacturers (7) · Manufacturer Specific (2) · Classifieds (3) · Website Announcements (2) · Supporter Areas (2) · Staff (2)
+
+**Moderated forums:** Free Classifieds · Wanted/Trade · eBay Items (`post_moderation: true`)
+
+---
+
+## Workers to run in dev
+
+```bash
+cd xuroi/api
+go run ./cmd/searchindex          # FTS queue (or --rebuild once)
+go run ./cmd/notify               # email digests
+go run ./cmd/intelligence         # thread summaries
+```
 
 ---
 
@@ -151,25 +176,18 @@ Forum skeleton, auth, moderation, email digests, SEO, legal pages, and admin too
 |---|---|
 | 1 | Hosting provider (Hetzner, Fly, bare VPS) |
 | 2 | Xuroi license model (post-PutterTalk) |
-| 3 | PutterTalk visual direction |
-| 4 | Closed beta before public launch? (recommended: yes) |
+| 3 | Closed beta before public launch? (recommended: yes) |
 
 ---
 
-## PutterTalk launch categories (seeded)
+## For the next session
 
-5 sections · 20 forums — General Putter Talk (6) · Popular & Supporting Manufacturers (7) · Manufacturer Specific (2) · Members Classifieds (3) · Website Announcements (2)
-
----
-
-## For the next agent/session
-
-1. Read `../.grok/session/CHANGELOG.md` **before anything else**
-2. Read this file + WISH-LIST.md P0 section
-3. Continue with event schema spec unless Doug directs otherwise
-4. End of session: update CHANGELOG, PROJECT-STATE, notes if needed
-5. Doug prefers execution over instructions — run commands, don't just suggest
-6. Backups are emotionally and operationally critical (2019 data loss)
+1. Read `../.grok/session/CHANGELOG.md` first
+2. Read this file + **WISH-LIST.md** P1 section
+3. Default next work: **P1** — private messaging (D1) + DM privacy (D7)
+4. End of session: update CHANGELOG + this file
+5. Execute yourself — run commands, don't just instruct Doug
+6. Backups are critical (2019 data loss)
 
 ---
 

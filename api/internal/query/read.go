@@ -85,7 +85,7 @@ func (r *Reader) CategoryBySlug(ctx context.Context, slug string, page, perPage 
 		return models.CategoryPageResponse{}, fmt.Errorf("count threads: %w", err)
 	}
 
-	threads, err := r.listThreadsInCategory(ctx, cat.ID, page, perPage)
+	threads, err := r.listThreadsInCategory(ctx, cat.ID, page, perPage, viewer)
 	if err != nil {
 		return models.CategoryPageResponse{}, err
 	}
@@ -143,6 +143,13 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	if !viewer.CanView(accessLevel) {
 		return models.ThreadPageResponse{}, ErrForbidden
 	}
+	visible, err := r.threadVisibleToViewer(ctx, id, viewer.ActorID, viewer.IsStaff)
+	if err != nil {
+		return models.ThreadPageResponse{}, fmt.Errorf("thread visibility: %w", err)
+	}
+	if !visible {
+		return models.ThreadPageResponse{}, ErrNotFound
+	}
 	thread.URL = models.ThreadURL(thread.Slug, thread.ID)
 	cat.URL = models.CategoryURL(cat.Slug)
 	thread.Summary = r.threadSummary(ctx, id)
@@ -167,7 +174,7 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 		page = totalPages
 	}
 
-	posts, err := r.listPosts(ctx, id, page, perPage, viewer.ActorID, viewer.IsAdmin)
+	posts, err := r.listPosts(ctx, id, page, perPage, viewer)
 	if err != nil {
 		return models.ThreadPageResponse{}, err
 	}
@@ -255,7 +262,7 @@ func (r *Reader) ThreadMeta(ctx context.Context, id string) (models.ThreadMeta, 
 
 func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserProfile, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT a.id, a.display_name, a.karma, a.created_at,
+		SELECT a.id, a.display_name, a.karma, a.created_at, COALESCE(a.avatar_url, ''),
 		       (SELECT count(*) FROM posts p WHERE p.author_id = a.id AND p.deleted_at IS NULL)
 		FROM actors a
 		WHERE a.type = 'human'
@@ -268,7 +275,7 @@ func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserPr
 	want := strings.ToLower(nameSlug)
 	for rows.Next() {
 		var profile models.UserProfile
-		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.PostCount); err != nil {
+		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.PostCount); err != nil {
 			return models.UserProfile{}, fmt.Errorf("scan actor: %w", err)
 		}
 		if slug.FromDisplayName(profile.DisplayName) == want {
@@ -294,7 +301,8 @@ func (r *Reader) RecentThreads(ctx context.Context, limit int, viewer access.Vie
 		SELECT t.id, t.title, t.slug, t.reply_count, t.last_activity_at, c.name, c.slug, c.access_level
 		FROM threads t
 		JOIN categories c ON c.id = t.category_id
-		WHERE t.deleted_at IS NULL
+		JOIN posts op ON op.thread_id = t.id AND op.is_op AND op.deleted_at IS NULL
+		WHERE t.deleted_at IS NULL AND op.moderation_status = 'approved'
 		ORDER BY t.last_activity_at DESC
 		LIMIT $1
 	`, limit*3)
@@ -349,7 +357,8 @@ func (r *Reader) threadIntelligence(ctx context.Context, threadID string) (*stri
 	if err != nil {
 		return nil, "pending"
 	}
-	return &summary, modelVersion
+	normalized := intelligence.NormalizePlainText(summary)
+	return &normalized, modelVersion
 }
 
 type categoryRow struct {
@@ -540,17 +549,31 @@ func sortCategoryRows(rows []categoryRow) {
 	})
 }
 
-func (r *Reader) listThreadsInCategory(ctx context.Context, categoryID string, page, perPage int) ([]models.ThreadSummary, error) {
+func (r *Reader) listThreadsInCategory(ctx context.Context, categoryID string, page, perPage int, viewer access.Viewer) ([]models.ThreadSummary, error) {
 	offset := (page - 1) * perPage
-	rows, err := r.pool.Query(ctx, `
+	opFilter := `op.moderation_status = 'approved'`
+	if viewer.IsStaff {
+		opFilter = `(op.moderation_status = 'approved' OR op.moderation_status = 'pending')`
+	} else if viewer.ActorID != nil {
+		opFilter = `(op.moderation_status = 'approved' OR (op.moderation_status = 'pending' AND op.author_id = $4))`
+	}
+	querySQL := `
 		SELECT t.id, t.title, t.slug, t.reply_count, t.last_activity_at,
 		       t.is_pinned, t.is_locked, a.display_name
 		FROM threads t
 		JOIN actors a ON a.id = t.author_id
-		WHERE t.category_id = $1 AND t.deleted_at IS NULL
+		JOIN posts op ON op.thread_id = t.id AND op.is_op AND op.deleted_at IS NULL
+		WHERE t.category_id = $1 AND t.deleted_at IS NULL AND ` + opFilter + `
 		ORDER BY t.is_pinned DESC, t.last_activity_at DESC
 		LIMIT $2 OFFSET $3
-	`, categoryID, perPage, offset)
+	`
+	var rows pgx.Rows
+	var err error
+	if viewer.IsStaff || viewer.ActorID == nil {
+		rows, err = r.pool.Query(ctx, querySQL, categoryID, perPage, offset)
+	} else {
+		rows, err = r.pool.Query(ctx, querySQL, categoryID, perPage, offset, *viewer.ActorID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("list threads: %w", err)
 	}
@@ -572,11 +595,18 @@ func (r *Reader) listThreadsInCategory(ctx context.Context, categoryID string, p
 	return out, rows.Err()
 }
 
-func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage int, viewerActorID *string, viewerIsAdmin bool) ([]models.Post, error) {
+func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage int, viewer access.Viewer) ([]models.Post, error) {
 	offset := (page - 1) * perPage
+	viewerActorID := viewer.ActorID
+	modFilter := `p.moderation_status = 'approved'`
+	if viewer.IsStaff {
+		modFilter = `p.moderation_status IN ('approved', 'pending')`
+	} else if viewerActorID != nil {
+		modFilter = `(p.moderation_status = 'approved' OR (p.moderation_status = 'pending' AND p.author_id = $9))`
+	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.body_html, p.created_at, p.edited_at, p.is_op, p.reaction_count,
-		       a.display_name, a.type, a.karma,
+		       a.display_name, a.type, a.karma, COALESCE(a.avatar_url, ''),
 		       p.quoted_post_id, qa.display_name, p.quote_markdown, qp.body_html,
 		       CASE WHEN $4::text IS NULL THEN FALSE ELSE EXISTS(
 		         SELECT 1 FROM reactions rx
@@ -593,16 +623,17 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 		       EXISTS(
 		         SELECT 1 FROM actor_warnings w
 		         WHERE w.actor_id = p.author_id AND w.expires_at > now()
-		       )
+		       ),
+		       p.moderation_status
 		FROM posts p
 		JOIN threads t ON t.id = p.thread_id
 		JOIN actors a ON a.id = p.author_id
 		LEFT JOIN posts qp ON qp.id = p.quoted_post_id
 		LEFT JOIN actors qa ON qa.id = qp.author_id
-		WHERE p.thread_id = $1 AND p.deleted_at IS NULL
+		WHERE p.thread_id = $1 AND p.deleted_at IS NULL AND `+modFilter+`
 		ORDER BY p.position ASC
 		LIMIT $2 OFFSET $3
-	`, threadID, perPage, offset, viewerActorID, r.postPolicy.EditEnabled, r.postPolicy.EditWindowMinutes, viewerIsAdmin, r.postPolicy.DeleteEnabled)
+	`, threadID, perPage, offset, viewerActorID, r.postPolicy.EditEnabled, r.postPolicy.EditWindowMinutes, viewer.IsAdmin, r.postPolicy.DeleteEnabled, viewerActorID)
 	if err != nil {
 		return nil, fmt.Errorf("list posts: %w", err)
 	}
@@ -616,11 +647,12 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 		var bodyMarkdown *string
 		if err := rows.Scan(
 			&p.ID, &p.BodyHTML, &p.CreatedAt, &p.EditedAt, &p.IsOP, &p.ReactionCount,
-			&p.Author.Name, &actorType, &p.Author.Karma,
+			&p.Author.Name, &actorType, &p.Author.Karma, &p.Author.AvatarURL,
 			&quoteID, &quoteAuthor, &quoteMarkdown, &quoteSourceHTML,
 			&p.ReactedByMe,
 			&bodyMarkdown, &p.CanEdit, &p.CanDelete,
 			&p.Author.ActiveWarning,
+			&p.ModerationStatus,
 		); err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
@@ -646,6 +678,7 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 				}
 			}
 		}
+		p.PendingModeration = p.ModerationStatus == "pending"
 		out = append(out, p)
 	}
 	return out, rows.Err()
@@ -659,7 +692,7 @@ func (r *Reader) PostByID(ctx context.Context, postID string, viewerActorID *str
 
 	err := r.pool.QueryRow(ctx, `
 		SELECT p.id, p.body_html, p.created_at, p.edited_at, p.is_op, p.reaction_count,
-		       a.display_name, a.type, a.karma,
+		       a.display_name, a.type, a.karma, COALESCE(a.avatar_url, ''),
 		       p.quoted_post_id, qa.display_name, p.quote_markdown, qp.body_html,
 		       CASE WHEN $2::text IS NULL THEN FALSE ELSE EXISTS(
 		         SELECT 1 FROM reactions rx
@@ -685,7 +718,7 @@ func (r *Reader) PostByID(ctx context.Context, postID string, viewerActorID *str
 		WHERE p.id = $1 AND p.deleted_at IS NULL
 	`, postID, viewerActorID, r.postPolicy.EditEnabled, r.postPolicy.EditWindowMinutes, viewerIsAdmin, r.postPolicy.DeleteEnabled).Scan(
 		&p.ID, &p.BodyHTML, &p.CreatedAt, &p.EditedAt, &p.IsOP, &p.ReactionCount,
-		&p.Author.Name, &actorType, &p.Author.Karma,
+		&p.Author.Name, &actorType, &p.Author.Karma, &p.Author.AvatarURL,
 		&quoteID, &quoteAuthor, &quoteMarkdown, &quoteSourceHTML,
 		&p.ReactedByMe,
 		&bodyMarkdown, &p.CanEdit, &p.CanDelete,

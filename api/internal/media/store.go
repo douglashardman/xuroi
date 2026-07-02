@@ -28,7 +28,7 @@ const (
 	thumbQuality   = 78
 )
 
-var mediaNameRe = regexp.MustCompile(`^med_[0-9a-z]{26}(_thumb)?\.webp$`)
+var mediaNameRe = regexp.MustCompile(`^(med_|avt_)[0-9a-z]{26}(_thumb|_sm)?\.webp$`)
 
 type UploadResult struct {
 	ID       string `json:"id"`

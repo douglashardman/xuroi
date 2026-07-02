@@ -37,7 +37,7 @@ function shortId(id: string) {
   return id.length > 10 ? id.slice(-8) : id;
 }
 ---
-<Layout title="Users" site={home.site} user={user} noIndex={true} skipBanCheck={true}>
+<Layout title="Users" site={home.site} user={user} noIndex={true} skipBanCheck={true} adminPage={true}>
   <div class="crumb">
     <a href="/community">Community</a>
     › <a href="/admin">Admin</a>
@@ -51,7 +51,7 @@ function shortId(id: string) {
 
   <form class="admin-search" method="get">
     <input type="search" name="q" value={q} placeholder="Search name or email" />
-    <button type="submit" class="btn btn--sm">Search</button>
+    <button type="submit" class="btn btn--sm btn--pink">Search</button>
   </form>
 
   <div class="admin-user-list">
@@ -90,7 +90,7 @@ function shortId(id: string) {
               {u.banned_by_name && <span> — by {u.banned_by_name}</span>}
             </p>
           )}
-          <div class="admin-user-actions">
+          <div class="admin-user-actions admin-actions">
             {u.state === 'banned' ? (
               <button type="button" class="btn btn--sm" data-unban={u.id} data-name={u.display_name}>Restore</button>
             ) : (
@@ -102,7 +102,7 @@ function shortId(id: string) {
                   data-name={u.display_name}
                   data-warnings={u.warning_count ?? 0}
                 >Warn…</button>
-                <button type="button" class="btn btn--sm btn--ghost" data-ban={u.id} data-name={u.display_name}>Ban…</button>
+                <button type="button" class="btn btn--sm btn--ghost btn--danger" data-ban={u.id} data-name={u.display_name}>Ban…</button>
                 <button
                   type="button"
                   class="btn btn--sm btn--ghost"
@@ -462,25 +462,11 @@ function shortId(id: string) {
 </script>
 
 <style>
-  .admin-search {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .admin-search input {
-    flex: 1;
-    max-width: 360px;
-  }
   .admin-user-list {
     display: grid;
     gap: 12px;
   }
-  .admin-user-card {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-    background: var(--surface);
-  }
+
   .admin-user-head {
     display: flex;
     justify-content: space-between;
@@ -542,17 +528,12 @@ function shortId(id: string) {
     margin-top: 2px;
   }
   .admin-ban-reason { margin: 8px 0 0; font-size: 0.9rem; }
-  .admin-user-actions { margin-top: 10px; display: flex; gap: 8px; }
+  .admin-user-actions { margin-top: 10px; }
   .ban-dialog {
-    border: 1px solid var(--border);
-    border-radius: 12px;
     padding: 0;
     max-width: 480px;
     width: calc(100% - 32px);
-    background: var(--surface);
-    color: inherit;
   }
-  .ban-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
   .ban-dialog form { padding: 24px; }
   .ban-dialog h3 { margin: 0 0 8px; }
   .ban-durations {
@@ -569,11 +550,6 @@ function shortId(id: string) {
     margin-top: 6px;
     resize: vertical;
   }
-  .ban-dialog-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
-  }
+  .ban-dialog-actions { margin-top: 16px; }
   .req { color: var(--pink); font-size: 0.8rem; }
 </style>

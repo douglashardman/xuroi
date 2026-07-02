@@ -647,6 +647,31 @@ export function initThreadInteractions(openPanel: PanelFn) {
     }
   });
 
+  document.querySelector('[data-thread-delete]')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    const bar = btn.closest('[data-thread-id]');
+    const threadId = bar?.getAttribute('data-thread-id');
+    if (!threadId) return;
+    const ok = await confirm('This removes the entire thread from the forum.', {
+      title: 'Delete thread?',
+      confirmLabel: 'Delete thread',
+      dangerous: true,
+    });
+    if (!ok) return;
+    btn.setAttribute('disabled', 'true');
+    try {
+      const res = await fetch(`/api/threads/${threadId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).error);
+      showToast('Thread deleted', 'warning');
+      window.setTimeout(() => {
+        window.location.href = '/community';
+      }, 600);
+    } catch {
+      showToast('Could not delete thread', 'error');
+      btn.removeAttribute('disabled');
+    }
+  });
+
   document.querySelector('[data-thread-lock]')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget as HTMLButtonElement;
     const bar = btn.closest('[data-thread-id]');

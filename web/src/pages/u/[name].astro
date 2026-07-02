@@ -1,10 +1,11 @@
 ---
 export const prerender = false;
 
+import ProfileAvatar from '../../components/ProfileAvatar.astro';
 import Layout from '../../layouts/Layout.astro';
 import { formatDate, getHome, getUser } from '../../lib/api';
 import { getMe, sessionFromCookieHeader } from '../../lib/server-api';
-import { userURL } from '../../lib/theme';
+import { PAV_CLASSES, accentIndex, userURL } from '../../lib/theme';
 
 const { name } = Astro.params;
 const cookie = Astro.request.headers.get('cookie');
@@ -17,10 +18,18 @@ try {
 } catch {
   return Astro.redirect('/community');
 }
+
+const isOwnProfile = user && userURL(user.display_name) === `/u/${name}`;
+const avIdx = accentIndex(profile.id);
 ---
 <Layout title={profile.display_name} site={home.site} user={user}>
   <div class="profile-hero">
-    <div class="profile-av">{profile.display_name.slice(0, 2).toUpperCase()}</div>
+    <ProfileAvatar
+      name={profile.display_name}
+      avatarUrl={profile.avatar_url ?? user?.avatar_url}
+      accentClass={PAV_CLASSES[avIdx]}
+      editable={isOwnProfile}
+    />
     <div>
       <h1>{profile.display_name}</h1>
       <div class="profile-karma">{profile.karma.toLocaleString()} karma</div>
@@ -33,7 +42,7 @@ try {
     Karma comes from likes on your posts — liking your own posts doesn't count.
   </p>
 
-  {user && userURL(user.display_name) === `/u/${name}` && (
+  {isOwnProfile && (
     <section class="profile-security">
       <h2>Account security</h2>
       <p class="profile-security-meta">
@@ -56,10 +65,60 @@ try {
   )}
 </Layout>
 
-{user && userURL(user.display_name) === `/u/${name}` && (
+{isOwnProfile && (
   <script>
+    import { openAvatarCrop } from '../../lib/avatar-crop';
     import { passkeyCeremony } from '../../lib/passkey';
     import { showToast } from '../../lib/toast';
+
+    const avatarInput = document.getElementById('avatar-input') as HTMLInputElement | null;
+    const avatarTrigger = document.getElementById('profile-avatar-trigger');
+
+    avatarTrigger?.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('#profile-avatar-remove')) return;
+      avatarInput?.click();
+    });
+
+    document.getElementById('profile-avatar-remove')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const res = await fetch('/api/me/avatar', { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.error || 'Could not remove photo', 'error');
+        return;
+      }
+      showToast('Profile photo removed', 'success');
+      window.location.reload();
+    });
+
+    avatarInput?.addEventListener('change', async () => {
+      const file = avatarInput.files?.[0];
+      avatarInput.value = '';
+      if (!file) return;
+
+      let cropped: Blob | null;
+      try {
+        cropped = await openAvatarCrop(file);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Could not open image', 'error');
+        return;
+      }
+      if (!cropped) return;
+
+      const form = new FormData();
+      form.append('file', cropped, 'avatar.jpg');
+      avatarTrigger?.setAttribute('disabled', '');
+      try {
+        const res = await fetch('/api/me/avatar', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        showToast('Profile photo updated', 'success');
+        window.location.reload();
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Upload failed', 'error');
+        avatarTrigger?.removeAttribute('disabled');
+      }
+    });
 
     document.getElementById('set-password-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -102,6 +161,7 @@ try {
 <style>
   .profile-hero {
     display: flex;
+    flex-wrap: wrap;
     gap: 24px;
     align-items: center;
     margin-top: 40px;
@@ -110,18 +170,6 @@ try {
     border-radius: 18px;
     background: var(--card);
     box-shadow: 6px 6px 0 var(--pink);
-  }
-  .profile-av {
-    width: 88px;
-    height: 88px;
-    border-radius: 16px;
-    border: var(--line);
-    display: grid;
-    place-items: center;
-    font-family: Poppins, sans-serif;
-    font-weight: 800;
-    font-size: 28px;
-    background: var(--mist);
   }
   .profile-hero h1 {
     margin: 0 0 6px;

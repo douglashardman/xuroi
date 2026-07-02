@@ -50,6 +50,13 @@ func (s *Service) MarkThreadRead(ctx context.Context, actorID, threadID string) 
 	if err != nil {
 		return err
 	}
+	_, err = tx.Exec(ctx, `
+		UPDATE notifications SET read_at = now()
+		WHERE actor_id = $1 AND thread_id = $2 AND read_at IS NULL
+	`, actorID, threadID)
+	if err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 

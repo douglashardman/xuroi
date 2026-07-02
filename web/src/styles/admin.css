@@ -1,0 +1,315 @@
+/* Admin panel — shared layout, dark bars, readable actions */
+
+:root {
+  --surface: var(--card);
+  --border: var(--hair);
+}
+
+.admin-page .shead {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.admin-page .shead .lab {
+  flex: 1 1 auto;
+}
+
+.admin-page .shead > .btn {
+  margin-left: auto;
+}
+
+/* Dark section bar (category groups, etc.) */
+.admin-bar {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.admin-bar strong,
+.admin-bar a {
+  color: var(--paper);
+}
+
+.admin-bar a:hover {
+  color: var(--pink);
+}
+
+.admin-bar .lab {
+  color: color-mix(in srgb, var(--paper) 70%, transparent);
+}
+
+/* Buttons on dark bars — must beat .admin-actions (same row uses both classes) */
+.admin-bar .btn,
+.admin-bar .admin-actions .btn {
+  background: var(--paper);
+  color: var(--ink);
+  border: 2px solid var(--paper);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.admin-bar .btn:hover,
+.admin-bar .admin-actions .btn:hover {
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+.admin-bar .btn--ghost,
+.admin-bar .admin-actions .btn--ghost {
+  background: transparent;
+  color: var(--paper);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  box-shadow: none;
+}
+
+.admin-bar .btn--ghost:hover,
+.admin-bar .admin-actions .btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-bar .btn--ghost:disabled,
+.admin-bar .admin-actions .btn--ghost:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.admin-bar .btn--danger,
+.admin-bar .admin-actions .btn--danger {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.65);
+}
+
+.admin-bar .btn--danger:hover,
+.admin-bar .admin-actions .btn--danger:hover {
+  background: rgba(185, 28, 28, 0.35);
+}
+
+/* Dark theme: bar uses light --ink, buttons need dark borders */
+:root[data-theme="dark"] .admin-bar .btn--ghost,
+:root[data-theme="dark"] .admin-bar .admin-actions .btn--ghost {
+  color: var(--paper);
+  border-color: rgba(0, 0, 0, 0.28);
+}
+
+:root[data-theme="dark"] .admin-bar .btn--ghost:hover,
+:root[data-theme="dark"] .admin-bar .admin-actions .btn--ghost:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .admin-bar .btn--ghost,
+  :root:not([data-theme]) .admin-bar .admin-actions .btn--ghost {
+    color: var(--paper);
+    border-color: rgba(0, 0, 0, 0.28);
+  }
+
+  :root:not([data-theme]) .admin-bar .btn--ghost:hover,
+  :root:not([data-theme]) .admin-bar .admin-actions .btn--ghost:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Action rows on light cards (not inside .admin-bar) */
+.admin-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.admin-cat-forum .admin-actions .btn--ghost,
+.admin-user-actions .btn--ghost {
+  border: 2px solid var(--hair);
+  color: var(--ink);
+  background: var(--card);
+  box-shadow: none;
+}
+
+.admin-cat-forum .admin-actions .btn--ghost:hover,
+.admin-user-actions .btn--ghost:hover {
+  background: var(--mist);
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-cat-forum .admin-actions .btn--danger,
+.admin-user-actions .btn--danger {
+  color: #b91c1c;
+  border-color: #e7a8a8;
+}
+
+.admin-cat-forum .admin-actions .btn--danger:hover,
+.admin-user-actions .btn--danger:hover {
+  background: #fef2f2;
+}
+
+:root[data-theme="dark"] .admin-cat-forum .admin-actions .btn--danger:hover,
+:root[data-theme="dark"] .admin-user-actions .btn--danger:hover {
+  background: rgba(185, 28, 28, 0.22);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .admin-cat-forum .admin-actions .btn--danger:hover,
+  :root:not([data-theme]) .admin-user-actions .btn--danger:hover {
+    background: rgba(185, 28, 28, 0.22);
+  }
+}
+
+.admin-dialog .btn--ghost,
+.ban-dialog .btn--ghost {
+  border: 2px solid var(--hair);
+  color: var(--ink);
+  background: var(--card);
+  box-shadow: none;
+}
+
+/* Stats + cards */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+
+.admin-stat {
+  background: var(--card);
+  border: var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.admin-stat .n {
+  display: block;
+  font: 700 1.5rem/1.2 Poppins, sans-serif;
+}
+
+.admin-stat .l {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.admin-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.admin-user-card,
+.admin-cat-group {
+  border: var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.admin-user-card {
+  padding: 14px 16px;
+}
+
+.admin-cat-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.admin-cat-forum .admin-cat-actions {
+  margin-left: auto;
+}
+
+.admin-cat-group-head .lab {
+  margin-left: 8px;
+}
+
+/* Dialogs */
+.admin-dialog,
+.ban-dialog {
+  background: var(--card);
+  color: var(--ink);
+  border: var(--line);
+  border-radius: 14px;
+  box-shadow: 8px 8px 0 var(--ink);
+}
+
+.admin-dialog::backdrop,
+.ban-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.admin-dialog input,
+.admin-dialog textarea,
+.admin-dialog select,
+.ban-dialog textarea,
+.ban-dialog input,
+.admin-search input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 2px solid var(--hair);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.admin-dialog-actions,
+.ban-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.admin-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-search input {
+  flex: 1;
+  max-width: 360px;
+}
+
+@media (max-width: 768px) {
+  .admin-page .shead > .btn {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .admin-search {
+    flex-direction: column;
+  }
+
+  .admin-search input {
+    max-width: none;
+    width: 100%;
+  }
+
+  .admin-stat-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-user-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .admin-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .admin-bar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .admin-bar .admin-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

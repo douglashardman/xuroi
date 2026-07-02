@@ -1,6 +1,7 @@
 ---
 import '../styles/pt.css';
 import '../styles/pt-pages.css';
+import '../styles/admin.css';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import ToastHost from '../components/ToastHost.astro';
@@ -22,6 +23,7 @@ interface Props {
   ogType?: string;
   noIndex?: boolean;
   skipBanCheck?: boolean;
+  adminPage?: boolean;
 }
 
 const {
@@ -37,6 +39,7 @@ const {
   ogType = 'website',
   noIndex = false,
   skipBanCheck = false,
+  adminPage = false,
 } = Astro.props;
 
 if (!skipBanCheck && !Astro.url.pathname.startsWith('/banned')) {
@@ -109,11 +112,11 @@ if (!skipBanCheck && !Astro.url.pathname.startsWith('/banned')) {
     {activeWarning && <WarningOverlay warning={activeWarning} />}
     <Nav active={navActive} user={user} />
     {shell === 'marketing' ? <slot /> : (
-      <main class="wrap">
+      <main class:list={['wrap', adminPage && 'admin-page']}>
         <slot />
       </main>
     )}
-    <Footer />
+    <Footer user={user} />
     <ToastHost />
     <script is:inline>
       (function () {

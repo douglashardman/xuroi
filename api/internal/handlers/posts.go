@@ -32,6 +32,8 @@ func (a *API) editPost(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	var mentioned []string
+	req.BodyMarkdown, mentioned = a.processPostMentions(r, req.BodyMarkdown, actor.ID)
 	if req.BodyHTML == "" {
 		req.BodyHTML = markdown.ToHTML(req.BodyMarkdown)
 	}
@@ -69,6 +71,14 @@ func (a *API) editPost(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	var edited struct {
+		ThreadID string `json:"thread_id"`
+	}
+	_ = json.Unmarshal(evt.Payload, &edited)
+	if edited.ThreadID != "" && a.notify != nil {
+		_ = a.notify.SyncPostMentions(r.Context(), postID, edited.ThreadID, actor.ID, mentioned)
 	}
 
 	post, perr := a.reader.PostByID(r.Context(), postID, &actor.ID, actor.IsAdmin)

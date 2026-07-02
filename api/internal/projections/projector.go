@@ -9,6 +9,7 @@ import (
 
 	"github.com/xuroi/xuroi/api/internal/access"
 	"github.com/xuroi/xuroi/api/internal/events"
+	"github.com/xuroi/xuroi/api/internal/search"
 )
 
 type Projector struct{}
@@ -49,6 +50,8 @@ func (p *Projector) Apply(ctx context.Context, tx pgx.Tx, evt events.Event) erro
 		return p.applyThreadDeleted(ctx, tx, evt)
 	case events.TypePostReported:
 		return p.applyPostReported(ctx, tx, evt)
+	case events.TypePostModerated:
+		return p.applyPostModerated(ctx, tx, evt)
 	default:
 		return nil
 	}
@@ -81,11 +84,15 @@ func (p *Projector) applyCategoryCreated(ctx context.Context, tx pgx.Tx, evt eve
 
 	level := access.NormalizeLevel(payload.AccessLevel)
 	listPublic := access.ResolveListPublic(level, payload.ListPublic)
+	postMod := false
+	if payload.PostModeration != nil {
+		postMod = *payload.PostModeration
+	}
 	_, err := tx.Exec(ctx, `
-		INSERT INTO categories (id, slug, name, description, sort_order, parent_id, access_level, list_public, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO categories (id, slug, name, description, sort_order, parent_id, access_level, list_public, post_moderation, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (id) DO NOTHING
-	`, payload.CategoryID, payload.Slug, payload.Name, payload.Description, payload.SortOrder, payload.ParentID, level, listPublic, evt.CreatedAt)
+	`, payload.CategoryID, payload.Slug, payload.Name, payload.Description, payload.SortOrder, payload.ParentID, level, listPublic, postMod, evt.CreatedAt)
 	return err
 }
 
@@ -97,11 +104,15 @@ func (p *Projector) applyCategoryUpdated(ctx context.Context, tx pgx.Tx, evt eve
 
 	level := access.NormalizeLevel(payload.AccessLevel)
 	listPublic := access.ResolveListPublic(level, payload.ListPublic)
+	postMod := false
+	if payload.PostModeration != nil {
+		postMod = *payload.PostModeration
+	}
 	_, err := tx.Exec(ctx, `
 		UPDATE categories
-		SET slug = $2, name = $3, description = $4, sort_order = $5, parent_id = $6, access_level = $7, list_public = $8
+		SET slug = $2, name = $3, description = $4, sort_order = $5, parent_id = $6, access_level = $7, list_public = $8, post_moderation = $9
 		WHERE id = $1
-	`, payload.CategoryID, payload.Slug, payload.Name, payload.Description, payload.SortOrder, payload.ParentID, level, listPublic)
+	`, payload.CategoryID, payload.Slug, payload.Name, payload.Description, payload.SortOrder, payload.ParentID, level, listPublic, postMod)
 	return err
 }
 
@@ -130,11 +141,18 @@ func (p *Projector) applyThreadCreated(ctx context.Context, tx pgx.Tx, evt event
 		return err
 	}
 
+	modStatus := "approved"
+	if moderated, err := p.categoryPostModeration(ctx, tx, payload.CategoryID); err != nil {
+		return err
+	} else if moderated {
+		modStatus = "pending"
+	}
+
 	_, err = tx.Exec(ctx, `
-		INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, author_ip, is_op, created_at)
-		VALUES ($1, $2, $3, 1, $4, $5, NULLIF($6, ''), TRUE, $7)
+		INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, author_ip, is_op, moderation_status, created_at)
+		VALUES ($1, $2, $3, 1, $4, $5, NULLIF($6, ''), TRUE, $7, $8)
 		ON CONFLICT (id) DO NOTHING
-	`, payload.PostID, payload.ThreadID, payload.AuthorID, payload.BodyMarkdown, payload.BodyHTML, payload.AuthorIP, evt.CreatedAt)
+	`, payload.PostID, payload.ThreadID, payload.AuthorID, payload.BodyMarkdown, payload.BodyHTML, payload.AuthorIP, modStatus, evt.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -143,7 +161,16 @@ func (p *Projector) applyThreadCreated(ctx context.Context, tx pgx.Tx, evt event
 		UPDATE categories SET thread_count = thread_count + 1, post_count = post_count + 1
 		WHERE id = $1
 	`, payload.CategoryID)
-	return err
+	if err != nil {
+		return err
+	}
+	if modStatus == "approved" {
+		if err := search.EnqueueTx(ctx, tx, payload.ThreadID, "thread"); err != nil {
+			return err
+		}
+		return search.EnqueueTx(ctx, tx, payload.PostID, "post")
+	}
+	return nil
 }
 
 func (p *Projector) applyPostCreated(ctx context.Context, tx pgx.Tx, evt events.Event) error {
@@ -160,11 +187,22 @@ func (p *Projector) applyPostCreated(ctx context.Context, tx pgx.Tx, evt events.
 		return fmt.Errorf("next post position: %w", err)
 	}
 
+	modStatus := "approved"
+	var categoryID string
+	if err := tx.QueryRow(ctx, `SELECT category_id FROM threads WHERE id = $1`, payload.ThreadID).Scan(&categoryID); err != nil {
+		return fmt.Errorf("thread category: %w", err)
+	}
+	if moderated, err := p.categoryPostModeration(ctx, tx, categoryID); err != nil {
+		return err
+	} else if moderated {
+		modStatus = "pending"
+	}
+
 	_, err = tx.Exec(ctx, `
-		INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, quoted_post_id, quote_markdown, author_ip, is_op, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), FALSE, $10)
+		INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, quoted_post_id, quote_markdown, author_ip, is_op, moderation_status, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), FALSE, $10, $11)
 		ON CONFLICT (id) DO NOTHING
-	`, payload.PostID, payload.ThreadID, payload.AuthorID, position, payload.BodyMarkdown, payload.BodyHTML, payload.QuotedPostID, payload.QuoteMarkdown, payload.AuthorIP, evt.CreatedAt)
+	`, payload.PostID, payload.ThreadID, payload.AuthorID, position, payload.BodyMarkdown, payload.BodyHTML, payload.QuotedPostID, payload.QuoteMarkdown, payload.AuthorIP, modStatus, evt.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -178,16 +216,19 @@ func (p *Projector) applyPostCreated(ctx context.Context, tx pgx.Tx, evt events.
 		return err
 	}
 
-	var categoryID string
-	err = tx.QueryRow(ctx, `SELECT category_id FROM threads WHERE id = $1`, payload.ThreadID).Scan(&categoryID)
-	if err != nil {
-		return err
-	}
-
 	_, err = tx.Exec(ctx, `
 		UPDATE categories SET post_count = post_count + 1 WHERE id = $1
 	`, categoryID)
-	return err
+	if err != nil {
+		return err
+	}
+	if modStatus == "approved" {
+		if err := search.EnqueueTx(ctx, tx, payload.ThreadID, "thread"); err != nil {
+			return err
+		}
+		return search.EnqueueTx(ctx, tx, payload.PostID, "post")
+	}
+	return nil
 }
 
 func (p *Projector) applyPostEdited(ctx context.Context, tx pgx.Tx, evt events.Event) error {
@@ -228,7 +269,13 @@ func (p *Projector) applyPostEdited(ctx context.Context, tx pgx.Tx, evt events.E
 	_, err = tx.Exec(ctx, `
 		UPDATE threads SET last_activity_at = $2 WHERE id = $1
 	`, payload.ThreadID, evt.CreatedAt)
-	return err
+	if err != nil {
+		return err
+	}
+	if err := search.EnqueueTx(ctx, tx, payload.PostID, "post"); err != nil {
+		return err
+	}
+	return search.EnqueueTx(ctx, tx, payload.ThreadID, "thread")
 }
 
 func (p *Projector) applyPostReactionAdded(ctx context.Context, tx pgx.Tx, evt events.Event) error {
@@ -350,7 +397,11 @@ func (p *Projector) applyPostDeleted(ctx context.Context, tx pgx.Tx, evt events.
 	_, err = tx.Exec(ctx, `
 		UPDATE categories SET post_count = GREATEST(0, post_count - 1) WHERE id = $1
 	`, categoryID)
-	return err
+	if err != nil {
+		return err
+	}
+	_, _ = tx.Exec(ctx, `DELETE FROM search_documents WHERE entity_id = $1`, payload.PostID)
+	return search.EnqueueTx(ctx, tx, payload.ThreadID, "thread")
 }
 
 func (p *Projector) applyThreadLocked(ctx context.Context, tx pgx.Tx, evt events.Event, locked bool) error {
@@ -384,7 +435,10 @@ func (p *Projector) applyThreadDeleted(ctx context.Context, tx pgx.Tx, evt event
 	_, err = tx.Exec(ctx, `
 		UPDATE categories SET thread_count = GREATEST(0, thread_count - 1) WHERE id = $1
 	`, categoryID)
-	return err
+	if err != nil {
+		return err
+	}
+	return search.RemoveThreadTx(ctx, tx, payload.ThreadID)
 }
 
 func (p *Projector) applyThreadPinned(ctx context.Context, tx pgx.Tx, evt events.Event, pinned bool) error {
@@ -407,4 +461,41 @@ func (p *Projector) applyPostReported(ctx context.Context, tx pgx.Tx, evt events
 		ON CONFLICT (post_id, reporter_id) DO NOTHING
 	`, payload.ReportID, payload.PostID, payload.ThreadID, payload.ReporterID, payload.Reason, evt.CreatedAt)
 	return err
+}
+
+func (p *Projector) applyPostModerated(ctx context.Context, tx pgx.Tx, evt events.Event) error {
+	var payload events.PostModerated
+	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshal post.moderated: %w", err)
+	}
+	if payload.Status != "approved" && payload.Status != "rejected" {
+		return fmt.Errorf("invalid moderation status: %s", payload.Status)
+	}
+
+	_, err := tx.Exec(ctx, `
+		UPDATE posts SET moderation_status = $2
+		WHERE id = $1 AND deleted_at IS NULL
+	`, payload.PostID, payload.Status)
+	if err != nil {
+		return err
+	}
+
+	if payload.Status == "approved" {
+		if err := search.EnqueueTx(ctx, tx, payload.ThreadID, "thread"); err != nil {
+			return err
+		}
+		return search.EnqueueTx(ctx, tx, payload.PostID, "post")
+	}
+
+	_, err = tx.Exec(ctx, `DELETE FROM search_documents WHERE entity_id = $1`, payload.PostID)
+	return err
+}
+
+func (p *Projector) categoryPostModeration(ctx context.Context, tx pgx.Tx, categoryID string) (bool, error) {
+	var moderated bool
+	err := tx.QueryRow(ctx, `SELECT post_moderation FROM categories WHERE id = $1`, categoryID).Scan(&moderated)
+	if err != nil {
+		return false, fmt.Errorf("category moderation: %w", err)
+	}
+	return moderated, nil
 }

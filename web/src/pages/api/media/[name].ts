@@ -1,11 +1,12 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
+import { isValidMediaFilename } from '../../../lib/media';
 import { API_URL } from '../../../lib/server-api';
 
 export const GET: APIRoute = async ({ params }) => {
   const name = params.name;
-  if (!name || !/^med_[0-9a-z]{26}(_thumb)?\.webp$/.test(name)) {
+  if (!name || !isValidMediaFilename(name)) {
     return new Response('Not found', { status: 404 });
   }
 

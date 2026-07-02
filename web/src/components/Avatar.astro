@@ -1,0 +1,44 @@
+---
+import { avatarSrc, initials } from '../lib/theme';
+
+interface Props {
+  name: string;
+  avatarUrl?: string | null;
+  size?: 'nav' | 'post' | 'profile';
+  accentClass?: string;
+  warned?: boolean;
+  title?: string;
+}
+
+const {
+  name,
+  avatarUrl,
+  size = 'post',
+  accentClass = '',
+  warned = false,
+  title,
+} = Astro.props;
+
+const src = avatarSrc(avatarUrl, size === 'profile' ? 'lg' : 'sm');
+const sizeClass = `avatar--${size}`;
+const warnClass = warned ? ' avatar--warned' : '';
+---
+
+{src ? (
+  <img
+    src={src}
+    alt=""
+    class={`avatar ${sizeClass}${warnClass}`}
+    loading="lazy"
+    decoding="async"
+    title={title}
+  />
+) : (
+  <div
+    class={`avatar avatar--initials ${sizeClass} ${accentClass}${warnClass}`}
+    title={title}
+    aria-hidden="true"
+  >
+    {initials(name)}
+  </div>
+)}

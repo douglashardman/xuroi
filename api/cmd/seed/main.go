@@ -26,11 +26,12 @@ type siteConfig struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 		Forums      []struct {
-			Slug        string `json:"slug"`
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			AccessLevel string `json:"access_level"`
-			ListPublic  *bool  `json:"list_public"`
+			Slug            string `json:"slug"`
+			Name            string `json:"name"`
+			Description     string `json:"description"`
+			AccessLevel     string `json:"access_level"`
+			ListPublic      *bool  `json:"list_public"`
+			PostModeration  *bool  `json:"post_moderation"`
 		} `json:"forums"`
 	} `json:"categories"`
 }
@@ -84,13 +85,14 @@ func main() {
 
 		for fi, forumCfg := range group.Forums {
 			_, err := ensureCategory(ctx, pool, forum, ensureCategoryInput{
-				Slug:        forumCfg.Slug,
-				Name:        forumCfg.Name,
-				Description: forumCfg.Description,
-				SortOrder:   fi + 1,
-				ParentID:    &groupID,
-				AccessLevel: forumCfg.AccessLevel,
-				ListPublic:  forumCfg.ListPublic,
+				Slug:           forumCfg.Slug,
+				Name:           forumCfg.Name,
+				Description:    forumCfg.Description,
+				SortOrder:      fi + 1,
+				ParentID:       &groupID,
+				AccessLevel:    forumCfg.AccessLevel,
+				ListPublic:     forumCfg.ListPublic,
+				PostModeration: forumCfg.PostModeration,
 			})
 			if err != nil {
 				log.Fatalf("create forum %s: %v", forumCfg.Slug, err)
@@ -187,13 +189,14 @@ func ensureSeedPersona(ctx context.Context, pool *pgxpool.Pool) (string, error) 
 }
 
 type ensureCategoryInput struct {
-	Slug        string
-	Name        string
-	Description string
-	SortOrder   int
-	ParentID    *string
-	AccessLevel string
-	ListPublic  *bool
+	Slug           string
+	Name           string
+	Description    string
+	SortOrder      int
+	ParentID       *string
+	AccessLevel    string
+	ListPublic     *bool
+	PostModeration *bool
 }
 
 func ensureCategory(ctx context.Context, pool *pgxpool.Pool, forum *service.Forum, in ensureCategoryInput) (string, error) {
@@ -205,14 +208,15 @@ func ensureCategory(ctx context.Context, pool *pgxpool.Pool, forum *service.Foru
 	}
 
 	evt, err := forum.CreateCategory(ctx, service.CreateCategoryInput{
-		Slug:        in.Slug,
-		Name:        in.Name,
-		Description: in.Description,
-		SortOrder:   in.SortOrder,
-		ParentID:    in.ParentID,
-		AccessLevel: in.AccessLevel,
-		ListPublic:  in.ListPublic,
-		ActorID:     "act_system",
+		Slug:           in.Slug,
+		Name:           in.Name,
+		Description:    in.Description,
+		SortOrder:      in.SortOrder,
+		ParentID:       in.ParentID,
+		AccessLevel:    in.AccessLevel,
+		ListPublic:     in.ListPublic,
+		PostModeration: in.PostModeration,
+		ActorID:        "act_system",
 	})
 	if err != nil {
 		return "", err

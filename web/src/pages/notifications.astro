@@ -1,0 +1,72 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { formatDate } from '../lib/api';
+import { getHome } from '../lib/api';
+import {
+  getMe,
+  getNotifications,
+  markAllNotificationsRead,
+  sessionFromCookieHeader,
+} from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+
+if (!user) {
+  return Astro.redirect('/join');
+}
+
+await markAllNotificationsRead(session!);
+
+const [home, feed] = await Promise.all([
+  getHome(session),
+  getNotifications(session!, { limit: 50 }),
+]);
+const notifications = feed.notifications ?? [];
+const navUser = { ...user, unread_notifications: 0 };
+---
+<Layout title="Notifications" site={home.site} user={navUser}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Notifications
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Notifications</h2>
+  </div>
+
+  {notifications.length === 0 ? (
+    <p class="mod-empty">You're all caught up — no notifications yet.</p>
+  ) : (
+    <div class="notif-list">
+      {notifications.map((n) => (
+        <article
+          class="notif-card"
+          data-notif-id={n.id}
+          data-notif-url={n.url}
+        >
+          <div class="notif-meta">
+            <time datetime={n.created_at}>{formatDate(n.created_at)}</time>
+          </div>
+          <h3 class="notif-title">{n.title}</h3>
+          {n.body && <p class="notif-body">{n.body}</p>}
+          <a class="notif-link" href={n.url}>View</a>
+        </article>
+      ))}
+    </div>
+  )}
+</Layout>
+
+<script>
+  document.querySelectorAll('.notif-card[data-notif-url]').forEach((card) => {
+    card.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('a')) return;
+      const url = card.getAttribute('data-notif-url');
+      if (url) window.location.href = url;
+    });
+  });
+</script>
