@@ -733,9 +733,9 @@ a.post-action {
 }
 
 .avatar--profile {
-  width: 88px;
-  height: 88px;
-  border-radius: 16px;
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
 }
 
 .profile-avatar-btn {

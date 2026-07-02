@@ -23,23 +23,36 @@ const isOwnProfile = user && userURL(user.display_name) === `/u/${name}`;
 const avIdx = accentIndex(profile.id);
 ---
 <Layout title={profile.display_name} site={home.site} user={user}>
-  <div class="profile-hero">
+  <header class="profile-header">
     <ProfileAvatar
       name={profile.display_name}
       avatarUrl={profile.avatar_url}
       accentClass={PAV_CLASSES[avIdx]}
       editable={isOwnProfile}
     />
-    <div>
+    <div class="profile-header-body">
       <h1>{profile.display_name}</h1>
-      <div class="profile-karma">{profile.karma.toLocaleString()} karma</div>
-      <div class="profile-meta">
-        {profile.post_count.toLocaleString()} posts · joined {formatDate(profile.joined_at)}
+      <dl class="profile-stats">
+        <div class="profile-stat">
+          <dt>Karma</dt>
+          <dd>{profile.karma.toLocaleString()}</dd>
+        </div>
+        <div class="profile-stat">
+          <dt>Posts</dt>
+          <dd>{profile.post_count.toLocaleString()}</dd>
+        </div>
+        <div class="profile-stat">
+          <dt>Joined</dt>
+          <dd>{formatDate(profile.joined_at)}</dd>
+        </div>
         {profile.last_active_at && (
-          <span> · last seen {formatLastSeen(profile.last_active_at)}</span>
+          <div class="profile-stat">
+            <dt>Last seen</dt>
+            <dd>{formatLastSeen(profile.last_active_at)}</dd>
+          </div>
         )}
-      </div>
-      {profile.bio && !isOwnProfile && (
+      </dl>
+      {profile.bio && (
         <p class="profile-bio">{profile.bio}</p>
       )}
       {!isOwnProfile && user && (
@@ -60,91 +73,83 @@ const avIdx = accentIndex(profile.id);
           )}
         </div>
       )}
+      <p class="profile-note">Karma comes from likes on your posts — liking your own posts doesn't count.</p>
     </div>
-  </div>
-  <p class="profile-note">
-    Karma comes from likes on your posts — liking your own posts doesn't count.
-  </p>
+  </header>
 
   {isOwnProfile && (
-    <section class="profile-bio-edit">
-      <h2>About you</h2>
-      <form id="profile-bio-form" class="profile-bio-form">
-        <label>
-          Bio
-          <textarea name="bio" rows="4" maxlength="500" placeholder="A short intro for your profile…">{profile.bio ?? ''}</textarea>
-        </label>
-        <button type="submit" class="btn btn--sm">Save bio</button>
-      </form>
-    </section>
-  )}
-
-  {isOwnProfile && (
-    <section class="profile-notifications">
-      <h2>Email notifications</h2>
-      <p class="profile-notifications-meta">
-        Control thread reply and @mention emails.
-        <a href="/settings/email">Manage email preferences →</a>
-      </p>
-    </section>
-  )}
-
-  {isOwnProfile && (
-    <section class="profile-privacy">
-      <h2>Online status</h2>
-      <p class="profile-privacy-meta">Control whether others see you in the online list and last-seen on your profile.</p>
-      <form id="online-privacy-form" class="profile-privacy-form">
-        <label>
-          <input type="checkbox" name="hide_online" checked={profile.hide_online === true} />
-          Hide my online status from other members
-        </label>
-        <p class="profile-privacy-hint">Staff can always see who is online.</p>
-        <button type="submit" class="btn btn--sm">Save visibility</button>
-      </form>
-    </section>
-  )}
-
-  {isOwnProfile && (
-    <section class="profile-privacy">
-      <h2>Message privacy</h2>
-      <p class="profile-privacy-meta">Who can start a new conversation with you.</p>
-      <form id="dm-privacy-form" class="profile-privacy-form">
-        <label>
-          <input type="radio" name="dm_privacy" value="everyone" checked={user.dm_privacy !== 'friends_only' && user.dm_privacy !== 'off'} />
-          Open — any member can message you
-        </label>
-        <label>
-          <input type="radio" name="dm_privacy" value="friends_only" checked={user.dm_privacy === 'friends_only'} />
-          Existing contacts only — strangers can't start new chats
-        </label>
-        <label>
-          <input type="radio" name="dm_privacy" value="off" checked={user.dm_privacy === 'off'} />
-          Off — no new messages (you also can't send)
-        </label>
-        <button type="submit" class="btn btn--sm">Save privacy</button>
-      </form>
-    </section>
-  )}
-
-  {isOwnProfile && (
-    <section class="profile-security">
-      <h2>Account security</h2>
-      <p class="profile-security-meta">
-        {user.has_password ? 'Password set' : 'No password yet'}
-        · {user.has_passkey ? 'Passkey added' : 'No passkey yet'}
-      </p>
-      {!user.has_password && (
-        <form id="set-password-form" class="profile-security-form">
+    <section class="profile-settings" aria-label="Profile settings">
+      <div class="profile-settings-section">
+        <h2>About you</h2>
+        <form id="profile-bio-form" class="profile-bio-form">
           <label>
-            Set a password
-            <input type="password" name="password" minlength="8" maxlength="128" required autocomplete="new-password" />
+            <span class="sr-only">Bio</span>
+            <textarea name="bio" rows="3" maxlength="500" placeholder="A short intro for your profile…">{profile.bio ?? ''}</textarea>
           </label>
-          <button type="submit" class="btn btn--sm btn--pink">Save password</button>
+          <button type="submit" class="btn btn--sm">Save bio</button>
         </form>
-      )}
-      <button type="button" class="btn btn--sm" id="add-passkey-btn">
-        {user.has_passkey ? 'Add another passkey' : 'Add passkey'}
-      </button>
+      </div>
+
+      <div class="profile-settings-section profile-settings-section--row">
+        <div>
+          <h2>Email notifications</h2>
+          <p class="profile-settings-desc">Thread reply and @mention emails.</p>
+        </div>
+        <a class="profile-settings-link" href="/settings/email">Manage →</a>
+      </div>
+
+      <div class="profile-settings-section">
+        <h2>Online status</h2>
+        <p class="profile-settings-desc">Who can see you in the online list and last-seen here.</p>
+        <form id="online-privacy-form" class="profile-option-form">
+          <label>
+            <input type="checkbox" name="hide_online" checked={profile.hide_online === true} />
+            Hide my online status from other members
+          </label>
+          <p class="profile-settings-hint">Staff can always see who is online.</p>
+          <button type="submit" class="btn btn--sm">Save visibility</button>
+        </form>
+      </div>
+
+      <div class="profile-settings-section">
+        <h2>Message privacy</h2>
+        <p class="profile-settings-desc">Who can start a new conversation with you.</p>
+        <form id="dm-privacy-form" class="profile-option-form">
+          <label>
+            <input type="radio" name="dm_privacy" value="everyone" checked={user.dm_privacy !== 'friends_only' && user.dm_privacy !== 'off'} />
+            Open — any member can message you
+          </label>
+          <label>
+            <input type="radio" name="dm_privacy" value="friends_only" checked={user.dm_privacy === 'friends_only'} />
+            Existing contacts only — strangers can't start new chats
+          </label>
+          <label>
+            <input type="radio" name="dm_privacy" value="off" checked={user.dm_privacy === 'off'} />
+            Off — no new messages (you also can't send)
+          </label>
+          <button type="submit" class="btn btn--sm">Save privacy</button>
+        </form>
+      </div>
+
+      <div class="profile-settings-section">
+        <h2>Account security</h2>
+        <p class="profile-settings-desc">
+          {user.has_password ? 'Password set' : 'No password yet'}
+          · {user.has_passkey ? 'Passkey added' : 'No passkey yet'}
+        </p>
+        {!user.has_password && (
+          <form id="set-password-form" class="profile-security-form">
+            <label>
+              Set a password
+              <input type="password" name="password" minlength="8" maxlength="128" required autocomplete="new-password" />
+            </label>
+            <button type="submit" class="btn btn--sm btn--pink">Save password</button>
+          </form>
+        )}
+        <button type="button" class="btn btn--sm" id="add-passkey-btn">
+          {user.has_passkey ? 'Add another passkey' : 'Add passkey'}
+        </button>
+      </div>
     </section>
   )}
 
@@ -156,39 +161,88 @@ const avIdx = accentIndex(profile.id);
 </Layout>
 
 <style>
-  .profile-hero {
+  .profile-header {
     display: flex;
     flex-wrap: wrap;
-    gap: 24px;
-    align-items: center;
-    margin-top: 40px;
-    padding: 28px;
+    gap: 18px;
+    align-items: flex-start;
+    margin-top: 28px;
+    padding: 18px 20px;
     border: var(--line);
-    border-radius: 18px;
+    border-radius: 14px;
     background: var(--card);
-    box-shadow: 6px 6px 0 var(--pink);
+    box-shadow: 4px 4px 0 var(--pink);
   }
-  .profile-hero h1 {
-    margin: 0 0 6px;
-    font-size: 32px;
+
+  .profile-header-body {
+    flex: 1;
+    min-width: min(100%, 260px);
   }
-  .profile-karma {
+
+  .profile-header h1 {
+    margin: 0 0 12px;
+    font-size: 26px;
+    line-height: 1.15;
+  }
+
+  .profile-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 0;
+  }
+
+  .profile-stat {
+    display: grid;
+    gap: 2px;
+    min-width: 72px;
+  }
+
+  .profile-stat dt {
+    margin: 0;
+    font-family: Poppins, sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .profile-stat dd {
+    margin: 0;
     font-family: Poppins, sans-serif;
     font-weight: 700;
-    font-size: 18px;
+    font-size: 15px;
+    color: var(--ink);
+  }
+
+  .profile-stat:first-child dd {
     color: var(--pink);
-    margin-bottom: 6px;
   }
-  .profile-meta {
-    color: var(--muted);
+
+  .profile-bio {
+    margin: 12px 0 0;
     font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    max-width: 56ch;
   }
+
   .profile-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 14px;
+    gap: 8px;
+    margin-top: 12px;
   }
+
+  .profile-note {
+    margin: 10px 0 0;
+    color: var(--faint);
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 56ch;
+  }
+
   .btn--pending {
     cursor: not-allowed;
     opacity: 0.72;
@@ -198,109 +252,157 @@ const avIdx = accentIndex(profile.id);
     transform: none;
     pointer-events: none;
   }
+
   .btn--pending:hover {
     transform: none;
     box-shadow: none;
   }
-  .profile-notifications {
-    margin-top: 28px;
-    padding: 24px;
+
+  .profile-settings {
+    margin-top: 16px;
+    margin-bottom: 32px;
     border: var(--line);
-    border-radius: 16px;
+    border-radius: 14px;
     background: var(--card);
-    box-shadow: 4px 4px 0 var(--green);
+    box-shadow: 4px 4px 0 var(--ink);
+    overflow: hidden;
   }
-  .profile-notifications h2 {
-    margin: 0 0 8px;
-    font-size: 20px;
+
+  .profile-settings-section {
+    padding: 14px 18px;
+    border-bottom: 2px solid var(--hair);
   }
-  .profile-notifications-meta {
-    margin: 0;
+
+  .profile-settings-section:last-child {
+    border-bottom: none;
+  }
+
+  .profile-settings-section--row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .profile-settings-section h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .profile-settings-desc {
+    margin: 0 0 10px;
     color: var(--muted);
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.4;
   }
-  .profile-notifications-meta a {
+
+  .profile-settings-section--row .profile-settings-desc {
+    margin-bottom: 0;
+  }
+
+  .profile-settings-hint {
+    margin: 0 0 10px;
+    color: var(--faint);
+    font-size: 12px;
+  }
+
+  .profile-settings-link {
+    flex-shrink: 0;
+    font-family: Poppins, sans-serif;
+    font-weight: 700;
+    font-size: 13px;
     color: var(--pink);
-    font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
   }
-  .profile-privacy {
-    margin-top: 28px;
-    padding: 24px;
-    border: var(--line);
-    border-radius: 16px;
-    background: var(--card);
-    box-shadow: 4px 4px 0 var(--yellow);
+
+  .profile-settings-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
-  .profile-privacy h2 {
-    margin: 0 0 8px;
-    font-size: 20px;
-  }
-  .profile-privacy-meta {
-    margin: 0 0 16px;
-    color: var(--muted);
-    font-size: 14px;
-  }
-  .profile-privacy-form {
+
+  .profile-bio-form,
+  .profile-option-form,
+  .profile-security-form {
     display: grid;
-    gap: 10px;
-    max-width: 420px;
+    gap: 8px;
+    max-width: 480px;
   }
-  .profile-privacy-form label {
+
+  .profile-bio-form textarea {
+    width: 100%;
+    border: 2px solid var(--hair);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.45;
+    background: var(--paper);
+    resize: vertical;
+    min-height: 72px;
+  }
+
+  .profile-option-form label {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    font-size: 14px;
+    gap: 8px;
+    font-size: 13px;
     line-height: 1.4;
     cursor: pointer;
   }
-  .profile-privacy-form input {
-    margin-top: 3px;
+
+  .profile-option-form input {
+    margin-top: 2px;
     flex-shrink: 0;
   }
-  .profile-security {
-    margin-top: 28px;
-    padding: 24px;
-    border: var(--line);
-    border-radius: 16px;
-    background: var(--card);
-    box-shadow: 4px 4px 0 var(--blue);
-  }
-  .profile-security h2 {
-    margin: 0 0 8px;
-    font-size: 20px;
-  }
-  .profile-security-meta {
-    margin: 0 0 16px;
-    color: var(--muted);
-    font-size: 14px;
-  }
+
   .profile-security-form {
-    display: grid;
-    gap: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 8px;
     max-width: 320px;
   }
+
   .profile-security-form label {
     display: grid;
     gap: 6px;
     font-family: Poppins, sans-serif;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
   }
+
   .profile-security-form input {
     border: 2px solid var(--hair);
     border-radius: 10px;
-    padding: 10px 12px;
+    padding: 9px 12px;
     font: inherit;
     background: var(--paper);
   }
-  .profile-note {
-    margin: 20px 0 0;
-    color: var(--faint);
-    font-size: 14px;
-    max-width: 52ch;
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 640px) {
+    .profile-header {
+      margin-top: 20px;
+      padding: 16px;
+    }
+
+    .profile-header h1 {
+      font-size: 22px;
+    }
+
+    .profile-settings-section--row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 </style>
