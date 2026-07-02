@@ -1,0 +1,98 @@
+---
+export const prerender = false;
+
+import Layout from '../../../layouts/Layout.astro';
+import RichTextEditor from '../../../components/RichTextEditor.astro';
+import { getCategory, getMe, sessionFromCookieHeader } from '../../../lib/server-api';
+
+const { slug } = Astro.params;
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [data, user] = await Promise.all([
+  getCategory(slug!, 1, session),
+  getMe(session),
+]);
+
+if (!user) {
+  return Astro.redirect(`/join?next=/c/${slug}/new`);
+}
+---
+<Layout title={`New thread · ${data.category.name}`} site={data.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › <a href={data.category.url}>{data.category.name}</a>
+    › New thread
+  </div>
+
+  <section class="compose-card">
+    <h3>Start a discussion</h3>
+    <p>Posting in <strong>{data.category.name}</strong>. Select text and use the toolbar to format.</p>
+    <form id="new-thread-form" class="compose-form">
+      <input type="hidden" name="category_id" value={data.category.id} />
+      <label>
+        Title
+        <input type="text" name="title" required minlength="4" maxlength="200" placeholder="Odyssey vs Scotty on fast greens?" />
+      </label>
+      <RichTextEditor
+        id="thread-body"
+        label="Your post"
+        placeholder="Share your question or take…"
+        size="full"
+      />
+      <button type="submit" class="btn btn--pink">Post thread</button>
+      <p class="form-error" id="thread-error" hidden></p>
+    </form>
+  </section>
+</Layout>
+
+<script>
+  import { bindRichTextToolbars, hasEditorContent, prepareEditorMarkdown } from '../../../lib/rich-text-editor.ts';
+  bindRichTextToolbars();
+
+  document.getElementById('new-thread-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const errorEl = document.getElementById('thread-error');
+    const btn = form.querySelector('button[type="submit"]');
+    const editor = document.getElementById('thread-body');
+    errorEl.hidden = true;
+    btn.disabled = true;
+
+    if (!editor || !hasEditorContent(editor)) {
+      errorEl.textContent = 'Write something first';
+      errorEl.hidden = false;
+      btn.disabled = false;
+      return;
+    }
+
+    const fd = new FormData(form);
+    const body = Object.fromEntries(fd.entries());
+    try {
+      body.body_markdown = await prepareEditorMarkdown(editor);
+    } catch (err) {
+      errorEl.textContent = err instanceof Error ? err.message : 'Image upload failed';
+      errorEl.hidden = false;
+      btn.disabled = false;
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not create thread');
+      if (data.thread_url) {
+        window.location.href = data.thread_url;
+        return;
+      }
+      throw new Error('Thread created but no URL returned');
+    } catch (err) {
+      errorEl.textContent = err instanceof Error ? err.message : 'Could not create thread';
+      errorEl.hidden = false;
+      btn.disabled = false;
+    }
+  });
+</script>

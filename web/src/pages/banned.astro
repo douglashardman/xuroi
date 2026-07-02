@@ -1,0 +1,178 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { backendFetch, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+
+interface BanDetails {
+  ban_reason?: string;
+  banned_by?: string;
+  banned_until?: string;
+  ban_duration?: string;
+  is_ip_ban?: boolean;
+}
+
+let ban: BanDetails | null = null;
+const res = await backendFetch('/v1/auth/ban-status', {}, session);
+if (res.ok) {
+  const data = await res.json();
+  if (data.banned && data.ban) {
+    ban = data.ban as BanDetails;
+  }
+}
+
+const site = {
+  name: 'PutterTalk',
+  tagline: 'The putter community — back and better.',
+  url: Astro.url.origin,
+};
+
+function durationLabel(raw?: string) {
+  switch (raw) {
+    case '7d': return '7 days';
+    case '30d': return '30 days';
+    case 'permanent': return 'permanent';
+    default: return raw ?? 'restricted';
+  }
+}
+
+function expiresLabel(until?: string) {
+  if (!until) return 'Permanent — contact hello@puttertalk.com to appeal.';
+  const d = new Date(until);
+  return `Until ${d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`;
+}
+---
+<Layout title="Access restricted" site={site} user={null} noIndex={true} skipBanCheck={true}>
+  <div class="banned-page">
+    <div class="banned-card">
+      <div class="lab">Access restricted</div>
+      <h1>Your account is not permitted here right now.</h1>
+
+      {ban ? (
+        <>
+          {ban.ban_duration && (
+            <p class="banned-duration">Duration: <strong>{durationLabel(ban.ban_duration)}</strong></p>
+          )}
+          <p class="banned-expires">{expiresLabel(ban.banned_until)}</p>
+          {ban.ban_reason && (
+            <blockquote class="banned-message">
+              <span class="banned-message-label">Message from the moderation team</span>
+              {ban.ban_reason}
+            </blockquote>
+          )}
+          {ban.banned_by && (
+            <p class="banned-by">— {ban.banned_by}</p>
+          )}
+          {ban.is_ip_ban && (
+            <p class="form-hint">This restriction also applies to your network address.</p>
+          )}
+        </>
+      ) : (
+        <p>If you think this is a mistake, email <a href="mailto:hello@puttertalk.com">hello@puttertalk.com</a>.</p>
+      )}
+
+      <p class="banned-footer">
+        <a href="/">Return home</a>
+        · <a href="mailto:hello@puttertalk.com">Appeal</a>
+      </p>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  const KEY = 'pt-ban';
+  try {
+    const raw = sessionStorage.getItem(KEY);
+    if (raw) {
+      sessionStorage.removeItem(KEY);
+      const data = JSON.parse(raw);
+      const card = document.querySelector('.banned-card');
+      if (card && data.ban_reason) {
+        const label = (d: string) => ({ '7d': '7 days', '30d': '30 days', permanent: 'permanent' }[d] ?? d);
+        const expires = data.banned_until
+          ? `Until ${new Date(data.banned_until).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`
+          : 'Permanent — contact hello@puttertalk.com to appeal.';
+        const h1 = card.querySelector('h1');
+        if (h1) {
+          const wrap = document.createElement('div');
+          const dur = document.createElement('p');
+          dur.className = 'banned-duration';
+          dur.innerHTML = `Duration: <strong>${label(data.ban_duration ?? '')}</strong>`;
+          const exp = document.createElement('p');
+          exp.className = 'banned-expires';
+          exp.textContent = expires;
+          const msg = document.createElement('blockquote');
+          msg.className = 'banned-message';
+          const lbl = document.createElement('span');
+          lbl.className = 'banned-message-label';
+          lbl.textContent = 'Message from the moderation team';
+          msg.append(lbl, document.createTextNode(data.ban_reason));
+          wrap.append(dur, exp, msg);
+          if (data.banned_by) {
+            const by = document.createElement('p');
+            by.className = 'banned-by';
+            by.textContent = `— ${data.banned_by}`;
+            wrap.append(by);
+          }
+          h1.insertAdjacentElement('afterend', wrap);
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+</script>
+
+<style>
+  .banned-page {
+    display: grid;
+    place-items: center;
+    min-height: 50vh;
+    padding: 48px 0 80px;
+  }
+  .banned-card {
+    max-width: 560px;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    background: var(--surface);
+  }
+  .banned-card h1 {
+    font-size: 1.5rem;
+    margin: 8px 0 16px;
+  }
+  .banned-duration, .banned-expires {
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .banned-message {
+    margin: 20px 0 8px;
+    padding: 16px 18px;
+    border-left: 4px solid var(--pink);
+    background: var(--mist);
+    border-radius: 8px;
+    font-size: 1.05rem;
+    line-height: 1.5;
+  }
+  .banned-message-label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .banned-by {
+    color: var(--muted);
+    font-style: italic;
+    margin: 0;
+  }
+  .banned-footer {
+    margin-top: 24px;
+    font-size: 0.95rem;
+  }
+</style>

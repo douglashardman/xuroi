@@ -1,0 +1,147 @@
+---
+import '../styles/pt.css';
+import '../styles/pt-pages.css';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import ToastHost from '../components/ToastHost.astro';
+import WarningOverlay from '../components/WarningOverlay.astro';
+import type { ActiveWarning } from '../components/WarningOverlay.astro';
+import type { Site } from '../lib/api';
+import { backendFetch, sessionFromCookieHeader, type Actor } from '../lib/server-api';
+
+interface Props {
+  title: string;
+  description?: string;
+  site: Site;
+  navActive?: 'home' | 'community' | 'reviews';
+  user?: Actor | null;
+  jsonLd?: Record<string, unknown>;
+  shell?: 'forum' | 'marketing';
+  canonical?: string;
+  ogImage?: string;
+  ogType?: string;
+  noIndex?: boolean;
+  skipBanCheck?: boolean;
+}
+
+const {
+  title,
+  description,
+  site,
+  navActive = 'community',
+  user = null,
+  jsonLd,
+  shell = 'forum',
+  canonical,
+  ogImage,
+  ogType = 'website',
+  noIndex = false,
+  skipBanCheck = false,
+} = Astro.props;
+
+if (!skipBanCheck && !Astro.url.pathname.startsWith('/banned')) {
+  const session = sessionFromCookieHeader(Astro.request.headers.get('cookie'));
+  const banRes = await backendFetch('/v1/auth/ban-status', {}, session);
+  if (banRes.ok) {
+    const banData = await banRes.json();
+    if (banData.banned) {
+      return Astro.redirect('/banned');
+    }
+  }
+}
+const fullTitle = title === site.name ? title : `${title} · ${site.name}`;
+const metaDescription = description ?? site.tagline ?? site.name;
+const siteBase = site.url.replace(/\/$/, '');
+const canonicalUrl = canonical ?? new URL(Astro.url.pathname + Astro.url.search, siteBase + '/').href;
+const shareImage = ogImage ?? `${siteBase}/brand/pt-bug.svg`;
+
+let activeWarning: ActiveWarning | null = null;
+if (!skipBanCheck && !Astro.url.pathname.startsWith('/banned')) {
+  const session = sessionFromCookieHeader(Astro.request.headers.get('cookie'));
+  if (session) {
+    const meRes = await backendFetch('/v1/auth/me', {}, session);
+    if (meRes.ok) {
+      const me = await meRes.json();
+      if (me.active_warning) {
+        activeWarning = me.active_warning as ActiveWarning;
+      }
+    }
+  }
+}
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={metaDescription} />
+    <link rel="canonical" href={canonicalUrl} />
+    {noIndex && <meta name="robots" content="noindex, nofollow" />}
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:image" content={shareImage} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={metaDescription} />
+    <meta name="twitter:image" content={shareImage} />
+    <title>{fullTitle}</title>
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/brand/pt-bug.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    {jsonLd && (
+      <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    )}
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem('pt-theme');
+          if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    {activeWarning && <WarningOverlay warning={activeWarning} />}
+    <Nav active={navActive} user={user} />
+    {shell === 'marketing' ? <slot /> : (
+      <main class="wrap">
+        <slot />
+      </main>
+    )}
+    <Footer />
+    <ToastHost />
+    <script is:inline>
+      (function () {
+        var K = 'pt-theme';
+        function mark() {
+          var c;
+          try {
+            c = localStorage.getItem(K) || 'system';
+          } catch (e) {
+            c = 'system';
+          }
+          document.querySelectorAll('[data-theme-set]').forEach(function (b) {
+            b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-set') === c));
+          });
+        }
+        document.querySelectorAll('[data-theme-set]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var t = b.getAttribute('data-theme-set');
+            try {
+              localStorage.setItem(K, t);
+            } catch (e) {}
+            if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+            else document.documentElement.removeAttribute('data-theme');
+            mark();
+          });
+        });
+        mark();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+---
+export const prerender = false;
+
+const token = Astro.url.searchParams.get('token')?.trim() ?? '';
+if (!token) {
+  return Astro.redirect('/verify-email?verify=invalid');
+}
+
+const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/auth/email-verify/consume?token=${encodeURIComponent(token)}`);
+if (!res.ok) {
+  return Astro.redirect('/verify-email?verify=expired');
+}
+
+return Astro.redirect('/community?verified=1');
+---

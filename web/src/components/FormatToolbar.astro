@@ -1,0 +1,33 @@
+---
+interface Props {
+  targetId: string;
+  compact?: boolean;
+}
+
+const { targetId, compact = false } = Astro.props;
+---
+<div
+  class:list={['rt-toolbar', compact && 'rt-toolbar--compact']}
+  data-rt-target={targetId}
+  role="toolbar"
+  aria-label="Formatting"
+>
+  <button type="button" class="rt-btn" data-rt-action="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+  <button type="button" class="rt-btn" data-rt-action="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+  <button type="button" class="rt-btn" data-rt-action="link" title="Link">Link</button>
+  <span class="rt-toolbar-sep" aria-hidden="true"></span>
+  <button type="button" class="rt-btn" data-rt-action="ul" title="Bullet list">• List</button>
+  <button type="button" class="rt-btn" data-rt-action="ol" title="Numbered list">1. List</button>
+  <button type="button" class="rt-btn" data-rt-action="quote" title="Quote block">“ Quote</button>
+  <button type="button" class="rt-btn" data-rt-action="code" title="Code">{`</>`}</button>
+  <span class="rt-toolbar-sep" aria-hidden="true"></span>
+  <button type="button" class="rt-btn" data-rt-action="image" title="Add images">Images</button>
+  <input
+    type="file"
+    class="rt-image-input"
+    accept="image/jpeg,image/png,image/gif,image/webp"
+    multiple
+    data-rt-image-input={targetId}
+    hidden
+  />
+</div>

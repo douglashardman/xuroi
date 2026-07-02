@@ -1,0 +1,77 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome } from '../lib/api';
+import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, user] = await Promise.all([getHome(), getMe(session)]);
+---
+<Layout
+  title="Privacy Policy"
+  description="How PutterTalk collects, uses, and protects your information."
+  site={home.site}
+  user={user}
+  shell="marketing"
+  canonical={`${home.site.url.replace(/\/$/, '')}/privacy`}
+>
+  <main class="wrap legal-page">
+    <h1>Privacy Policy</h1>
+    <p class="legal-updated">Effective July 2, 2026 · PutterTalk LLC</p>
+
+    <section>
+      <h2>What we collect</h2>
+      <ul>
+        <li>Account info you provide: display name, email, password hash or passkey credentials.</li>
+        <li>Posts, reactions, and uploads you publish in the Community.</li>
+        <li>Technical data: IP address on posts (for abuse response), session cookies, server logs.</li>
+        <li>Email preferences, including per-thread mute settings.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How we use it</h2>
+      <p>
+        To run the forum: authentication, notifications you opt into, moderation, spam prevention, and backups.
+        We do not sell your personal information.
+      </p>
+    </section>
+
+    <section>
+      <h2>Email</h2>
+      <p>
+        Transactional email (verification, password reset, thread digests) is sent through our mail provider.
+        Every notification email includes an unsubscribe path. Account email is required for password-based sign-in.
+      </p>
+    </section>
+
+    <section>
+      <h2>Images</h2>
+      <p>
+        Uploaded photos are converted to WebP and EXIF metadata is stripped on save to reduce privacy risk from camera GPS and device tags.
+      </p>
+    </section>
+
+    <section>
+      <h2>Retention</h2>
+      <p>
+        Community posts persist until you or a moderator removes them. Backups are kept on a rolling schedule for disaster recovery.
+      </p>
+    </section>
+
+    <section>
+      <h2>Your choices</h2>
+      <p>
+        You may update your profile, mute thread emails, or request account deletion by contacting
+        <a href="mailto:hello@puttertalk.com">hello@puttertalk.com</a>.
+      </p>
+    </section>
+
+    <section>
+      <h2>Contact</h2>
+      <p>Privacy questions: <a href="mailto:hello@puttertalk.com">hello@puttertalk.com</a></p>
+    </section>
+  </main>
+</Layout>

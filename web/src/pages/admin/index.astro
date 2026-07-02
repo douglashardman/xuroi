@@ -1,0 +1,82 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { getHome } from '../../lib/api';
+import { getAdminOverview, getMe, sessionFromCookieHeader } from '../../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+if (!user?.is_admin) {
+  return Astro.redirect('/community');
+}
+
+const [home, overview] = await Promise.all([getHome(), getAdminOverview(session!)]);
+---
+<Layout title="Admin" site={home.site} user={user} noIndex={true} skipBanCheck={true}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Admin
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Site admin</h2>
+    <span class="lab">PutterTalk</span>
+  </div>
+
+  <div class="admin-stats">
+    <div class="admin-stat"><span class="n">{overview.members}</span><span class="l">Members</span></div>
+    <div class="admin-stat"><span class="n">{overview.threads}</span><span class="l">Threads</span></div>
+    <div class="admin-stat"><span class="n">{overview.posts}</span><span class="l">Posts</span></div>
+    <div class="admin-stat"><span class="n">{overview.open_reports}</span><span class="l">Open reports</span></div>
+    <div class="admin-stat"><span class="n">{overview.banned_users}</span><span class="l">Banned</span></div>
+  </div>
+
+  <div class="admin-links">
+    <a class="pillar c-pink" href="/admin/users">
+      <h3>Users</h3>
+      <p>Search members, ban or restore accounts.</p>
+      <span class="go">Manage users →</span>
+    </a>
+    <a class="pillar c-blue" href="/mod/reports">
+      <h3>Reports</h3>
+      <p>{overview.open_reports} open {overview.open_reports === 1 ? 'report' : 'reports'} in the queue.</p>
+      <span class="go">Open queue →</span>
+    </a>
+    <a class="pillar c-green" href="/admin/categories">
+      <h3>Categories</h3>
+      <p>{(home.groups ?? []).length} sections · {(home.categories ?? []).length} forums — manage groups and rooms.</p>
+      <span class="go">Manage categories →</span>
+    </a>
+  </div>
+</Layout>
+
+<style>
+  .admin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin: 16px 0 24px;
+  }
+  .admin-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .admin-stat .n {
+    display: block;
+    font: 700 1.5rem/1.2 Poppins, sans-serif;
+  }
+  .admin-stat .l {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .admin-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+</style>

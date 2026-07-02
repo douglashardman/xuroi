@@ -1,0 +1,10 @@
+{
+  "name": "PutterTalk",
+  "slug": "puttertalk",
+  "author": "Doug Hardman",
+  "contract_version": "1.0",
+  "description": "Flagship theme for PutterTalk relaunch. Premium, modern, built for gear talk.",
+  "status": "preview-ported",
+  "mockups": "preview-mockups/",
+  "notes": "Astro web ports pt.css + community/thread patterns from preview-mockups"
+}

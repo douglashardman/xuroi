@@ -1,0 +1,17 @@
+---
+import type { Pagination } from '../lib/api';
+
+interface Props {
+  pagination: Pagination;
+}
+
+const { pagination } = Astro.props;
+---
+{(pagination.prev_url || pagination.next_url) && (
+  <nav class="pager" aria-label="Pagination">
+    {pagination.prev_url ? <a href={pagination.prev_url}>← Newer</a> : <span />}
+    <span>Page {pagination.current} of {pagination.total}</span>
+    <span class="spacer" />
+    {pagination.next_url && <a href={pagination.next_url}>Older →</a>}
+  </nav>
+)}

@@ -1,0 +1,278 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import Pagination from '../../components/Pagination.astro';
+import Lightbox from '../../components/Lightbox.astro';
+import PostEditForm from '../../components/PostEditForm.astro';
+import ReplyForm from '../../components/ReplyForm.astro';
+import { formatDate } from '../../lib/api';
+import { threadJsonLd } from '../../lib/seo';
+import { getMe, getThread, sessionFromCookieHeader } from '../../lib/server-api';
+import { ACCENT_CLASSES, PAV_CLASSES, accentIndex, initials } from '../../lib/theme';
+
+const { thread: threadParam } = Astro.params;
+const sep = threadParam!.lastIndexOf('--');
+if (sep < 0) {
+  return Astro.redirect('/community');
+}
+const id = threadParam!.slice(sep + 2);
+const page = Number(Astro.url.searchParams.get('page') ?? '1');
+const quoteParam = Astro.url.searchParams.get('quote');
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [data, user] = await Promise.all([
+  getThread(id, page, session),
+  getMe(session),
+]);
+
+let quotePostId: string | null = null;
+let quoteAuthor: string | null = null;
+let quoteExcerpt: string | null = null;
+if (quoteParam) {
+  const quoted = data.posts.find((p) => p.id === quoteParam);
+  if (quoted) {
+    quotePostId = quoted.id;
+    quoteAuthor = quoted.author.name;
+    quoteExcerpt = quoted.quote?.excerpt ?? quoted.body_html.replace(/<[^>]+>/g, ' ').trim().slice(0, 200);
+  }
+}
+
+const jsonLd = threadJsonLd(data, data.site.url);
+---
+<Layout
+  title={data.thread.title}
+  description={`${data.thread.reply_count} replies in ${data.category.name} — ${data.site.name}`}
+  site={data.site}
+  user={user}
+  jsonLd={jsonLd}
+  ogType="article"
+  canonical={`${data.site.url.replace(/\/$/, '')}${data.thread.url}`}
+>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › <a href={data.category.url}>{data.category.name}</a>
+    › {data.thread.title}
+  </div>
+
+  <div class="thead">
+    <h1>{data.thread.title}</h1>
+    {data.thread.summary && (
+      <div class="thread-summary">
+        <strong>{data.ui?.summary_label ?? 'Summary'}</strong>
+        {data.thread.summary}
+      </div>
+    )}
+    <div
+      class="tmeta"
+      id="thread-tmeta"
+      data-pinned={data.thread.is_pinned ? '1' : '0'}
+      data-locked={data.thread.is_locked ? '1' : '0'}
+      data-reply-count={data.thread.reply_count}
+      data-started={formatDate(data.thread.created_at)}
+      data-last-activity={formatDate(data.thread.last_activity_at)}
+    >
+      {data.thread.reply_count} {data.thread.reply_count === 1 ? 'reply' : 'replies'}
+      · started {formatDate(data.thread.created_at)}
+      · last activity {formatDate(data.thread.last_activity_at)}
+      {data.thread.is_locked && ' · Locked'}
+      {data.thread.is_pinned && ' · Pinned'}
+    </div>
+    {(user?.is_admin || user?.is_moderator) && (
+      <div class="thread-modbar" data-thread-id={data.thread.id}>
+        <button type="button" class="post-action" data-thread-pin data-pinned={data.thread.is_pinned ? '1' : '0'}>
+          {data.thread.is_pinned ? 'Unpin' : 'Pin'}
+        </button>
+        <button type="button" class="post-action" data-thread-lock data-locked={data.thread.is_locked ? '1' : '0'}>
+          {data.thread.is_locked ? 'Unlock' : 'Lock'}
+        </button>
+        <button
+          type="button"
+          class="post-action"
+          data-thread-reports
+          data-report-count={data.ui?.open_report_count ?? 0}
+        >
+          Reports{(data.ui?.open_report_count ?? 0) > 0 ? ` (${data.ui?.open_report_count})` : ''}
+        </button>
+        <a class="post-action" href="/mod/reports">All reports</a>
+      </div>
+    )}
+  </div>
+
+  <div
+    id="thread-posts"
+    data-is-staff={(user?.is_admin || user?.is_moderator) ? '1' : '0'}
+    data-is-admin={user?.is_admin ? '1' : '0'}
+    data-can-perm-ban={user?.can_perm_ban ? '1' : '0'}
+  >
+  {data.posts.map((post) => {
+    const idx = accentIndex(post.id);
+    const excerpt = post.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    return (
+      <article class={`post ${ACCENT_CLASSES[idx]}`} id={`post-${post.id}`}>
+        <div class="pside">
+          <div
+            class={`pav ${PAV_CLASSES[idx]}${post.author.active_warning ? ' pav--warned' : ''}`}
+            title={post.author.active_warning ? 'Active warning' : undefined}
+          >
+            {initials(post.author.name)}
+          </div>
+          <div class="pname">
+            <a href={post.author.url}>{post.author.name}</a>
+          </div>
+          {post.author.is_agent && <div class="prole agent-badge">Agent</div>}
+          {post.is_op && <div class="prole">Original post</div>}
+          {post.author.karma > 0 && (
+            <div class="pkarma">{post.author.karma.toLocaleString()} karma</div>
+          )}
+        </div>
+        <div class="pbody">
+          <div class="pdate">
+            <time datetime={post.created_at}>{formatDate(post.created_at)}</time>
+            {post.edited_at && (post.can_edit || user?.is_admin) ? (
+              <button type="button" class="post-edited-stamp" data-history={post.id} title="View edit history">
+                Edited
+              </button>
+            ) : post.edited_at ? (
+              <span class="post-edited-stamp" title={`Last edited ${formatDate(post.edited_at)}`}>
+                Edited
+              </span>
+            ) : null}
+          </div>
+          {post.quote && (
+            <a href={post.quote.url} class="post-quote-link" title="Jump to quoted post">
+              <blockquote class="post-quote">
+                <cite>{post.quote.author_name} wrote:</cite>
+                {post.quote.excerpt}
+              </blockquote>
+            </a>
+          )}
+          <div class="post-body" data-post-body={post.id} set:html={post.body_html} />
+          {post.can_edit && <PostEditForm postId={post.id} />}
+          <div class="post-actions">
+            {post.can_edit && (
+              <button type="button" class="post-action" data-edit={post.id}>
+                Edit
+              </button>
+            )}
+            {post.can_delete && (
+              <button type="button" class="post-action post-action--danger" data-delete={post.id}>
+                Delete
+              </button>
+            )}
+            {user && (
+              <button
+                type="button"
+                class="post-action"
+                data-quote={post.id}
+                data-quote-author={post.author.name}
+                data-quote-excerpt={excerpt}
+              >
+                Quote
+              </button>
+            )}
+            {user && (
+              <button type="button" class="post-action post-action--muted" data-report={post.id}>
+                Report
+              </button>
+            )}
+            {(user?.is_admin || user?.is_moderator) && (
+              <>
+                <button
+                  type="button"
+                  class="post-action post-action--warn"
+                  data-warn={post.id}
+                  disabled={post.is_warned}
+                  title={post.is_warned ? 'Already warned' : 'Warn author about this post'}
+                >
+                  {post.is_warned ? 'Warned' : 'Warn'}
+                </button>
+                <button type="button" class="post-mod" data-mod={post.id} title="Moderator tools">
+                  Mod
+                </button>
+                <button type="button" class="post-action post-action--danger" data-remove={post.id} title="Remove this post">
+                  Remove
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              class={`post-like ${post.reacted_by_me ? 'is-liked' : ''}`}
+              data-post-id={post.id}
+              data-liked={post.reacted_by_me ? '1' : '0'}
+              disabled={!user}
+              title={user ? 'Like this post' : 'Sign in to like'}
+            >
+              ♥ <span class="like-count">{post.reaction_count}</span>
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  })}
+  <div id="thread-posts-end"></div>
+  </div>
+
+  <Pagination pagination={data.pagination} />
+
+  <ReplyForm
+    threadId={data.thread.id}
+    threadUrl={data.thread.url}
+    signedIn={!!user}
+    isAdmin={!!user?.is_admin}
+    onLastPage={data.pagination.current >= data.pagination.total}
+    locked={data.thread.is_locked}
+    quotePostId={quotePostId}
+    quoteAuthor={quoteAuthor}
+    quoteExcerpt={quoteExcerpt}
+  />
+
+  <Lightbox />
+</Layout>
+
+{user && (
+  <div class="mod-panel" id="mod-panel" hidden>
+    <div class="mod-panel-inner mod-panel-inner--wide">
+      <button type="button" class="mod-panel-close" id="mod-panel-close" aria-label="Close">×</button>
+      <h3 id="mod-panel-title">Details</h3>
+      <div class="mod-panel-body" id="mod-panel-body"></div>
+    </div>
+  </div>
+)}
+
+<script>
+  import { initThreadInteractions } from '../../lib/thread-interactions.ts';
+
+  const modPanel = document.getElementById('mod-panel');
+  const modBody = document.getElementById('mod-panel-body');
+  const modTitle = document.getElementById('mod-panel-title');
+  function openPanel(title, html) {
+    if (!modPanel || !modBody) return;
+    if (modTitle) modTitle.textContent = title;
+    modBody.innerHTML = html;
+    modPanel.hidden = false;
+  }
+  function closeModPanel() {
+    if (modPanel) modPanel.hidden = true;
+  }
+  document.getElementById('mod-panel-close')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeModPanel();
+  });
+  modPanel?.querySelector('.mod-panel-inner')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+  modPanel?.addEventListener('click', () => closeModPanel());
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modPanel && !modPanel.hidden) closeModPanel();
+  });
+
+  initThreadInteractions(openPanel);
+
+  const hash = window.location.hash;
+  if (hash) {
+    const el = document.querySelector(hash);
+    el?.scrollIntoView({ block: 'end', behavior: 'instant' });
+  }
+</script>

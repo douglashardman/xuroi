@@ -1,0 +1,87 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { formatDate } from '../../lib/api';
+import { getHome } from '../../lib/api';
+import { getMe, getModReports, sessionFromCookieHeader } from '../../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+
+if (!user?.is_admin && !user?.is_moderator) {
+  return Astro.redirect('/community');
+}
+
+const [home, reports] = await Promise.all([
+  getHome(),
+  getModReports(session!, { limit: 100 }),
+]);
+---
+<Layout title="Report queue" site={home.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Mod tools
+    › Reports
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Report queue</h2>
+    <span class="lab">{reports.length} open {reports.length === 1 ? 'report' : 'reports'}</span>
+  </div>
+
+  {reports.length === 0 ? (
+    <p class="mod-empty">No open reports — nice and quiet.</p>
+  ) : (
+    <div class="mod-report-list">
+      {reports.map((rep) => (
+        <article class="mod-report-card" data-report-id={rep.id}>
+          <div class="mod-report-meta">
+            <time datetime={rep.created_at}>{formatDate(rep.created_at)}</time>
+            · reported by <strong>{rep.reporter_name}</strong>
+          </div>
+          <h3 class="mod-report-thread">
+            <a href={rep.thread_url}>{rep.thread_title}</a>
+          </h3>
+          <p class="mod-report-excerpt">
+            <a href={rep.post_url}><strong>{rep.post_author}</strong>: {rep.post_excerpt}</a>
+          </p>
+          {rep.reason && (
+            <blockquote class="mod-report-reason">{rep.reason}</blockquote>
+          )}
+          <div class="mod-report-actions">
+            <a class="btn btn--sm" href={rep.post_url}>View post</a>
+            <button type="button" class="btn btn--sm btn--ghost" data-dismiss={rep.id}>
+              Dismiss
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
+  )}
+</Layout>
+
+<script>
+  import { showToast } from '../../lib/toast';
+
+  document.querySelectorAll('[data-dismiss]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-dismiss');
+      if (!id) return;
+      btn.setAttribute('disabled', 'true');
+      try {
+        const res = await fetch(`/api/admin/reports/${id}/dismiss`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Dismiss failed');
+        const card = btn.closest('[data-report-id]');
+        card?.classList.add('mod-report-card--out');
+        window.setTimeout(() => card?.remove(), 220);
+        showToast('Report dismissed', 'success');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Dismiss failed', 'error');
+        btn.removeAttribute('disabled');
+      }
+    });
+  });
+</script>

@@ -1,0 +1,71 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import Pagination from '../../components/Pagination.astro';
+import { formatDate } from '../../lib/api';
+import { getCategory, getMe, sessionFromCookieHeader } from '../../lib/server-api';
+import { ACCENT_VARS } from '../../lib/theme';
+
+const { slug } = Astro.params;
+const page = Number(Astro.url.searchParams.get('page') ?? '1');
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+let data;
+try {
+  data = await getCategory(slug!, page, session);
+} catch (err) {
+  const msg = err instanceof Error ? err.message : '';
+  if (msg.includes('403')) {
+    return Astro.redirect(`/forbidden?forum=${encodeURIComponent(slug!)}`);
+  }
+  throw err;
+}
+const user = await getMe(session);
+const threads = data.threads ?? [];
+---
+<Layout title={data.category.name} description={data.category.description} site={data.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a> › {data.category.name}
+  </div>
+
+  <div class="shead" style="margin-top:12px">
+    <h2>{data.category.name}</h2>
+    <span class="lab">{data.category.thread_count} threads</span>
+    {user ? (
+      <a href={`/c/${slug}/new`}>New thread →</a>
+    ) : (
+      <a href="/community">All forums →</a>
+    )}
+  </div>
+
+  {data.category.description && (
+    <p style="color:var(--muted);margin:0 0 24px;max-width:60ch">{data.category.description}</p>
+  )}
+
+  {threads.length === 0 ? (
+    <div class="empty-state">No threads yet — be the first to post.</div>
+  ) : (
+    <div class="threads">
+      {threads.map((thread, i) => (
+        <a class="thr" href={thread.url}>
+          <span class="dot" style={`background:${ACCENT_VARS[i % 3]}`}></span>
+          <div>
+            <div class="t">
+              {thread.title}
+              {thread.is_pinned && ' 📌'}
+              {thread.is_locked && ' 🔒'}
+            </div>
+            <div class="sub">by {thread.author_name}</div>
+          </div>
+          <span class="rep">
+            {thread.reply_count} {thread.reply_count === 1 ? 'reply' : 'replies'}
+            · {formatDate(thread.last_activity_at)}
+          </span>
+        </a>
+      ))}
+    </div>
+  )}
+
+  <Pagination pagination={data.pagination} />
+</Layout>

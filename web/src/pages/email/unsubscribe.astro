@@ -1,0 +1,58 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { getHome } from '../../lib/api';
+import { backendFetch } from '../../lib/server-api';
+
+const token = Astro.url.searchParams.get('token')?.trim() ?? '';
+const data = await getHome();
+
+let status: 'missing' | 'ok' | 'error' = 'missing';
+let message = 'This unsubscribe link is missing or invalid.';
+let threadTitle = '';
+
+if (token) {
+  const res = await backendFetch(`/v1/email/unsubscribe?token=${encodeURIComponent(token)}`);
+  const body = await res.json();
+  if (res.ok) {
+    status = 'ok';
+    threadTitle = body.thread_title ?? '';
+    message = body.message ?? 'You will no longer receive emails about this thread.';
+  } else {
+    status = 'error';
+    message = body.error ?? 'This link expired or is invalid.';
+  }
+}
+---
+<Layout title="Email preferences" site={data.site} user={null}>
+  <div class="shead" style="margin-top:40px">
+    <h2>{status === 'ok' ? 'Unsubscribed' : 'Email unsubscribe'}</h2>
+    <span class="lab">{status === 'ok' ? 'Done' : 'One click'}</span>
+  </div>
+
+  <section class="auth-card">
+    {status === 'ok' && threadTitle && (
+      <p class="form-success">You won't get more emails about <strong>{threadTitle}</strong>.</p>
+    )}
+    <p class={status === 'ok' ? 'form-success' : status === 'error' ? 'form-error' : ''}>{message}</p>
+    <p class="auth-footer"><a href="/community">Back to the community</a></p>
+  </section>
+</Layout>
+
+<style>
+  .auth-card {
+    max-width: 480px;
+    border: var(--line);
+    border-radius: 18px;
+    padding: 28px;
+    background: var(--card);
+    box-shadow: 6px 6px 0 var(--pink);
+    margin-bottom: 40px;
+  }
+  .auth-card p { color: var(--muted); margin: 0 0 14px; font-size: 15px; }
+  .form-success { color: #0a7a3e !important; font-weight: 600; }
+  .form-error { color: var(--pink) !important; font-weight: 600; }
+  .auth-footer { margin: 20px 0 0; font-size: 14px; }
+  .auth-footer a { color: var(--pink); font-weight: 600; text-decoration: none; }
+</style>

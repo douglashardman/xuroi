@@ -1,0 +1,44 @@
+{
+  "site": { "name": "PutterTalk", "url": "https://puttertalk.com" },
+  "category": {
+    "name": "Equipment & Reviews",
+    "slug": "equipment",
+    "description": "Putters, grips, shafts, weights — reviews and comparisons.",
+    "url": "/c/equipment",
+    "thread_count": 1247
+  },
+  "threads": [
+    {
+      "id": "t_8f3a2b",
+      "title": "Odyssey White Hot OG #7 vs Scotty Cameron Special Select Newport 2",
+      "url": "/t/odyssey-white-hot-vs-scotty-newport--8f3a2b",
+      "author_name": "doug",
+      "reply_count": 47,
+      "view_count": 3204,
+      "last_activity_at": "2026-06-28T09:11:00Z",
+      "is_pinned": false,
+      "has_summary": true
+    },
+    {
+      "id": "t_7a1c9d",
+      "title": "Best grip for humid climates?",
+      "url": "/t/best-grip-humid-climates--7a1c9d",
+      "author_name": "sweaty_hands",
+      "reply_count": 23,
+      "view_count": 891,
+      "last_activity_at": "2026-06-27T18:30:00Z",
+      "is_pinned": false,
+      "has_summary": true
+    }
+  ],
+  "pagination": {
+    "current": 1,
+    "total": 63,
+    "prev_url": null,
+    "next_url": "/c/equipment?page=2"
+  },
+  "breadcrumbs": [
+    { "label": "Home", "url": "/" },
+    { "label": "Equipment & Reviews", "url": null }
+  ]
+}

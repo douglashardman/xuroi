@@ -1,0 +1,72 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome } from '../lib/api';
+import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+if (!user) {
+  return Astro.redirect('/join');
+}
+if (user.email_verified) {
+  return Astro.redirect('/community');
+}
+const home = await getHome();
+---
+<Layout
+  title="Confirm your email"
+  site={home.site}
+  user={user}
+  noIndex={true}
+>
+  <div class="shead" style="margin-top:40px">
+    <h2>Check your inbox</h2>
+    <span class="lab">one more step</span>
+  </div>
+
+  <div class="join-card" style="max-width:560px">
+    <p>
+      We sent a confirmation link to <strong>{user.email}</strong>.
+      Click it to unlock posting, replies, and image uploads.
+    </p>
+    <p class="form-hint">Link expires in 48 hours. Check spam if you do not see it within a few minutes.</p>
+    <button type="button" class="btn btn--pink" id="resend-verify">Resend confirmation email</button>
+    <p class="form-success" id="resend-success" hidden>Sent — check your inbox.</p>
+    <p class="form-error" id="resend-error" hidden></p>
+    <p class="form-hint" style="margin-top:16px">
+      <a href="/community">Browse the Community</a> while you wait — reading works without confirmation.
+    </p>
+  </div>
+</Layout>
+
+<script>
+  import { showToast } from '../lib/toast';
+
+  const btn = document.getElementById('resend-verify');
+  const ok = document.getElementById('resend-success');
+  const err = document.getElementById('resend-error');
+
+  btn?.addEventListener('click', async () => {
+    ok?.setAttribute('hidden', '');
+    err?.setAttribute('hidden', '');
+    btn.setAttribute('disabled', '');
+    try {
+      const res = await fetch('/api/auth/email-verify/resend', { method: 'POST', credentials: 'include' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? 'Could not send');
+      ok?.removeAttribute('hidden');
+      showToast('Confirmation email sent');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not send';
+      if (err) {
+        err.textContent = msg;
+        err.removeAttribute('hidden');
+      }
+    } finally {
+      btn.removeAttribute('disabled');
+    }
+  });
+</script>

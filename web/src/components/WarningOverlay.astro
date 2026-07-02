@@ -1,0 +1,110 @@
+---
+export interface ActiveWarning {
+  message: string;
+  warned_by: string;
+  expires_at: string;
+  warning_count: number;
+  strike_number: number;
+}
+
+interface Props {
+  warning: ActiveWarning;
+}
+
+const { warning } = Astro.props;
+const expires = new Date(warning.expires_at).toLocaleString('en-US', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+---
+<div class="warn-overlay" role="alert" aria-live="assertive">
+  <div class="warn-frame" aria-hidden="true"></div>
+  <div class="warn-banner">
+    <div class="warn-banner-inner">
+      <strong>⚠ You have been warned</strong>
+      <span class="warn-strike">Warning {warning.strike_number} of 3</span>
+      {warning.strike_number === 1 && (
+        <span class="warn-next">— three strikes total triggers a 7-day ban</span>
+      )}
+      {warning.strike_number === 2 && (
+        <span class="warn-next warn-next--urgent">— next warning is an automatic 7-day ban</span>
+      )}
+    </div>
+    <p class="warn-message">{warning.message}</p>
+    <p class="warn-meta">
+      — {warning.warned_by} · visible until {expires}
+    </p>
+  </div>
+</div>
+
+<style>
+  .warn-overlay {
+    pointer-events: none;
+  }
+  .warn-frame {
+    position: fixed;
+    inset: 0;
+    border: 5px solid #c41e1e;
+    box-shadow: inset 0 0 0 2px rgba(196, 30, 30, 0.35), 0 0 24px rgba(196, 30, 30, 0.25);
+    z-index: 9998;
+    pointer-events: none;
+  }
+  .warn-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: linear-gradient(180deg, #b91c1c 0%, #991b1b 100%);
+    color: #fff;
+    padding: 12px 20px 14px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    pointer-events: auto;
+  }
+  .warn-banner-inner {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px 12px;
+    font-size: 1rem;
+  }
+  .warn-strike {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .warn-next {
+    font-size: 0.9rem;
+    opacity: 0.92;
+  }
+  .warn-next--urgent {
+    font-weight: 700;
+  }
+  .warn-message {
+    margin: 10px auto 4px;
+    max-width: 720px;
+    font-size: 1.05rem;
+    line-height: 1.45;
+  }
+  .warn-meta {
+    margin: 0;
+    font-size: 0.8rem;
+    opacity: 0.85;
+  }
+  :global(body.has-warning) {
+    padding-top: var(--warn-banner-offset, 7.5rem);
+  }
+</style>
+
+<script>
+  document.body.classList.add('has-warning');
+  const banner = document.querySelector('.warn-banner');
+  if (banner instanceof HTMLElement) {
+    const h = banner.offsetHeight;
+    document.body.style.setProperty('--warn-banner-offset', `${h}px`);
+  }
+</script>

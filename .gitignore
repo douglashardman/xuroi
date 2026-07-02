@@ -1,0 +1,22 @@
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+*.log
+
+# Go
+*.exe
+*.test
+api/xuroi
+
+# Astro / Node
+web/node_modules/
+web/dist/
+web/.astro/
+
+# Runtime uploads & backups (keep directory placeholders)
+infra/uploads/*
+!infra/uploads/.gitignore
+infra/backups/*
+!infra/backups/.gitignore

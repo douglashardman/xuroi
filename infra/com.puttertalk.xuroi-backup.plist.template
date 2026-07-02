@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.puttertalk.xuroi-backup</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__BACKUP_SCRIPT__</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>21600</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>__LOG_DIR__/backup.log</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG_DIR__/backup.err.log</string>
+</dict>
+</plist>

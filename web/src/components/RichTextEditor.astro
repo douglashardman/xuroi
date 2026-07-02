@@ -1,0 +1,38 @@
+---
+import FormatToolbar from './FormatToolbar.astro';
+
+interface Props {
+  id: string;
+  label?: string;
+  placeholder?: string;
+  size?: 'compact' | 'full';
+}
+
+const {
+  id,
+  label = 'Your message',
+  placeholder = 'Write here…',
+  size = 'compact',
+} = Astro.props;
+---
+<div class="rt-editor">
+  {label && <div class="rt-editor-label">{label}</div>}
+  <FormatToolbar targetId={id} compact={size === 'compact'} />
+  <div class="rt-attachments" data-rt-attachments={id} hidden>
+    <span class="rt-attachments-label">Attached images</span>
+    <div class="rt-attachments-list"></div>
+  </div>
+  <div
+    id={id}
+    class:list={['rt-editor-area', size === 'full' && 'rt-editor-area--full']}
+    contenteditable="true"
+    role="textbox"
+    aria-multiline="true"
+    data-placeholder={placeholder}
+  ></div>
+</div>
+
+<script>
+  import { bindRichTextToolbars } from '../lib/rich-text-editor.ts';
+  bindRichTextToolbars();
+</script>

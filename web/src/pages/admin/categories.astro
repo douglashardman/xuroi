@@ -1,0 +1,448 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { getHome } from '../../lib/api';
+import { getAccessLevels, getAdminCategories, getMe, sessionFromCookieHeader } from '../../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+if (!user?.is_admin) {
+  return Astro.redirect('/community');
+}
+
+const [home, tree, accessCatalog] = await Promise.all([
+  getHome(),
+  getAdminCategories(session!),
+  getAccessLevels(session!),
+]);
+const groups = tree.groups ?? [];
+const forumCount = (tree.categories ?? []).length;
+const accessLevels = accessCatalog.levels ?? [];
+---
+<Layout title="Categories" site={home.site} user={user} noIndex={true} skipBanCheck={true}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › <a href="/admin">Admin</a>
+    › Categories
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Categories</h2>
+    <span class="lab">{groups.length} sections · {forumCount} forums</span>
+    <button type="button" class="btn btn--sm" id="add-group-btn">Add section</button>
+  </div>
+
+  <div class="admin-cat-list" id="cat-tree">
+    {groups.length === 0 ? (
+      <p class="mod-empty">No categories yet. Add a section to get started.</p>
+    ) : (
+      groups.map((group) => (
+        <section class="admin-cat-group" data-group-id={group.id}>
+          <div class="admin-cat-group-head">
+            <div>
+              <strong>{group.name}</strong>
+              <span class="lab">{group.forums.length} forums</span>
+            </div>
+            <div class="admin-cat-actions">
+              <button
+                type="button"
+                class="btn btn--sm btn--ghost"
+                data-edit-group={group.id}
+                data-name={group.name}
+                data-slug={group.slug}
+                data-description={group.description}
+                data-sort={group.sort_order}
+              >Edit section</button>
+              <button
+                type="button"
+                class="btn btn--sm btn--ghost"
+                data-add-forum={group.id}
+                data-group-name={group.name}
+              >Add forum</button>
+            </div>
+          </div>
+          <ul class="admin-cat-forums">
+            {group.forums.map((forum) => (
+              <li class="admin-cat-forum" data-forum-id={forum.id}>
+                <div>
+                  <a href={forum.url}><strong>{forum.name}</strong></a>
+                  <span class="lab">/{forum.slug}</span>
+                  {forum.access_level && forum.access_level !== 'public' && (
+                    <>
+                      <span class="access-badge">{accessLevels.find((l) => l.id === forum.access_level)?.label ?? forum.access_level}</span>
+                      <span class={`vis-badge ${forum.list_public ? 'vis-badge--listed' : 'vis-badge--hidden'}`}>
+                        {forum.list_public ? 'Listed' : 'Hidden'}
+                      </span>
+                    </>
+                  )}
+                  {forum.description && <p>{forum.description}</p>}
+                  <span class="lab">{forum.thread_count} threads · {forum.post_count} posts</span>
+                </div>
+                <div class="admin-cat-actions">
+                  <button
+                    type="button"
+                    class="btn btn--sm btn--ghost"
+                    data-edit-forum={forum.id}
+                    data-name={forum.name}
+                    data-slug={forum.slug}
+                    data-description={forum.description}
+                    data-sort={forum.sort_order}
+                    data-parent={group.id}
+                    data-access-level={forum.access_level ?? 'public'}
+                    data-list-public={forum.list_public ? '1' : '0'}
+                  >Edit</button>
+                  <button
+                    type="button"
+                    class="btn btn--sm btn--ghost"
+                    data-delete={forum.id}
+                    data-name={forum.name}
+                    disabled={forum.thread_count > 0}
+                    title={forum.thread_count > 0 ? 'Move or delete threads first' : 'Delete empty forum'}
+                  >Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    )}
+  </div>
+
+  <dialog id="cat-dialog" class="admin-dialog">
+    <form method="dialog" id="cat-form">
+      <h3 id="cat-dialog-title">Category</h3>
+      <input type="hidden" name="id" id="cat-id" />
+      <input type="hidden" name="parent_id" id="cat-parent-id" />
+      <label>
+        Name
+        <input type="text" name="name" id="cat-name" required />
+      </label>
+      <label>
+        Slug
+        <input type="text" name="slug" id="cat-slug" required pattern="[a-z0-9-]+" />
+      </label>
+      <label>
+        Description
+        <textarea name="description" id="cat-description" rows="3"></textarea>
+      </label>
+      <label>
+        Sort order
+        <input type="number" name="sort_order" id="cat-sort" min="1" value="1" />
+      </label>
+      <label id="cat-access-wrap">
+        Access
+        <select name="access_level" id="cat-access">
+          {accessLevels.map((level) => (
+            <option value={level.id}>{level.label}</option>
+          ))}
+        </select>
+      </label>
+      <label id="cat-list-public-wrap" class="check-label">
+        <input type="checkbox" id="cat-list-public" />
+        Show on community index
+        <span class="check-hint">When checked, members without access see a locked row. When unchecked, the forum is hidden until they qualify.</span>
+      </label>
+      <div class="admin-dialog-actions">
+        <button type="button" class="btn btn--ghost" id="cat-cancel">Cancel</button>
+        <button type="submit" class="btn btn--pink" id="cat-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+</Layout>
+
+<script>
+  const dialog = document.getElementById('cat-dialog') as HTMLDialogElement;
+  const form = document.getElementById('cat-form') as HTMLFormElement;
+  const titleEl = document.getElementById('cat-dialog-title')!;
+  const idEl = document.getElementById('cat-id') as HTMLInputElement;
+  const parentEl = document.getElementById('cat-parent-id') as HTMLInputElement;
+  const nameEl = document.getElementById('cat-name') as HTMLInputElement;
+  const slugEl = document.getElementById('cat-slug') as HTMLInputElement;
+  const descEl = document.getElementById('cat-description') as HTMLTextAreaElement;
+  const sortEl = document.getElementById('cat-sort') as HTMLInputElement;
+  const accessEl = document.getElementById('cat-access') as HTMLSelectElement;
+  const accessWrap = document.getElementById('cat-access-wrap')!;
+  const listPublicWrap = document.getElementById('cat-list-public-wrap')!;
+  const listPublicEl = document.getElementById('cat-list-public') as HTMLInputElement;
+  let mode: 'create' | 'edit' = 'create';
+  let listPublicTouched = false;
+
+  function defaultListPublic(level: string) {
+    return level !== 'staff' && level !== 'admin';
+  }
+
+  function syncListPublicUI() {
+    const restricted = !!parentEl.value && accessEl.value !== 'public';
+    listPublicWrap.style.display = restricted ? '' : 'none';
+    if (restricted && !listPublicTouched) {
+      listPublicEl.checked = defaultListPublic(accessEl.value);
+    }
+  }
+
+  function slugify(value: string) {
+    return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  function openDialog(opts: {
+    mode: 'create' | 'edit';
+    kind: 'group' | 'forum';
+    id?: string;
+    parentId?: string;
+    name?: string;
+    slug?: string;
+    description?: string;
+    sortOrder?: number;
+    accessLevel?: string;
+    listPublic?: boolean;
+  }) {
+    mode = opts.mode;
+    listPublicTouched = opts.mode === 'edit';
+    idEl.value = opts.id ?? '';
+    parentEl.value = opts.parentId ?? '';
+    nameEl.value = opts.name ?? '';
+    slugEl.value = opts.slug ?? '';
+    descEl.value = opts.description ?? '';
+    sortEl.value = String(opts.sortOrder ?? 1);
+    accessWrap.style.display = opts.kind === 'forum' ? '' : 'none';
+    accessEl.value = opts.accessLevel ?? 'public';
+    listPublicEl.checked = opts.listPublic ?? defaultListPublic(accessEl.value);
+    syncListPublicUI();
+    titleEl.textContent =
+      opts.mode === 'create'
+        ? opts.kind === 'group'
+          ? 'Add section'
+          : 'Add forum'
+        : opts.kind === 'group'
+          ? 'Edit section'
+          : 'Edit forum';
+    dialog.showModal();
+  }
+
+  nameEl.addEventListener('input', () => {
+    if (mode === 'create' && !slugEl.dataset.touched) {
+      slugEl.value = slugify(nameEl.value);
+    }
+  });
+  slugEl.addEventListener('input', () => {
+    slugEl.dataset.touched = '1';
+  });
+
+  accessEl.addEventListener('change', () => {
+    listPublicTouched = false;
+    syncListPublicUI();
+  });
+  listPublicEl.addEventListener('change', () => {
+    listPublicTouched = true;
+  });
+
+  document.getElementById('add-group-btn')?.addEventListener('click', () => {
+    slugEl.dataset.touched = '';
+    listPublicTouched = false;
+    openDialog({ mode: 'create', kind: 'group', sortOrder: document.querySelectorAll('.admin-cat-group').length + 1 });
+  });
+
+  document.getElementById('cat-tree')?.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const editGroup = t.closest('[data-edit-group]') as HTMLElement | null;
+    if (editGroup) {
+      openDialog({
+        mode: 'edit',
+        kind: 'group',
+        id: editGroup.dataset.editGroup,
+        name: editGroup.dataset.name,
+        slug: editGroup.dataset.slug,
+        description: editGroup.dataset.description,
+        sortOrder: Number(editGroup.dataset.sort),
+      });
+      return;
+    }
+    const addForum = t.closest('[data-add-forum]') as HTMLElement | null;
+    if (addForum) {
+      slugEl.dataset.touched = '';
+      listPublicTouched = false;
+      const groupEl = addForum.closest('.admin-cat-group');
+      const count = groupEl?.querySelectorAll('.admin-cat-forum').length ?? 0;
+      openDialog({
+        mode: 'create',
+        kind: 'forum',
+        parentId: addForum.dataset.addForum,
+        sortOrder: count + 1,
+      });
+      return;
+    }
+    const editForum = t.closest('[data-edit-forum]') as HTMLElement | null;
+    if (editForum) {
+      openDialog({
+        mode: 'edit',
+        kind: 'forum',
+        id: editForum.dataset.editForum,
+        parentId: editForum.dataset.parent,
+        name: editForum.dataset.name,
+        slug: editForum.dataset.slug,
+        description: editForum.dataset.description,
+        sortOrder: Number(editForum.dataset.sort),
+        accessLevel: editForum.dataset.accessLevel,
+        listPublic: editForum.dataset.listPublic === '1',
+      });
+      return;
+    }
+    const del = t.closest('[data-delete]') as HTMLElement | null;
+    if (del && !del.hasAttribute('disabled')) {
+      const id = del.dataset.delete;
+      const name = del.dataset.name;
+      if (!id || !confirm(`Delete forum "${name}"? This cannot be undone.`)) return;
+      fetch(`/api/admin/categories/${id}`, { method: 'DELETE' })
+        .then((res) => res.json().then((body) => ({ res, body })))
+        .then(({ res, body }) => {
+          if (!res.ok) throw new Error(body.error ?? 'Delete failed');
+          location.reload();
+        })
+        .catch((err) => alert(err.message));
+    }
+  });
+
+  document.getElementById('cat-cancel')?.addEventListener('click', () => dialog.close());
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      name: nameEl.value.trim(),
+      slug: slugEl.value.trim(),
+      description: descEl.value.trim(),
+      sort_order: Number(sortEl.value) || 1,
+      parent_id: parentEl.value || null,
+      access_level: parentEl.value ? accessEl.value : 'public',
+      list_public: parentEl.value && accessEl.value !== 'public' ? listPublicEl.checked : true,
+    };
+    const id = idEl.value;
+    const url = id ? `/api/admin/categories/${id}` : '/api/admin/categories';
+    const method = id ? 'PATCH' : 'POST';
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? 'Save failed');
+      location.reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Save failed');
+    }
+  });
+</script>
+
+<style>
+  .admin-cat-list {
+    display: grid;
+    gap: 20px;
+    margin-top: 16px;
+  }
+  .admin-cat-group {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .admin-cat-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .admin-cat-group-head .lab {
+    margin-left: 8px;
+    opacity: 0.75;
+  }
+  .admin-cat-forums {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .admin-cat-forum {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--hair);
+  }
+  .admin-cat-forum p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .admin-cat-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .admin-dialog {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    max-width: 420px;
+    width: calc(100% - 32px);
+  }
+  .admin-dialog form {
+    padding: 20px;
+    display: grid;
+    gap: 12px;
+  }
+  .admin-dialog label {
+    display: grid;
+    gap: 4px;
+    font-size: 0.9rem;
+  }
+  .admin-dialog input,
+  .admin-dialog textarea {
+    font: inherit;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+  }
+  .access-badge,
+  .vis-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--mist);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .vis-badge--listed {
+    color: #7c3aed;
+    background: #f5f3ff;
+  }
+  .vis-badge--hidden {
+    color: var(--muted);
+    background: var(--hair);
+  }
+  .check-label {
+    display: grid;
+    gap: 4px;
+    font-size: 0.9rem;
+  }
+  .check-label input {
+    width: auto;
+    margin-right: 6px;
+  }
+  .check-hint {
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+  .admin-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+  }
+</style>

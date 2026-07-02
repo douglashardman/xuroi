@@ -1,0 +1,54 @@
+---
+import type { Actor } from '../lib/server-api';
+import { initials, userURL } from '../lib/theme';
+
+interface Props {
+  active?: 'home' | 'community' | 'reviews';
+  user?: Actor | null;
+  guestCta?: 'join' | 'signin';
+}
+
+const { active, user, guestCta = 'join' } = Astro.props;
+---
+<nav>
+  <div class="wrap nav">
+    <a href="/">
+      <img class="logo" src="/brand/pt-headline.svg" alt="PutterTalk" width="180" height="32" />
+    </a>
+    <div class="links">
+      <a href="#" class={active === 'reviews' ? 'on' : undefined}>Reviews</a>
+      <a href="/community" class={active === 'community' ? 'on' : undefined}>Community</a>
+      <a href="#">Brands</a>
+      <a href="/c/bst">Classifieds</a>
+      <a href="#">The Vault</a>
+    </div>
+    {user ? (
+      <div class="nav-actions">
+        {user.is_admin && (
+          <>
+            <a href="/admin" class="nav-mod">Admin</a>
+            <a href="/mod/reports" class="nav-mod">Reports</a>
+          </>
+        )}
+        <a href={userURL(user.display_name)} class="nav-account">
+          <span class="nav-av">{initials(user.display_name)}</span>
+          <span>{user.display_name}</span>
+        </a>
+        <button type="button" class="nav-signout" id="nav-logout">Sign out</button>
+      </div>
+    ) : guestCta === 'signin' ? (
+      <a class="signin" href="/join">Sign in</a>
+    ) : (
+      <a class="btn btn--pink btn--sm" href="/join">Join the Community</a>
+    )}
+  </div>
+</nav>
+
+{user && (
+  <script>
+    document.getElementById('nav-logout')?.addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    });
+  </script>
+)}

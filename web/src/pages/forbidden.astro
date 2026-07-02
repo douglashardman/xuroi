@@ -1,0 +1,55 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome } from '../lib/api';
+import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, user] = await Promise.all([getHome(), getMe(session)]);
+const forum = Astro.url.searchParams.get('forum');
+---
+<Layout title="Access restricted" site={home.site} user={user} noIndex={true}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Restricted
+  </div>
+
+  <div class="forbidden-card">
+    <h2>This area is restricted</h2>
+    <p>
+      {forum
+        ? `You don't have access to this forum yet.`
+        : `You don't have access to this content.`}
+    </p>
+    {!user ? (
+      <p><a class="btn btn--pink" href="/join">Sign in or join</a></p>
+    ) : (
+      <p class="hint">Some forums require supporter or sponsor status. Contact an admin if you believe this is an error.</p>
+    )}
+    <p><a href="/community">← Back to all forums</a></p>
+  </div>
+</Layout>
+
+<style>
+  .forbidden-card {
+    margin: 40px auto;
+    max-width: 520px;
+    padding: 28px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    text-align: center;
+  }
+  .forbidden-card h2 {
+    margin: 0 0 12px;
+  }
+  .forbidden-card p {
+    color: var(--muted);
+    margin: 0 0 16px;
+  }
+  .hint {
+    font-size: 0.92rem;
+  }
+</style>

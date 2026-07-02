@@ -1,0 +1,80 @@
+{
+  "contract_version": "1.0",
+  "engine": "xuroi",
+  "template_syntax": "mustache",
+  "pages": {
+    "home": {
+      "template": "pages/home.html",
+      "description": "Category index — site home",
+      "schema": "schemas/home.page.json",
+      "fixture": "fixtures/home.json",
+      "required_regions": ["categories"]
+    },
+    "category": {
+      "template": "pages/category.html",
+      "description": "Thread list for one category",
+      "schema": "schemas/category.page.json",
+      "fixture": "fixtures/category.json",
+      "required_regions": ["threads", "pagination"]
+    },
+    "thread": {
+      "template": "pages/thread.html",
+      "description": "Paginated thread — primary SEO surface",
+      "schema": "schemas/thread.page.json",
+      "fixture": "fixtures/thread.json",
+      "required_regions": ["posts", "pagination"],
+      "engine_injects": ["head.seo", "head.json_ld", "engine.scripts"]
+    },
+    "search": {
+      "template": "pages/search.html",
+      "description": "Search results",
+      "schema": "schemas/search.page.json",
+      "fixture": "fixtures/search.json",
+      "required_regions": ["results"]
+    },
+    "user-profile": {
+      "template": "pages/user-profile.html",
+      "description": "Public member profile",
+      "schema": "schemas/user-profile.page.json",
+      "fixture": "fixtures/user-profile.json",
+      "required_regions": ["profile", "recent_posts"]
+    }
+  },
+  "partials": {
+    "post-card": {
+      "template": "partials/post-card.html",
+      "schema": "schemas/post-card.partial.json",
+      "required_fields": ["author.name", "body_html", "created_at"]
+    },
+    "thread-row": {
+      "template": "partials/thread-row.html",
+      "schema": "schemas/thread-row.partial.json",
+      "required_fields": ["title", "url", "reply_count", "last_activity_at"]
+    },
+    "pagination": {
+      "template": "partials/pagination.html",
+      "required_fields": ["current", "total"]
+    }
+  },
+  "tokens": {
+    "file": "tokens.css",
+    "required_variables": [
+      "--color-bg",
+      "--color-surface",
+      "--color-text",
+      "--color-muted",
+      "--color-accent",
+      "--font-body",
+      "--font-heading",
+      "--radius-sm",
+      "--radius-md",
+      "--space-unit"
+    ]
+  },
+  "constraints": {
+    "no_inline_script": true,
+    "no_external_script": true,
+    "max_asset_size_mb": 10,
+    "semantic_html_required": true
+  }
+}

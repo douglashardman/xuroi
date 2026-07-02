@@ -1,0 +1,383 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome } from '../lib/api';
+import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+if (user) {
+  return Astro.redirect('/');
+}
+
+const data = await getHome();
+---
+<Layout title="Join the Community" site={data.site} user={null}>
+  <div class="shead" style="margin-top:40px">
+    <h2>Join the Community</h2>
+    <span class="lab">Password or passkey — your choice</span>
+  </div>
+
+  <div class="join-grid">
+    <section class="join-card">
+      <h3>Create account</h3>
+      <p>Pick a display name, email, and password — or register with a passkey (no password needed).</p>
+      <form id="register-form" class="join-form">
+        <label class="field-label">
+          Display name
+          <input type="text" name="display_name" id="register-display-name" required minlength="2" maxlength="40" autocomplete="nickname" />
+          <span class="field-hint" id="register-name-hint" hidden></span>
+        </label>
+        <label class="field-label">
+          Email
+          <input type="email" name="email" required autocomplete="email" />
+        </label>
+        <label class="field-label">
+          Password
+          <input type="password" name="password" id="register-password" minlength="8" maxlength="128" autocomplete="new-password" />
+          <span class="field-hint" id="register-password-hint" hidden></span>
+        </label>
+        <button type="submit" class="btn btn--pink">Create account</button>
+        <button type="button" class="btn btn--ghost" id="register-passkey">Create with passkey</button>
+        <p class="form-hint">Passkeys use Touch ID on this Mac. If Chrome shows a Google Password Manager error, try Safari or use password sign-in.</p>
+        <p class="form-error" id="register-error" hidden></p>
+      </form>
+    </section>
+
+    <section class="join-card">
+      <h3>Sign in</h3>
+      <p>Email and password — or use a passkey saved to this device.</p>
+      <form id="login-form" class="join-form">
+        <label>
+          Email
+          <input type="email" name="email" required autocomplete="email" />
+        </label>
+        <label class="field-label">
+          Password
+          <input type="password" name="password" id="login-password" autocomplete="current-password" />
+        </label>
+        <button type="submit" class="btn btn--pink">Sign in</button>
+        <button type="button" class="btn btn--ghost" id="login-passkey">Sign in with passkey</button>
+        <button type="button" class="btn btn--ghost" id="login-magic-link">Email me a sign-in link</button>
+        <p class="form-hint">Stuck? The sign-in link is your emergency parachute — no password needed.</p>
+        <p class="form-hint"><a href="/forgot-password" class="join-link">Forgot password?</a></p>
+        <p class="form-success" id="magic-success" hidden></p>
+        <p class="form-error" id="login-error" hidden></p>
+      </form>
+    </section>
+  </div>
+</Layout>
+
+<script>
+  import { passkeyCeremony } from '../lib/passkey';
+  import { showToast } from '../lib/toast';
+  import {
+    initDisplayNameCheck,
+    initPasswordStrength,
+    isPasswordAcceptable,
+    wrapPasswordField,
+  } from '../lib/join-form';
+
+  const registerNameInput = document.getElementById('register-display-name') as HTMLInputElement;
+  const registerNameHint = document.getElementById('register-name-hint') as HTMLElement;
+  const registerPasswordInput = document.getElementById('register-password') as HTMLInputElement;
+  const registerPasswordHint = document.getElementById('register-password-hint') as HTMLElement;
+  const loginPasswordInput = document.getElementById('login-password') as HTMLInputElement;
+
+  if (registerNameInput && registerNameHint) initDisplayNameCheck(registerNameInput, registerNameHint);
+  if (registerPasswordInput && registerPasswordHint) initPasswordStrength(registerPasswordInput, registerPasswordHint);
+  if (registerPasswordInput) wrapPasswordField(registerPasswordInput);
+  if (loginPasswordInput) wrapPasswordField(loginPasswordInput);
+
+  async function submitForm(form, endpoint, errorEl, opts: { requirePassword?: boolean; isRegister?: boolean } = {}) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.hidden = true;
+      const fd = new FormData(form);
+      const body = Object.fromEntries(fd.entries()) as Record<string, string>;
+      if (opts.isRegister && registerNameInput?.classList.contains('field--error')) {
+        const msg = 'That display name is already taken';
+        errorEl.textContent = msg;
+        errorEl.hidden = false;
+        showToast(msg, 'error');
+        return;
+      }
+      if (opts.requirePassword && !isPasswordAcceptable(body.password ?? '')) {
+        errorEl.textContent = 'Password is required (8+ characters)';
+        errorEl.hidden = false;
+        return;
+      }
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 403 && data.ban_reason) {
+          try {
+            sessionStorage.setItem('pt-ban', JSON.stringify(data));
+          } catch (e) {}
+          window.location.href = '/banned';
+          return;
+        }
+        const msg = data.error || 'Something went wrong';
+        errorEl.textContent = msg;
+        errorEl.hidden = false;
+        showToast(msg, 'error');
+        return;
+      }
+      if (opts.isRegister) {
+        showToast('Account created — check your email', 'success');
+        window.location.href = '/verify-email';
+      } else {
+        showToast('Welcome back!', 'success');
+        window.location.href = '/';
+      }
+    });
+  }
+
+  submitForm(
+    document.getElementById('register-form'),
+    '/api/auth/register',
+    document.getElementById('register-error'),
+    { requirePassword: true, isRegister: true },
+  );
+  submitForm(
+    document.getElementById('login-form'),
+    '/api/auth/login',
+    document.getElementById('login-error'),
+  );
+
+  async function runPasskeySignup() {
+    const form = document.getElementById('register-form') as HTMLFormElement;
+    const errorEl = document.getElementById('register-error') as HTMLElement;
+    const fd = new FormData(form);
+    const display_name = String(fd.get('display_name') ?? '').trim();
+    const email = String(fd.get('email') ?? '').trim();
+    if (!display_name || !email) {
+      showToast('Enter display name and email first', 'warning');
+      return;
+    }
+    errorEl.hidden = true;
+    const btn = document.getElementById('register-passkey') as HTMLButtonElement;
+    btn.disabled = true;
+    showToast('Opening passkey… approve the Touch ID prompt', 'info', 3200);
+    try {
+      const result = await passkeyCeremony(
+        '/api/auth/passkey/signup/begin',
+        '/api/auth/passkey/signup/finish',
+        { display_name, email },
+      );
+      if (!result.ok) throw new Error(result.error);
+      showToast('Account created — check your email', 'success');
+      window.location.href = '/verify-email';
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Passkey failed';
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+      showToast(msg, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function runPasskeyLogin() {
+    const errorEl = document.getElementById('login-error') as HTMLElement;
+    errorEl.hidden = true;
+    const btn = document.getElementById('login-passkey') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const result = await passkeyCeremony(
+        '/api/auth/passkey/login/begin',
+        '/api/auth/passkey/login/finish',
+      );
+      if (!result.ok) throw new Error(result.error);
+      showToast('Signed in with passkey', 'success');
+      window.location.href = '/';
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Passkey failed';
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+      showToast(msg, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('register-passkey')?.addEventListener('click', runPasskeySignup);
+  document.getElementById('login-passkey')?.addEventListener('click', runPasskeyLogin);
+
+  async function runMagicLink() {
+    const form = document.getElementById('login-form') as HTMLFormElement;
+    const errorEl = document.getElementById('login-error') as HTMLElement;
+    const successEl = document.getElementById('magic-success') as HTMLElement;
+    const email = String(new FormData(form).get('email') ?? '').trim();
+    if (!email) {
+      showToast('Enter your email first', 'warning');
+      return;
+    }
+    errorEl.hidden = true;
+    successEl.hidden = true;
+    const btn = document.getElementById('login-magic-link') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/auth/magic-link/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send link');
+      const msg = data.message || 'Check your email for a sign-in link.';
+      successEl.textContent = msg;
+      successEl.hidden = false;
+      showToast(msg, 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not send link';
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+      showToast(msg, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('login-magic-link')?.addEventListener('click', runMagicLink);
+
+  const magicStatus = new URLSearchParams(window.location.search).get('magic');
+  if (magicStatus === 'expired' || magicStatus === 'invalid') {
+    const errorEl = document.getElementById('login-error') as HTMLElement;
+    errorEl.textContent = 'That sign-in link expired or was already used — request a new one below.';
+    errorEl.hidden = false;
+    showToast('Sign-in link expired — request a new one', 'warning');
+  }
+</script>
+
+<style>
+  .join-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 40px;
+  }
+  .join-card {
+    border: var(--line);
+    border-radius: 18px;
+    padding: 28px;
+    background: var(--card);
+    box-shadow: 6px 6px 0 var(--pink);
+  }
+  .join-card h3 {
+    font-size: 22px;
+    margin: 0 0 8px;
+  }
+  .join-card p {
+    color: var(--muted);
+    margin: 0 0 20px;
+    font-size: 15px;
+  }
+  .join-form {
+    display: grid;
+    gap: 14px;
+  }
+  .join-form label {
+    display: grid;
+    gap: 6px;
+    font-family: Poppins, sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .join-form input {
+    border: 2px solid var(--hair);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    background: var(--paper);
+    color: var(--ink);
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+  }
+  .join-form input.field--ok {
+    border-color: #0a7a3e;
+  }
+  .join-form input.field--warn {
+    border-color: #c47d00;
+  }
+  .join-form input.field--error {
+    border-color: var(--pink);
+  }
+  .join-form input.field--shake {
+    animation: field-shake 0.38s ease;
+  }
+  @keyframes field-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  .field-hint {
+    font-size: 12px;
+    font-weight: 600;
+    min-height: 1.2em;
+  }
+  .field-hint--ok { color: #0a7a3e; }
+  .field-hint--warn { color: #c47d00; }
+  .field-hint--error { color: var(--pink); }
+  .field-hint--checking { color: var(--faint); }
+  .password-wrap {
+    position: relative;
+    display: grid;
+  }
+  .password-wrap input {
+    padding-right: 4.5rem;
+  }
+  .password-reveal {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: var(--pink);
+    font-family: Poppins, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .password-reveal:hover {
+    text-decoration: underline;
+  }
+  .form-error {
+    margin: 0;
+    color: var(--pink);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .form-hint {
+    margin: 0;
+    color: var(--faint);
+    font-size: 13px;
+  }
+  .form-success {
+    margin: 0;
+    color: #0a7a3e;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .join-link {
+    color: var(--pink);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  @media (max-width: 760px) {
+    .join-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

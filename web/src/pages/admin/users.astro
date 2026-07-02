@@ -1,0 +1,579 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { formatDate, getHome } from '../../lib/api';
+import { getAccessLevels, getAdminUsers, getMe, getPermissionCatalog, sessionFromCookieHeader } from '../../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+if (!user?.is_admin) {
+  return Astro.redirect('/community');
+}
+
+const q = Astro.url.searchParams.get('q') ?? '';
+const [home, list, permissionCatalog, accessCatalog] = await Promise.all([
+  getHome(),
+  getAdminUsers(session!, { q, limit: 100 }),
+  getPermissionCatalog(session!),
+  getAccessLevels(session!),
+]);
+
+const permLabels: Record<string, string> = Object.fromEntries(
+  permissionCatalog.map((p) => [p.id, p.label]),
+);
+const entLabels: Record<string, string> = Object.fromEntries(
+  (accessCatalog.entitlements ?? []).map((e) => [e.id, e.label]),
+);
+const entitlementCatalog = accessCatalog.entitlements ?? [];
+
+function banExpiry(until?: string) {
+  if (!until) return 'Permanent';
+  return `Until ${formatDate(until)}`;
+}
+
+function shortId(id: string) {
+  return id.length > 10 ? id.slice(-8) : id;
+}
+---
+<Layout title="Users" site={home.site} user={user} noIndex={true} skipBanCheck={true}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › <a href="/admin">Admin</a>
+    › Users
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Users</h2>
+    <span class="lab">{list.total} members</span>
+  </div>
+
+  <form class="admin-search" method="get">
+    <input type="search" name="q" value={q} placeholder="Search name or email" />
+    <button type="submit" class="btn btn--sm">Search</button>
+  </form>
+
+  <div class="admin-user-list">
+    {list.users.length === 0 ? (
+      <p class="mod-empty">No users match that search.</p>
+    ) : (
+      list.users.map((u) => (
+        <article class="admin-user-card" data-user-id={u.id}>
+          <div class="admin-user-head">
+            <strong><a href={u.url}>{u.display_name}</a></strong>
+            <span class={`state state--${u.state}`}>{u.state}</span>
+          </div>
+          <div class="admin-user-meta">
+            {u.email ? (
+              <span>{u.email}</span>
+            ) : (
+              <span class="muted">no email · {shortId(u.id)}</span>
+            )}
+            {u.email && !u.email_verified && <span class="warn">unverified</span>}
+            <span>Joined {formatDate(u.joined_at)}</span>
+            <span>{u.post_count} posts</span>
+            {(u.warning_count ?? 0) > 0 && (
+              <span class="warn">{u.warning_count} warning{u.warning_count === 1 ? '' : 's'}</span>
+            )}
+            {(u.permissions ?? []).map((perm) => (
+              <span class="staff-perm">{permLabels[perm] ?? perm}</span>
+            ))}
+            {(u.entitlements ?? []).map((ent) => (
+              <span class="ent-badge">{entLabels[ent] ?? ent}</span>
+            ))}
+            {u.state === 'banned' && u.banned_until && <span>{banExpiry(u.banned_until)}</span>}
+          </div>
+          {u.ban_reason && (
+            <p class="admin-ban-reason">
+              <strong>Message:</strong> {u.ban_reason}
+              {u.banned_by_name && <span> — by {u.banned_by_name}</span>}
+            </p>
+          )}
+          <div class="admin-user-actions">
+            {u.state === 'banned' ? (
+              <button type="button" class="btn btn--sm" data-unban={u.id} data-name={u.display_name}>Restore</button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  class="btn btn--sm btn--ghost"
+                  data-warn={u.id}
+                  data-name={u.display_name}
+                  data-warnings={u.warning_count ?? 0}
+                >Warn…</button>
+                <button type="button" class="btn btn--sm btn--ghost" data-ban={u.id} data-name={u.display_name}>Ban…</button>
+                <button
+                  type="button"
+                  class="btn btn--sm btn--ghost"
+                  data-perms={u.id}
+                  data-name={u.display_name}
+                  data-permissions={JSON.stringify(u.permissions ?? [])}
+                >Permissions…</button>
+                <button
+                  type="button"
+                  class="btn btn--sm btn--ghost"
+                  data-ents={u.id}
+                  data-name={u.display_name}
+                  data-entitlements={JSON.stringify(u.entitlements ?? [])}
+                >Entitlements…</button>
+              </>
+            )}
+          </div>
+        </article>
+      ))
+    )}
+  </div>
+
+  <dialog id="ban-dialog" class="ban-dialog">
+    <form method="dialog" id="ban-form">
+      <h3>Ban <span id="ban-target-name"></span></h3>
+      <p class="form-hint">They will see your message and lose access (account + known IPs).</p>
+
+      <fieldset class="ban-durations" id="ban-durations">
+        <legend class="field-label">Duration</legend>
+        <label data-ban-opt="7d"><input type="radio" name="duration" value="7d" checked /> 7 days</label>
+        {user?.is_admin && (
+          <label data-ban-opt="30d"><input type="radio" name="duration" value="30d" /> 30 days</label>
+        )}
+        {(user?.is_admin || user?.can_perm_ban) && (
+          <label data-ban-opt="permanent"><input type="radio" name="duration" value="permanent" /> Permanent</label>
+        )}
+      </fieldset>
+
+      <label class="field-label">
+        <input type="checkbox" id="ban-purge" />
+        Remove all their posts and empty threads they started
+      </label>
+
+      <label class="field-label">
+        Message to member <span class="req">required</span>
+        <textarea id="ban-reason" rows="4" required placeholder="Explain why — this is shown to them on the banned screen."></textarea>
+      </label>
+
+      <p class="form-error" id="ban-error" hidden></p>
+      <div class="ban-dialog-actions">
+        <button type="button" class="btn btn--ghost" id="ban-cancel">Cancel</button>
+        <button type="submit" class="btn btn--pink" id="ban-submit">Ban member</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="warn-dialog" class="ban-dialog warn-dialog">
+    <form method="dialog" id="warn-form">
+      <h3>Warn <span id="warn-target-name"></span></h3>
+      <p class="form-hint" id="warn-hint">
+        Red border + banner for 8 hours. Multiple issues within 24h = one strike. Three strikes total → 7-day ban.
+      </p>
+
+      <label class="field-label">
+        Message to member <span class="req">required</span>
+        <textarea id="warn-message" rows="4" required placeholder="What they did wrong — shown in the red warning banner."></textarea>
+      </label>
+
+      <p class="form-error" id="warn-error" hidden></p>
+      <div class="ban-dialog-actions">
+        <button type="button" class="btn btn--ghost" id="warn-cancel">Cancel</button>
+        <button type="submit" class="btn" id="warn-submit" style="background:#b91c1c;color:#fff">Issue warning</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="perms-dialog" class="ban-dialog">
+    <form method="dialog" id="perms-form">
+      <h3>Staff permissions — <span id="perms-target-name"></span></h3>
+      <p class="form-hint">Assign per-member. Works for moderators and agents. Admins always have full access.</p>
+      <div class="perms-checklist" id="perms-checklist">
+        {permissionCatalog.map((perm) => (
+          <label class="perms-option">
+            <input type="checkbox" name="permission" value={perm.id} />
+            <span>
+              <strong>{perm.label}</strong>
+              <span class="perms-desc">{perm.description}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <p class="form-error" id="perms-error" hidden></p>
+      <div class="ban-dialog-actions">
+        <button type="button" class="btn btn--ghost" id="perms-cancel">Cancel</button>
+        <button type="submit" class="btn btn--pink" id="perms-submit">Save permissions</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="ents-dialog" class="ban-dialog">
+    <form method="dialog" id="ents-form">
+      <h3>Entitlements — <span id="ents-target-name"></span></h3>
+      <p class="form-hint">Grant supporter/sponsor access to private forums. Stripe/Patreon sync ships later — manual for now.</p>
+      <div class="perms-checklist" id="ents-checklist">
+        {entitlementCatalog.map((ent) => (
+          <label class="perms-option">
+            <input type="checkbox" name="entitlement" value={ent.id} />
+            <span>
+              <strong>{ent.label}</strong>
+              <span class="perms-desc">{ent.description}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <p class="form-error" id="ents-error" hidden></p>
+      <div class="ban-dialog-actions">
+        <button type="button" class="btn btn--ghost" id="ents-cancel">Cancel</button>
+        <button type="submit" class="btn btn--pink" id="ents-submit">Save entitlements</button>
+      </div>
+    </form>
+  </dialog>
+</Layout>
+
+<script>
+  import { showToast } from '../../lib/toast';
+
+  const dialog = document.getElementById('ban-dialog') as HTMLDialogElement;
+  const warnDialog = document.getElementById('warn-dialog') as HTMLDialogElement;
+  const form = document.getElementById('ban-form') as HTMLFormElement;
+  const reasonEl = document.getElementById('ban-reason') as HTMLTextAreaElement;
+  const nameEl = document.getElementById('ban-target-name') as HTMLSpanElement;
+  const errorEl = document.getElementById('ban-error') as HTMLElement;
+  const warnForm = document.getElementById('warn-form') as HTMLFormElement;
+  const warnMessageEl = document.getElementById('warn-message') as HTMLTextAreaElement;
+  const warnNameEl = document.getElementById('warn-target-name') as HTMLSpanElement;
+  const warnHintEl = document.getElementById('warn-hint') as HTMLParagraphElement;
+  const warnErrorEl = document.getElementById('warn-error') as HTMLElement;
+  const permsDialog = document.getElementById('perms-dialog') as HTMLDialogElement;
+  const permsForm = document.getElementById('perms-form') as HTMLFormElement;
+  const permsNameEl = document.getElementById('perms-target-name') as HTMLSpanElement;
+  const permsErrorEl = document.getElementById('perms-error') as HTMLElement;
+  let banUserId: string | null = null;
+  let warnUserId: string | null = null;
+  let permsUserId: string | null = null;
+  const entsDialog = document.getElementById('ents-dialog') as HTMLDialogElement;
+  const entsForm = document.getElementById('ents-form') as HTMLFormElement;
+  const entsNameEl = document.getElementById('ents-target-name') as HTMLSpanElement;
+  const entsErrorEl = document.getElementById('ents-error') as HTMLElement;
+  let entsUserId: string | null = null;
+
+  async function adminAction(path: string, body: Record<string, unknown>) {
+    const res = await fetch(path, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? 'Request failed');
+    return data;
+  }
+
+  document.querySelectorAll('[data-ban]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      banUserId = btn.getAttribute('data-ban');
+      nameEl.textContent = btn.getAttribute('data-name') ?? 'member';
+      reasonEl.value = '';
+      errorEl.hidden = true;
+      dialog.showModal();
+    });
+  });
+
+  document.getElementById('ban-cancel')?.addEventListener('click', () => dialog.close());
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!banUserId) return;
+    const reason = reasonEl.value.trim();
+    if (!reason) {
+      errorEl.textContent = 'Message to member is required';
+      errorEl.hidden = false;
+      return;
+    }
+    const duration = (form.querySelector('input[name="duration"]:checked') as HTMLInputElement)?.value ?? '7d';
+    errorEl.hidden = true;
+    const submit = document.getElementById('ban-submit') as HTMLButtonElement;
+    submit.disabled = true;
+    try {
+      const purgeContent = (document.getElementById('ban-purge') as HTMLInputElement)?.checked ?? false;
+      const data = await adminAction(`/api/admin/users/${banUserId}/ban`, { reason, duration, purge_content: purgeContent });
+      const purgeNote =
+        purgeContent && data.posts_removed != null
+          ? ` — ${data.posts_removed} post(s) removed`
+          : '';
+      showToast(`Member banned${purgeNote}`);
+      dialog.close();
+      location.reload();
+    } catch (err) {
+      errorEl.textContent = err instanceof Error ? err.message : 'Ban failed';
+      errorEl.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('[data-warn]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      warnUserId = btn.getAttribute('data-warn');
+      warnNameEl.textContent = btn.getAttribute('data-name') ?? 'member';
+      const count = parseInt(btn.getAttribute('data-warnings') ?? '0', 10);
+      const next = count + 1;
+      warnHintEl.textContent =
+        next >= 3
+          ? 'This will be their third strike — triggers an automatic 7-day ban.'
+          : `Strike ${next} of 3 (unless they were warned in the last 24h — then same incident, no extra strike).`;
+      warnMessageEl.value = '';
+      warnErrorEl.hidden = true;
+      warnDialog.showModal();
+    });
+  });
+
+  document.getElementById('warn-cancel')?.addEventListener('click', () => warnDialog.close());
+
+  warnForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!warnUserId) return;
+    const message = warnMessageEl.value.trim();
+    if (!message) {
+      warnErrorEl.textContent = 'Message is required';
+      warnErrorEl.hidden = false;
+      return;
+    }
+    warnErrorEl.hidden = true;
+    const submit = document.getElementById('warn-submit') as HTMLButtonElement;
+    submit.disabled = true;
+    try {
+      const data = await adminAction(`/api/admin/users/${warnUserId}/warn`, { message });
+      if (data.auto_banned) {
+        showToast('Third warning — member auto-banned 7 days', 'warning');
+      } else if (data.consolidated) {
+        showToast('Added to current 24h warning — no extra strike', 'warning');
+      } else {
+        showToast(`Warning ${data.warning_count} of 3 issued`, 'warning');
+      }
+      warnDialog.close();
+      location.reload();
+    } catch (err) {
+      warnErrorEl.textContent = err instanceof Error ? err.message : 'Warning failed';
+      warnErrorEl.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('[data-perms]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      permsUserId = btn.getAttribute('data-perms');
+      permsNameEl.textContent = btn.getAttribute('data-name') ?? 'member';
+      const current = JSON.parse(btn.getAttribute('data-permissions') ?? '[]') as string[];
+      permsForm.querySelectorAll<HTMLInputElement>('input[name="permission"]').forEach((input) => {
+        input.checked = current.includes(input.value);
+      });
+      permsErrorEl.hidden = true;
+      permsDialog.showModal();
+    });
+  });
+
+  document.getElementById('perms-cancel')?.addEventListener('click', () => permsDialog.close());
+
+  permsForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!permsUserId) return;
+    const permissions = Array.from(
+      permsForm.querySelectorAll<HTMLInputElement>('input[name="permission"]:checked'),
+    ).map((el) => el.value);
+    permsErrorEl.hidden = true;
+    const submit = document.getElementById('perms-submit') as HTMLButtonElement;
+    submit.disabled = true;
+    try {
+      const res = await fetch(`/api/admin/users/${permsUserId}/permissions`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permissions }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? 'Save failed');
+      showToast('Permissions updated');
+      permsDialog.close();
+      location.reload();
+    } catch (err) {
+      permsErrorEl.textContent = err instanceof Error ? err.message : 'Save failed';
+      permsErrorEl.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('[data-ents]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      entsUserId = btn.getAttribute('data-ents');
+      entsNameEl.textContent = btn.getAttribute('data-name') ?? 'member';
+      const current = JSON.parse(btn.getAttribute('data-entitlements') ?? '[]') as string[];
+      entsForm.querySelectorAll<HTMLInputElement>('input[name="entitlement"]').forEach((input) => {
+        input.checked = current.includes(input.value);
+      });
+      entsErrorEl.hidden = true;
+      entsDialog.showModal();
+    });
+  });
+
+  document.getElementById('ents-cancel')?.addEventListener('click', () => entsDialog.close());
+
+  entsForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!entsUserId) return;
+    const entitlements = Array.from(
+      entsForm.querySelectorAll<HTMLInputElement>('input[name="entitlement"]:checked'),
+    ).map((el) => el.value);
+    entsErrorEl.hidden = true;
+    const submit = document.getElementById('ents-submit') as HTMLButtonElement;
+    submit.disabled = true;
+    try {
+      const res = await fetch(`/api/admin/users/${entsUserId}/entitlements`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entitlements }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? 'Save failed');
+      showToast('Entitlements updated');
+      entsDialog.close();
+      location.reload();
+    } catch (err) {
+      entsErrorEl.textContent = err instanceof Error ? err.message : 'Save failed';
+      entsErrorEl.hidden = false;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('[data-unban]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-unban');
+      const name = btn.getAttribute('data-name') ?? 'this member';
+      if (!confirm(`Restore ${name}? Removes account and IP restrictions.`)) return;
+      try {
+        await adminAction(`/api/admin/users/${id}/unban`, {});
+        showToast('User restored');
+        location.reload();
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Restore failed', 'error');
+      }
+    });
+  });
+</script>
+
+<style>
+  .admin-search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .admin-search input {
+    flex: 1;
+    max-width: 360px;
+  }
+  .admin-user-list {
+    display: grid;
+    gap: 12px;
+  }
+  .admin-user-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--surface);
+  }
+  .admin-user-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+  }
+  .state {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  .state--banned { background: #fde8e8; color: #a11; }
+  .state--discouraged { background: #fff4e5; color: #a60; }
+  .admin-user-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 6px;
+  }
+  .warn { color: #a60; font-weight: 600; }
+  .muted { color: var(--faint); }
+  .ent-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #7c3aed;
+    background: #f5f3ff;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .staff-perm {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1d4ed8;
+    background: #eff6ff;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .perms-checklist {
+    display: grid;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .perms-option {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    cursor: pointer;
+  }
+  .perms-option strong { display: block; }
+  .perms-desc {
+    display: block;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 2px;
+  }
+  .admin-ban-reason { margin: 8px 0 0; font-size: 0.9rem; }
+  .admin-user-actions { margin-top: 10px; display: flex; gap: 8px; }
+  .ban-dialog {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    max-width: 480px;
+    width: calc(100% - 32px);
+    background: var(--surface);
+    color: inherit;
+  }
+  .ban-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+  .ban-dialog form { padding: 24px; }
+  .ban-dialog h3 { margin: 0 0 8px; }
+  .ban-durations {
+    border: none;
+    margin: 16px 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ban-durations label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .ban-dialog textarea {
+    width: 100%;
+    margin-top: 6px;
+    resize: vertical;
+  }
+  .ban-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .req { color: var(--pink); font-size: 0.8rem; }
+</style>

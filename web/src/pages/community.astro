@@ -1,0 +1,97 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { timeAgo } from '../lib/api';
+import { getHome, getMe, sessionFromCookieHeader } from '../lib/server-api';
+import { ACCENT_VARS, formatCount, forumAccentIndex } from '../lib/theme';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [data, user] = await Promise.all([getHome(session), getMe(session)]);
+const groups = data.groups ?? [];
+const forumCount = (data.categories ?? []).filter((c) => c.can_view).length;
+const sectionCount = groups.length;
+---
+<Layout title="The Community" description={data.site.tagline} site={data.site} user={user} navActive="community">
+  <div class="shead" style="margin-top:40px">
+    <h2>The Community</h2>
+    <span class="lab">{sectionCount} sections · {forumCount} forums</span>
+    <a href="#">What's new →</a>
+  </div>
+
+  {groups.map((group, gi) => (
+    <>
+      <div class="cathead">{group.name}</div>
+      <div class="flist">
+        {group.forums.map((forum, fi) => (
+          forum.can_view ? (
+            <a class="frow" href={forum.url}>
+              <span class="fdot" style={`background:${ACCENT_VARS[forumAccentIndex(gi, fi)]}`}></span>
+              <div class="fmain">
+                <div class="fname">{forum.name}</div>
+                <div class="fdesc">{forum.description}</div>
+              </div>
+              <div class="fstats">
+                <b>{forum.thread_count.toLocaleString()}</b> threads<br />
+                {formatCount(forum.post_count)} messages
+              </div>
+              {forum.latest && (
+                <div class="flast">
+                  Latest: <b>{forum.latest.title}</b><br />
+                  by {forum.latest.author_name} · {timeAgo(forum.latest.last_activity_at)}
+                </div>
+              )}
+            </a>
+          ) : (
+            <div class="frow frow--locked">
+              <span class="fdot fdot--locked"></span>
+              <div class="fmain">
+                <div class="fname">{forum.name}</div>
+                <div class="fdesc">{forum.description}</div>
+              </div>
+              <div class="flock">
+                <span class="lock-badge">{forum.locked_label ?? 'Restricted'}</span>
+                {!user && <a href="/join">Sign in</a>}
+              </div>
+            </div>
+          )
+        ))}
+      </div>
+    </>
+  ))}
+</Layout>
+
+<style>
+  .frow--locked {
+    cursor: default;
+    opacity: 0.92;
+  }
+  .frow--locked:hover {
+    background: var(--card);
+  }
+  .fdot--locked {
+    background: var(--hair) !important;
+  }
+  .flock {
+    min-width: 210px;
+    font-size: 13px;
+    color: var(--faint);
+    text-align: right;
+  }
+  .lock-badge {
+    display: inline-block;
+    font-family: Poppins, sans-serif;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .flock a {
+    color: var(--pink);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  @media (max-width: 820px) {
+    .flock { display: none; }
+  }
+</style>

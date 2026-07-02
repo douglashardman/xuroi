@@ -1,0 +1,135 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome, getRecentThreads } from '../lib/api';
+import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+import { ACCENT_VARS } from '../lib/theme';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, recent, user] = await Promise.all([
+  getHome(),
+  getRecentThreads(6),
+  getMe(session),
+]);
+const site = home.site;
+const threads = recent.threads;
+---
+<Layout
+  title={site.name}
+  description="Reviews, custom makers, collections, and the world's largest putter Community — back online since 2006."
+  site={site}
+  user={user}
+  navActive="home"
+  shell="marketing"
+>
+  <header class="wrap hero">
+    <div>
+      <div class="ey lab">Est. 2006 — back online</div>
+      <h1>Putter people,<br /><em>welcome home.</em></h1>
+      <p class="lead">
+        Reviews, custom makers, collections, and a Community that's been arguing about toe hang since 2006.
+        The world's largest room for putter obsessives is open again.
+      </p>
+      <div class="cta">
+        <a class="btn btn--pink" href="/join">Join the Community →</a>
+        <a class="btn" href="/community">Enter the forums</a>
+      </div>
+    </div>
+    <img class="heromark" src="/brand/pt-bug.svg" alt="" width="320" height="320" />
+  </header>
+
+  <section class="wrap pillars">
+    <a class="pillar c-pink" href="#">
+      <div class="lab">Read</div>
+      <h2>Reviews &amp; articles</h2>
+      <p>Hands-on putter reviews, maker deep-dives, and twenty years of writing — pulled from the Vault.</p>
+      <span class="go">Browse reviews →</span>
+    </a>
+    <a class="pillar c-blue" href="/community">
+      <div class="lab">Talk</div>
+      <h2>The Community</h2>
+      <p>
+        The world's largest putter forum. Collections, classifieds, and arguments about toe hang since 2006.
+      </p>
+      <span class="go">Enter the Community →</span>
+    </a>
+  </section>
+
+  <main class="wrap">
+    <div class="shead">
+      <h2>From the Community</h2>
+      <span class="lab">live</span>
+      <a href="/community">All discussions</a>
+    </div>
+
+    {threads.length === 0 ? (
+      <div class="empty-state">
+        The Community just reopened — <a href="/community">be the first to post</a>.
+      </div>
+    ) : (
+      <div class="threads">
+        {threads.map((thread, i) => (
+          <a class="thr" href={thread.url}>
+            <span class="dot" style={`background:${ACCENT_VARS[i % 3]}`}></span>
+            <div>
+              <div class="t">{thread.title}</div>
+              <div class="sub">{thread.category_name}</div>
+            </div>
+            <span class="rep">
+              {thread.reply_count} {thread.reply_count === 1 ? 'reply' : 'replies'}
+            </span>
+          </a>
+        ))}
+      </div>
+    )}
+
+    <div class="shead">
+      <h2>Latest reviews</h2>
+      <span class="lab">hands-on</span>
+      <a href="#">All reviews</a>
+    </div>
+    <div class="cards">
+      <a class="card c-pink" href="#">
+        <div class="tag">Bettinardi</div>
+        <h3>Queen B 6</h3>
+        <p>Soft carbon and that honeycomb face — but is it too soft for fast greens?</p>
+        <div class="meta"><span>★ 4.5</span><span>8 min read</span></div>
+      </a>
+      <a class="card c-blue" href="#">
+        <div class="tag">Scotty Cameron</div>
+        <h3>Phantom X 5</h3>
+        <p>The mallet that converted a lifelong blade player. High-MOI, real feel.</p>
+        <div class="meta"><span>★ 4.5</span><span>10 min read</span></div>
+      </a>
+      <a class="card c-green" href="#">
+        <div class="tag">Byron Morgan</div>
+        <h3>DH89 — German stainless</h3>
+        <p>Hand-crafted, made-to-order, worth the wait list. A collector's gamer.</p>
+        <div class="meta"><span>★ 5.0</span><span>12 min read</span></div>
+      </a>
+      <a class="card c-pink" href="#">
+        <div class="tag">T.P. Mills</div>
+        <h3>Hand-Stamped Classic</h3>
+        <p>Old-school milling, new-school precision. Blade purists keep coming back.</p>
+        <div class="meta"><span>★ 4.5</span><span>7 min read</span></div>
+      </a>
+    </div>
+
+    <div class="shead">
+      <h2>Popular Brands</h2>
+      <span class="lab">browse by maker</span>
+    </div>
+    <div class="chips">
+      <a class="chip" href="#">Scotty Cameron</a>
+      <a class="chip" href="#">Bettinardi</a>
+      <a class="chip" href="#">Byron Morgan</a>
+      <a class="chip" href="#">T.P. Mills</a>
+      <a class="chip" href="#">Ping</a>
+      <a class="chip" href="#">Swag Golf</a>
+      <a class="chip" href="#">Lab Golf</a>
+      <a class="chip" href="#">Artisan makers</a>
+    </div>
+  </main>
+</Layout>

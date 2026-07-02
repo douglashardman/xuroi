@@ -1,0 +1,202 @@
+---
+import RichTextEditor from './RichTextEditor.astro';
+
+interface Props {
+  threadId: string;
+  threadUrl: string;
+  threadTitle?: string;
+  signedIn: boolean;
+  isAdmin?: boolean;
+  onLastPage?: boolean;
+  locked?: boolean;
+  quotePostId?: string | null;
+  quoteAuthor?: string | null;
+  quoteExcerpt?: string | null;
+  variant?: 'quick' | 'full';
+}
+
+const {
+  threadId,
+  threadUrl,
+  threadTitle,
+  signedIn,
+  isAdmin = false,
+  onLastPage = true,
+  locked = false,
+  quotePostId = null,
+  quoteAuthor = null,
+  quoteExcerpt = null,
+  variant = 'quick',
+} = Astro.props;
+
+const isFull = variant === 'full';
+const bodyId = isFull ? 'reply-body-full' : 'reply-body';
+---
+<div
+  class:list={['replybox', isFull && 'replybox--full']}
+  id="reply-box"
+  data-thread-id={threadId}
+  data-thread-url={threadUrl}
+  data-body-id={bodyId}
+  data-is-full={isFull ? '1' : '0'}
+  data-last-page={onLastPage ? '1' : '0'}
+  data-signed-in={signedIn ? '1' : '0'}
+  data-is-admin={isAdmin ? '1' : '0'}
+>
+  {!signedIn ? (
+    <>
+      <p class="reply-hint">Sign in to join the discussion.</p>
+      <a class="btn btn--pink" href="/join">Join the Community</a>
+    </>
+  ) : locked ? (
+    <p class="reply-hint">This thread is locked.</p>
+  ) : (
+    <>
+      {isFull && threadTitle && (
+        <div class="replybox-head">
+          <span class="replybox-title">Reply to</span>
+          <a class="replybox-thread-link" href={threadUrl}>{threadTitle}</a>
+        </div>
+      )}
+
+      <div class="quote-compose" id="quote-compose" hidden={!quotePostId}>
+        <div class="quote-compose-label">Quoting <span id="quote-author">{quoteAuthor}</span></div>
+        <label class="quote-compose-edit-label" for="quote-excerpt">Quote excerpt — trim only (must match original text)</label>
+        <textarea
+          class="quote-compose-text"
+          id="quote-excerpt"
+          rows="3"
+          placeholder="Selected excerpt from the post…"
+        >{quoteExcerpt}</textarea>
+        <button type="button" class="quote-compose-clear" id="quote-clear">Clear quote</button>
+      </div>
+      <input type="hidden" id="quoted-post-id" value={quotePostId ?? ''} />
+
+      <RichTextEditor
+        id={bodyId}
+        label="Your reply"
+        placeholder="Share your experience…"
+        size={isFull ? 'full' : 'compact'}
+      />
+
+      <div class="reply-actions">
+        <button type="button" class="btn btn--pink" id="reply-submit">Post reply</button>
+        {!isFull && (
+          <button type="button" class="btn" id="full-reply-btn">Full reply</button>
+        )}
+        {isFull && (
+          <a class="btn" href={threadUrl}>Cancel</a>
+        )}
+      </div>
+      <p class="reply-status" id="reply-status" hidden></p>
+    </>
+  )}
+</div>
+
+{signedIn && !locked && (
+  <script>
+    import { initReplyForm } from '../lib/reply-form.ts';
+    const box = document.getElementById('reply-box');
+    if (box) initReplyForm(box);
+  </script>
+)}
+
+<style>
+  .reply-hint {
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-family: Poppins, sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .replybox-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .replybox-title {
+    font-family: Poppins, sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+  }
+  .replybox-thread-link {
+    font-family: Poppins, sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%;
+  }
+  .replybox-thread-link:hover {
+    color: var(--pink);
+  }
+  .reply-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .reply-status {
+    margin: 12px 0 0;
+    color: var(--pink);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .quote-compose {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: var(--line);
+    border-radius: 12px;
+    background: var(--mist);
+  }
+  .quote-compose-label {
+    font-family: Poppins, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--faint);
+    margin-bottom: 8px;
+  }
+  .quote-compose-edit-label {
+    display: block;
+    margin-bottom: 6px;
+    font-family: Poppins, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .quote-compose-text {
+    width: 100%;
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border: var(--line);
+    border-left: 3px solid var(--pink);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  .quote-compose-clear {
+    border: none;
+    background: none;
+    padding: 0;
+    font-family: Poppins, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--pink);
+    cursor: pointer;
+  }
+  .replybox--full {
+    margin-top: 0;
+  }
+</style>

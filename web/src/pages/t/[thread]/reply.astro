@@ -1,0 +1,68 @@
+---
+export const prerender = false;
+
+import Layout from '../../../layouts/Layout.astro';
+import ReplyForm from '../../../components/ReplyForm.astro';
+import { getMe, getThread, sessionFromCookieHeader } from '../../../lib/server-api';
+
+const { thread: threadParam } = Astro.params;
+const sep = threadParam!.lastIndexOf('--');
+if (sep < 0) {
+  return Astro.redirect('/community');
+}
+const id = threadParam!.slice(sep + 2);
+const quoteParam = Astro.url.searchParams.get('quote');
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+
+if (!session) {
+  return Astro.redirect(`/join?next=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`);
+}
+
+const [data, user] = await Promise.all([
+  getThread(id, 1, session),
+  getMe(session),
+]);
+
+if (!user) {
+  return Astro.redirect(`/join?next=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`);
+}
+
+let quotePostId: string | null = null;
+let quoteAuthor: string | null = null;
+let quoteExcerpt: string | null = null;
+if (quoteParam) {
+  const quoted = data.posts.find((p) => p.id === quoteParam);
+  if (quoted) {
+    quotePostId = quoted.id;
+    quoteAuthor = quoted.author.name;
+    quoteExcerpt = quoted.quote?.excerpt ?? quoted.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400);
+  }
+}
+---
+<Layout title={`Reply · ${data.thread.title}`} site={data.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › <a href={data.category.url}>{data.category.name}</a>
+    › <a href={data.thread.url}>{data.thread.title}</a>
+    › Reply
+  </div>
+
+  <section class="compose-card reply-compose-page">
+    <h3>Full reply</h3>
+    <p>Take your time — visual formatting, larger editor, quote support.</p>
+    <ReplyForm
+      threadId={data.thread.id}
+      threadUrl={data.thread.url}
+      threadTitle={data.thread.title}
+      signedIn={!!user}
+      isAdmin={!!user?.is_admin}
+      onLastPage={true}
+      locked={data.thread.is_locked}
+      quotePostId={quotePostId}
+      quoteAuthor={quoteAuthor}
+      quoteExcerpt={quoteExcerpt}
+      variant="full"
+    />
+  </section>
+</Layout>

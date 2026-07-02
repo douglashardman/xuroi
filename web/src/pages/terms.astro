@@ -1,0 +1,76 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome } from '../lib/api';
+import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, user] = await Promise.all([getHome(), getMe(session)]);
+---
+<Layout
+  title="Terms of Service"
+  description="PutterTalk Community terms — participation rules, content, and account policies."
+  site={home.site}
+  user={user}
+  shell="marketing"
+  canonical={`${home.site.url.replace(/\/$/, '')}/terms`}
+>
+  <main class="wrap legal-page">
+    <h1>Terms of Service</h1>
+    <p class="legal-updated">Effective July 2, 2026 · PutterTalk LLC</p>
+
+    <section>
+      <h2>Welcome back</h2>
+      <p>
+        PutterTalk is a fresh relaunch of the putter community Doug started in 2006. By using the site you agree to these terms.
+        If you do not agree, please do not use the Community.
+      </p>
+    </section>
+
+    <section>
+      <h2>Your account</h2>
+      <p>
+        You are responsible for your account and anything posted under it. Keep your credentials secure.
+        One person per account — no sock puppets or impersonation.
+      </p>
+    </section>
+
+    <section>
+      <h2>Community content</h2>
+      <p>
+        You retain ownership of what you post. You grant PutterTalk a license to display, store, and distribute your posts
+        on the site and in notifications members opt into. Do not post illegal content, spam, harassment, or material you do not have rights to share.
+      </p>
+    </section>
+
+    <section>
+      <h2>Moderation</h2>
+      <p>
+        Moderators may remove content, lock threads, or restrict accounts that violate community standards or these terms.
+        Decisions are made to keep the room useful for putter people.
+      </p>
+    </section>
+
+    <section>
+      <h2>Classifieds</h2>
+      <p>
+        Buy/Sell/Trade posts are member-to-member. PutterTalk is not a party to transactions and does not guarantee listings.
+        Follow category rules and local laws.
+      </p>
+    </section>
+
+    <section>
+      <h2>Disclaimer</h2>
+      <p>
+        The site is provided as-is. We do our best to keep it running, but we are not liable for downtime, data loss, or disputes between members.
+      </p>
+    </section>
+
+    <section>
+      <h2>Contact</h2>
+      <p>Questions: <a href="mailto:hello@puttertalk.com">hello@puttertalk.com</a></p>
+    </section>
+  </main>
+</Layout>

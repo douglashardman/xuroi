@@ -1,0 +1,33 @@
+<div id="pt-toast-host" aria-live="polite">
+  <div class="pt-toast-stack"></div>
+</div>
+
+<div class="pt-dialog-host" id="pt-confirm" hidden>
+  <div class="pt-dialog-backdrop" id="pt-confirm-backdrop"></div>
+  <div class="pt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="pt-confirm-title">
+    <h3 class="pt-dialog-title" id="pt-confirm-title">Confirm</h3>
+    <p class="pt-dialog-msg" id="pt-confirm-msg"></p>
+    <div class="pt-dialog-actions">
+      <button type="button" class="btn" id="pt-confirm-cancel">Cancel</button>
+      <button type="button" class="btn btn--pink" id="pt-confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="pt-dialog-host" id="pt-prompt" hidden>
+  <div class="pt-dialog-backdrop" id="pt-prompt-backdrop"></div>
+  <div class="pt-dialog" role="dialog" aria-modal="true" aria-labelledby="pt-prompt-title">
+    <h3 class="pt-dialog-title" id="pt-prompt-title">Input</h3>
+    <p class="pt-dialog-msg" id="pt-prompt-msg" hidden></p>
+    <input type="text" class="pt-dialog-input" id="pt-prompt-input" />
+    <div class="pt-dialog-actions">
+      <button type="button" class="btn" id="pt-prompt-cancel">Cancel</button>
+      <button type="button" class="btn btn--pink" id="pt-prompt-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { initToastHost } from '../lib/toast.ts';
+  initToastHost();
+</script>

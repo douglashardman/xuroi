@@ -1,0 +1,184 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { formatDate, getHome, getUser } from '../../lib/api';
+import { getMe, sessionFromCookieHeader } from '../../lib/server-api';
+import { userURL } from '../../lib/theme';
+
+const { name } = Astro.params;
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, user] = await Promise.all([getHome(), getMe(session)]);
+
+let profile;
+try {
+  profile = await getUser(name!);
+} catch {
+  return Astro.redirect('/community');
+}
+---
+<Layout title={profile.display_name} site={home.site} user={user}>
+  <div class="profile-hero">
+    <div class="profile-av">{profile.display_name.slice(0, 2).toUpperCase()}</div>
+    <div>
+      <h1>{profile.display_name}</h1>
+      <div class="profile-karma">{profile.karma.toLocaleString()} karma</div>
+      <div class="profile-meta">
+        {profile.post_count.toLocaleString()} posts · joined {formatDate(profile.joined_at)}
+      </div>
+    </div>
+  </div>
+  <p class="profile-note">
+    Karma comes from likes on your posts — liking your own posts doesn't count.
+  </p>
+
+  {user && userURL(user.display_name) === `/u/${name}` && (
+    <section class="profile-security">
+      <h2>Account security</h2>
+      <p class="profile-security-meta">
+        {user.has_password ? 'Password set' : 'No password yet'}
+        · {user.has_passkey ? 'Passkey added' : 'No passkey yet'}
+      </p>
+      {!user.has_password && (
+        <form id="set-password-form" class="profile-security-form">
+          <label>
+            Set a password
+            <input type="password" name="password" minlength="8" maxlength="128" required autocomplete="new-password" />
+          </label>
+          <button type="submit" class="btn btn--sm btn--pink">Save password</button>
+        </form>
+      )}
+      <button type="button" class="btn btn--sm" id="add-passkey-btn">
+        {user.has_passkey ? 'Add another passkey' : 'Add passkey'}
+      </button>
+    </section>
+  )}
+</Layout>
+
+{user && userURL(user.display_name) === `/u/${name}` && (
+  <script>
+    import { passkeyCeremony } from '../../lib/passkey';
+    import { showToast } from '../../lib/toast';
+
+    document.getElementById('set-password-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const password = new FormData(form).get('password') as string;
+      const res = await fetch('/api/auth/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Could not set password', 'error');
+        return;
+      }
+      showToast('Password saved', 'success');
+      window.location.reload();
+    });
+
+    document.getElementById('add-passkey-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('add-passkey-btn') as HTMLButtonElement;
+      btn.disabled = true;
+      try {
+        const result = await passkeyCeremony(
+          '/api/auth/passkey/register/begin',
+          '/api/auth/passkey/register/finish',
+        );
+        if (!result.ok) throw new Error(result.error);
+        showToast('Passkey added', 'success');
+        window.location.reload();
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Passkey failed', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+)}
+
+<style>
+  .profile-hero {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    margin-top: 40px;
+    padding: 28px;
+    border: var(--line);
+    border-radius: 18px;
+    background: var(--card);
+    box-shadow: 6px 6px 0 var(--pink);
+  }
+  .profile-av {
+    width: 88px;
+    height: 88px;
+    border-radius: 16px;
+    border: var(--line);
+    display: grid;
+    place-items: center;
+    font-family: Poppins, sans-serif;
+    font-weight: 800;
+    font-size: 28px;
+    background: var(--mist);
+  }
+  .profile-hero h1 {
+    margin: 0 0 6px;
+    font-size: 32px;
+  }
+  .profile-karma {
+    font-family: Poppins, sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--pink);
+    margin-bottom: 6px;
+  }
+  .profile-meta {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .profile-security {
+    margin-top: 28px;
+    padding: 24px;
+    border: var(--line);
+    border-radius: 16px;
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--blue);
+  }
+  .profile-security h2 {
+    margin: 0 0 8px;
+    font-size: 20px;
+  }
+  .profile-security-meta {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .profile-security-form {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+    max-width: 320px;
+  }
+  .profile-security-form label {
+    display: grid;
+    gap: 6px;
+    font-family: Poppins, sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .profile-security-form input {
+    border: 2px solid var(--hair);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    background: var(--paper);
+  }
+  .profile-note {
+    margin: 20px 0 0;
+    color: var(--faint);
+    font-size: 14px;
+    max-width: 52ch;
+  }
+</style>
