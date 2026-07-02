@@ -272,6 +272,239 @@
   max-width: 360px;
 }
 
+/* Site settings */
+.admin-settings-head {
+  margin-top: 8px;
+}
+
+.admin-settings-dirty {
+  font-family: Poppins, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--pink);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pink) 12%, transparent);
+}
+
+.admin-settings-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-top: 20px;
+  padding-bottom: 96px;
+}
+
+.admin-settings-nav {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.admin-settings-nav-link {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-family: Poppins, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.admin-settings-nav-link:hover {
+  color: var(--ink);
+  background: var(--mist);
+}
+
+.admin-settings-main {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-settings-card {
+  border: var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  overflow: hidden;
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.admin-settings-card-head {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--hair);
+  background: linear-gradient(180deg, var(--mist) 0%, var(--card) 100%);
+}
+
+.admin-settings-card-head h3 {
+  margin: 0 0 4px;
+  font-family: Poppins, sans-serif;
+  font-size: 1.05rem;
+}
+
+.admin-settings-card-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  max-width: 62ch;
+}
+
+.admin-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+  padding: 18px 20px 20px;
+}
+
+.admin-settings-field {
+  display: grid;
+  gap: 6px;
+  font-family: Poppins, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.admin-settings-field--wide {
+  grid-column: 1 / -1;
+}
+
+.admin-settings-input,
+.admin-settings-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-weight: 400;
+  padding: 10px 12px;
+  border: 2px solid var(--hair);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.admin-settings-input:focus,
+.admin-settings-textarea:focus {
+  outline: none;
+  border-color: var(--pink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pink) 18%, transparent);
+}
+
+.admin-settings-textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.5;
+}
+
+.admin-settings-hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.admin-settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: Poppins, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.admin-settings-check input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--pink);
+}
+
+.admin-settings-check code {
+  font-size: 0.85em;
+}
+
+.admin-settings-reasons {
+  display: grid;
+  gap: 10px;
+  padding: 0 20px 12px;
+}
+
+.report-reason-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.report-reason-row .rr-detail {
+  white-space: nowrap;
+}
+
+.report-reason-row .rr-remove {
+  min-width: 36px;
+  padding-inline: 8px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.admin-settings-error {
+  margin: 0;
+}
+
+.admin-settings-savebar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  border-top: var(--line);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.admin-settings-savebar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+}
+
+.admin-settings-savebar-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+@media (max-width: 960px) {
+  .admin-settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-settings-nav {
+    position: static;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 6px;
+  }
+
+  .admin-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-reason-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .admin-page .shead > .btn {
     margin-left: 0;

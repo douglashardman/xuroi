@@ -1,9 +1,13 @@
 {
-  "site_id": "puttertalk",
-  "name": "PutterTalk",
-  "tagline": "The putter community — back and better.",
-  "domains": ["puttertalk.com", "www.puttertalk.com"],
-  "default_theme": "puttertalk",
+  "admin": {
+    "emails": [
+      "tester@puttertalk.dev",
+      "doug@puttertalk.com",
+      "doug@mrdoug.com"
+    ],
+    "moderator_emails": [],
+    "perm_ban_moderator_emails": []
+  },
   "categories": [
     {
       "slug": "general-putter-talk",
@@ -26,7 +30,7 @@
         },
         {
           "slug": "classic-threads",
-          "name": "Classic Threads & How-To",
+          "name": "Classic Threads \u0026 How-To",
           "description": "The threads worth keeping."
         },
         {
@@ -43,7 +47,7 @@
     },
     {
       "slug": "popular-manufacturers",
-      "name": "Popular & Supporting Manufacturers",
+      "name": "Popular \u0026 Supporting Manufacturers",
       "forums": [
         {
           "slug": "bettinardi",
@@ -88,12 +92,12 @@
       "forums": [
         {
           "slug": "other-makers",
-          "name": "Other Makers & Custom Shops",
+          "name": "Other Makers \u0026 Custom Shops",
           "description": "Smaller brands, custom builders, one-offs."
         },
         {
           "slug": "equipment-reviews",
-          "name": "Equipment & Reviews",
+          "name": "Equipment \u0026 Reviews",
           "description": "Putters, grips, shafts, weights — reviews and comparisons."
         }
       ]
@@ -179,15 +183,76 @@
       ]
     }
   ],
+  "default_theme": "puttertalk",
+  "domains": [
+    "puttertalk.com",
+    "www.puttertalk.com"
+  ],
+  "email": {
+    "enabled": true,
+    "from_address": "noreply@puttertalk.com",
+    "from_name": "PutterTalk Community",
+    "reply_to": "doug@puttertalk.com",
+    "digest_delay_minutes": 5
+  },
+  "features": {
+    "agents_enabled": true,
+    "agent_post_policy": "disclosure_required",
+    "thread_intelligence": true,
+    "semantic_search": true
+  },
+  "guests": {
+    "read_only": true,
+    "can_attach": false
+  },
+  "intelligence": {
+    "enabled": true,
+    "summary_label": "TL;DR"
+  },
+  "launch": {
+    "status": "planning",
+    "prior_site_peak": {
+      "members": 17000,
+      "posts": 4000000,
+      "active_years": "2006-2019"
+    },
+    "data_migration": false,
+    "notes": "Greenfield relaunch. Domain recovered 2026. No DB backup found."
+  },
+  "moderation": {
+    "report_reasons": [
+      {
+        "id": "spam",
+        "label": "Spam or advertising"
+      },
+      {
+        "id": "harassment",
+        "label": "Harassment or abuse"
+      },
+      {
+        "id": "off_topic",
+        "label": "Off-topic"
+      },
+      {
+        "id": "inappropriate",
+        "label": "Inappropriate content"
+      },
+      {
+        "id": "other",
+        "label": "Other",
+        "allow_detail": true
+      }
+    ]
+  },
+  "name": "PutterTalk",
+  "new_users": {
+    "restrict_links_hours": 24,
+    "restrict_dm_hours": 72
+  },
   "posts": {
     "edit_enabled": true,
     "edit_window_minutes": 30,
     "delete_enabled": false
-  },
-  "admin": {
-    "emails": ["tester@puttertalk.dev", "doug@puttertalk.com", "doug@mrdoug.com"],
-    "moderator_emails": [],
-    "perm_ban_moderator_emails": []
   },
   "reserved_display_names": [
     "admin",
@@ -200,25 +265,10 @@
     "puttertalk",
     "xuroi"
   ],
-  "guests": {
-    "read_only": true,
-    "can_attach": false
+  "seo": {
+    "nofollow_user_links": true
   },
-  "intelligence": {
-    "enabled": true,
-    "summary_label": "TL;DR"
-  },
-  "email": {
-    "enabled": true,
-    "from_address": "noreply@puttertalk.com",
-    "from_name": "PutterTalk Community",
-    "reply_to": "doug@puttertalk.com",
-    "digest_delay_minutes": 5
-  },
-  "new_users": {
-    "restrict_links_hours": 24,
-    "restrict_dm_hours": 72
-  },
+  "site_id": "puttertalk",
   "spam": {
     "enabled": true,
     "max_links_new_user": 2,
@@ -226,32 +276,5 @@
     "score_threshold": 6,
     "hold_for_moderation": true
   },
-  "seo": {
-    "nofollow_user_links": true
-  },
-  "moderation": {
-    "report_reasons": [
-      { "id": "spam", "label": "Spam or advertising" },
-      { "id": "harassment", "label": "Harassment or abuse" },
-      { "id": "off_topic", "label": "Off-topic" },
-      { "id": "inappropriate", "label": "Inappropriate content" },
-      { "id": "other", "label": "Other", "allow_detail": true }
-    ]
-  },
-  "features": {
-    "agents_enabled": true,
-    "agent_post_policy": "disclosure_required",
-    "thread_intelligence": true,
-    "semantic_search": true
-  },
-  "launch": {
-    "status": "planning",
-    "prior_site_peak": {
-      "members": 17000,
-      "posts": 4000000,
-      "active_years": "2006-2019"
-    },
-    "data_migration": false,
-    "notes": "Greenfield relaunch. Domain recovered 2026. No DB backup found."
-  }
+  "tagline": "The putter community — back and better."
 }

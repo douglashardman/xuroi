@@ -10,11 +10,8 @@ import (
 	"github.com/xuroi/xuroi/api/internal/spam"
 )
 
-func (a *API) getAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.requireAdmin(w, r); !ok {
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
+func (a *API) siteSettingsPayload() map[string]any {
+	return map[string]any{
 		"name":                   a.siteCfg.Site.Name,
 		"tagline":                a.siteCfg.Site.Tagline,
 		"posts":                  a.siteCfg.Posts,
@@ -27,7 +24,14 @@ func (a *API) getAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 		"spam":                   a.siteCfg.Spam,
 		"seo":                    a.siteCfg.SEO,
 		"reserved_display_names": a.siteCfg.ReservedDisplayNames,
-	})
+	}
+}
+
+func (a *API) getAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
+	if _, ok := a.requireAdmin(w, r); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, a.siteSettingsPayload())
 }
 
 func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +97,18 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.NewUsers = req.NewUsers.Normalized()
 	}
 	if req.Spam != nil {
-		cfg.Spam = req.Spam.Normalized()
+		incoming := req.Spam.Normalized()
+		if !incoming.Enabled {
+			incoming.MaxLinksNewUser = cfg.Spam.MaxLinksNewUser
+			incoming.NewAccountHours = cfg.Spam.NewAccountHours
+			incoming.ScoreThreshold = cfg.Spam.ScoreThreshold
+			incoming.HoldForModeration = cfg.Spam.HoldForModeration
+			if incoming.MaxLinksNewUser == 0 {
+				incoming = cfg.Spam
+				incoming.Enabled = false
+			}
+		}
+		cfg.Spam = incoming
 	}
 	if req.SEO != nil {
 		cfg.SEO = *req.SEO
@@ -116,7 +131,7 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := site.Save(cfg, cfg.SiteJSONPath); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "save site.json: "+err.Error())
 		return
 	}
 	a.siteCfg = cfg
@@ -125,5 +140,5 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 	a.reader.SetIntelligence(cfg.Intelligence)
 	a.reader.SetSEOPolicy(cfg.SEO)
 	a.auth.SetReservedDisplayNames(cfg.ReservedDisplayNames)
-	writeJSON(w, http.StatusOK, map[string]any{"status": "saved"})
+	writeJSON(w, http.StatusOK, a.siteSettingsPayload())
 }

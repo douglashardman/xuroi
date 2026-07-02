@@ -282,6 +282,27 @@ export async function getAccessLevels(sessionToken: string): Promise<{
   return res.json() as Promise<{ levels: AccessLevelInfo[]; entitlements: AccessLevelInfo[] }>;
 }
 
+export type SiteSettings = {
+  name?: string;
+  tagline?: string;
+  posts?: Record<string, unknown>;
+  guests?: Record<string, unknown>;
+  intelligence?: Record<string, unknown>;
+  email?: Record<string, unknown>;
+  admin?: Record<string, unknown>;
+  moderation?: { report_reasons?: Array<{ id: string; label: string; allow_detail?: boolean }> };
+  new_users?: Record<string, unknown>;
+  spam?: Record<string, unknown>;
+  seo?: { nofollow_user_links?: boolean };
+  reserved_display_names?: string[];
+};
+
+export async function getAdminSiteSettings(sessionToken: string): Promise<SiteSettings> {
+  const res = await backendFetch('/v1/admin/site-settings', {}, sessionToken);
+  if (!res.ok) throw new Error(`API site settings: ${res.status}`);
+  return res.json() as Promise<SiteSettings>;
+}
+
 export async function getAdminCategories(sessionToken: string): Promise<AdminCategoriesResponse> {
   const res = await backendFetch('/v1/admin/categories', {}, sessionToken);
   if (!res.ok) throw new Error(`API admin categories: ${res.status}`);

@@ -174,6 +174,9 @@ func Load() Config {
 	if path == "" {
 		path = filepath.Join("..", "sites", "puttertalk", "site.json")
 	}
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
 	cfg.SiteJSONPath = path
 	if data, err := os.ReadFile(path); err == nil {
 		var f fileConfig
@@ -218,12 +221,6 @@ func Load() Config {
 	cfg.Email = cfg.Email.Normalized()
 	if cfg.Email.FromName == "Community" && cfg.Site.Name != "" {
 		cfg.Email.FromName = cfg.Site.Name
-	}
-	if !cfg.Guests.CanAttach {
-		cfg.Guests.CanAttach = false
-	}
-	if !cfg.Guests.ReadOnly {
-		cfg.Guests.ReadOnly = true
 	}
 	cfg.Moderation = cfg.Moderation.Normalized()
 	cfg.NewUsers = cfg.NewUsers.Normalized()
