@@ -551,7 +551,7 @@ func (r *Reader) listCategoryTree(ctx context.Context, viewer access.Viewer) ([]
 			SortOrder:   root.SortOrder,
 		}
 		if len(kids) == 0 {
-			forum := root.CategorySummary
+			forum := byID[root.ID].CategorySummary
 			forum.IsGroup = false
 			if includeForumInTree(forum) {
 				if forum.CanView {
@@ -564,7 +564,7 @@ func (r *Reader) listCategoryTree(ctx context.Context, viewer access.Viewer) ([]
 			}
 		} else {
 			for _, kid := range kids {
-				forum := kid.CategorySummary
+				forum := byID[kid.ID].CategorySummary
 				forum.IsGroup = false
 				if !includeForumInTree(forum) {
 					continue
