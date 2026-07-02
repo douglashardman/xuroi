@@ -316,6 +316,24 @@ export function initOwnProfileActions() {
     }
   });
 
+  document.getElementById('logout-all-btn')?.addEventListener('click', async () => {
+    const ok = await confirm('Sign out all other devices? This browser stays signed in.');
+    if (!ok) return;
+    const btn = document.getElementById('logout-all-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/me/logout-all', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      const n = data.sessions_revoked ?? 0;
+      showToast(n > 0 ? `Signed out ${n} other session(s)` : 'No other sessions were active', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   document.getElementById('add-passkey-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('add-passkey-btn') as HTMLButtonElement;
     btn.disabled = true;

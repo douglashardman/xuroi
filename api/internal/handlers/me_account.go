@@ -25,6 +25,29 @@ func (a *API) exportMyData(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(export)
 }
 
+func (a *API) logoutAllSessions(w http.ResponseWriter, r *http.Request) {
+	actor, ok := a.requireWritableActor(w, r)
+	if !ok {
+		return
+	}
+	keepToken := ""
+	if c, err := r.Cookie(auth.CookieName); err == nil {
+		keepToken = c.Value
+	}
+	if keepToken == "" {
+		keepToken = r.Header.Get("X-Session-Token")
+	}
+	n, err := a.auth.LogoutAllSessions(r.Context(), actor.ID, keepToken)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":           "logged_out_elsewhere",
+		"sessions_revoked": n,
+	})
+}
+
 func (a *API) deleteMyAccount(w http.ResponseWriter, r *http.Request) {
 	actor, ok := a.requireWritableActor(w, r)
 	if !ok {

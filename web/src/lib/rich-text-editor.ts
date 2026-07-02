@@ -526,6 +526,11 @@ export function normalizePostHtmlForEdit(html: string): string {
   return div.innerHTML;
 }
 
+export function hasEditorImages(editor: HTMLElement): boolean {
+  if ((attachmentLists.get(editor) ?? []).length > 0) return true;
+  return !!editor.querySelector('img[src]');
+}
+
 export function clearEditorAttachments(editor: HTMLElement) {
   const list = attachmentLists.get(editor) ?? [];
   for (const att of list) URL.revokeObjectURL(att.previewUrl);

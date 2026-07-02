@@ -1832,6 +1832,22 @@ a.post-action {
   font-size: 15px;
 }
 
+.compose-card--witb {
+  box-shadow: 6px 6px 0 var(--pink);
+}
+
+.compose-card--witb .rt-attachments {
+  order: -1;
+  margin-bottom: 8px;
+}
+
+.witb-hint {
+  margin: -6px 0 0;
+  font-size: 13px;
+  color: var(--pink);
+  font-weight: 600;
+}
+
 .compose-form {
   display: grid;
   gap: 14px;

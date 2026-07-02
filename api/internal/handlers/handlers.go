@@ -81,6 +81,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/actors/{id}/block", a.blockActor)
 	mux.HandleFunc("DELETE /v1/actors/{id}/block", a.unblockActor)
 	mux.HandleFunc("GET /v1/me/export", a.exportMyData)
+	mux.HandleFunc("POST /v1/me/logout-all", a.logoutAllSessions)
 	mux.HandleFunc("DELETE /v1/me/account", a.deleteMyAccount)
 	mux.HandleFunc("POST /v1/categories", a.createCategory)
 	mux.HandleFunc("POST /v1/threads", a.createThread)
@@ -302,6 +303,13 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 		writeContentPolicyError(w, err)
 		return
 	}
+	if dup, err := a.reader.HasRecentDuplicateBody(r.Context(), req.AuthorID, req.BodyMarkdown, 0); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	} else if dup {
+		writeError(w, http.StatusConflict, "duplicate post — you already posted this recently")
+		return
+	}
 	catSlug, err := a.reader.CategorySlug(r.Context(), req.CategoryID)
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
@@ -442,6 +450,13 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 	check, err := a.checkPostContent(r.Context(), req.AuthorID, req.BodyMarkdown, isStaff, isAdmin)
 	if err != nil {
 		writeContentPolicyError(w, err)
+		return
+	}
+	if dup, err := a.reader.HasRecentDuplicateBody(r.Context(), req.AuthorID, req.BodyMarkdown, 0); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	} else if dup && !isStaff {
+		writeError(w, http.StatusConflict, "duplicate post — you already posted this recently")
 		return
 	}
 	var mentioned []string

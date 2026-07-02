@@ -19,6 +19,7 @@ if (!user) {
 
 const classifiedsSlugs = new Set(['free-classifieds', 'wanted-trade', 'ebay-items']);
 const isClassifieds = classifiedsSlugs.has(slug!);
+const isWITB = slug === 'collections';
 const prefixes = ['FS', 'WTT', 'WTB', 'SOLD'];
 ---
 <Layout title={`New thread · ${data.category.name}`} site={data.site} user={user}>
@@ -28,9 +29,18 @@ const prefixes = ['FS', 'WTT', 'WTB', 'SOLD'];
     › New thread
   </div>
 
-  <section class="compose-card">
-    <h3>Start a discussion</h3>
-    <p>Posting in <strong>{data.category.name}</strong>. Select text and use the toolbar to format.</p>
+  <section class:list={['compose-card', isWITB && 'compose-card--witb']}>
+    {isWITB ? (
+      <>
+        <h3>What's in your bag?</h3>
+        <p>Photo-first — add at least one image of your putters or gear, then a short caption if you like.</p>
+      </>
+    ) : (
+      <>
+        <h3>Start a discussion</h3>
+        <p>Posting in <strong>{data.category.name}</strong>. Select text and use the toolbar to format.</p>
+      </>
+    )}
     <form id="new-thread-form" class="compose-form">
       <input type="hidden" name="category_id" value={data.category.id} />
       {isClassifieds && (
@@ -48,18 +58,19 @@ const prefixes = ['FS', 'WTT', 'WTB', 'SOLD'];
       </label>
       <RichTextEditor
         id="thread-body"
-        label="Your post"
-        placeholder="Share your question or take…"
+        label={isWITB ? 'Photos + caption' : 'Your post'}
+        placeholder={isWITB ? 'Optional caption — drag photos here or paste from clipboard…' : 'Share your question or take…'}
         size="full"
       />
+      {isWITB && <p class="witb-hint">At least one photo is required for WITB posts.</p>}
       <button type="submit" class="btn btn--pink">Post thread</button>
       <p class="form-error" id="thread-error" hidden></p>
     </form>
   </section>
 </Layout>
 
-<script>
-  import { bindRichTextToolbars, hasEditorContent, prepareEditorMarkdown } from '../../../lib/rich-text-editor.ts';
+<script define:vars={{ isWITB }}>
+  import { bindRichTextToolbars, hasEditorContent, hasEditorImages, prepareEditorMarkdown } from '../../../lib/rich-text-editor.ts';
   bindRichTextToolbars();
 
   const form = document.getElementById('new-thread-form') as HTMLFormElement | null;
@@ -100,8 +111,14 @@ const prefixes = ['FS', 'WTT', 'WTB', 'SOLD'];
     errorEl.hidden = true;
     btn.disabled = true;
 
-    if (!editor || !hasEditorContent(editor)) {
-      errorEl.textContent = 'Write something first';
+    if (!editor || (!hasEditorContent(editor) && !hasEditorImages(editor))) {
+      errorEl.textContent = isWITB ? 'Add at least one photo' : 'Write something first';
+      errorEl.hidden = false;
+      btn.disabled = false;
+      return;
+    }
+    if (isWITB && !hasEditorImages(editor)) {
+      errorEl.textContent = 'WITB posts need at least one photo';
       errorEl.hidden = false;
       btn.disabled = false;
       return;

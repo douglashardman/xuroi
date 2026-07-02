@@ -255,6 +255,27 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	return err
 }
 
+// LogoutAllSessions removes every session for the actor, optionally keeping the current token.
+func (s *Service) LogoutAllSessions(ctx context.Context, actorID, keepToken string) (int, error) {
+	if actorID == "" {
+		return 0, ErrInvalidInput
+	}
+	var tag pgconn.CommandTag
+	var err error
+	if keepToken != "" {
+		keepHash := hashToken(keepToken)
+		tag, err = s.pool.Exec(ctx, `
+			DELETE FROM sessions WHERE actor_id = $1 AND token_hash <> $2
+		`, actorID, keepHash)
+	} else {
+		tag, err = s.pool.Exec(ctx, `DELETE FROM sessions WHERE actor_id = $1`, actorID)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 func (s *Service) ActorFromToken(ctx context.Context, token string) (Actor, error) {
 	if token == "" {
 		return Actor{}, ErrInvalidSession
