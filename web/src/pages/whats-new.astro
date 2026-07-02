@@ -7,10 +7,11 @@ import { getHome, getMe, getRecentThreads, sessionFromCookieHeader } from '../li
 
 const cookie = Astro.request.headers.get('cookie');
 const session = sessionFromCookieHeader(cookie);
+const unreadOnly = Astro.url.searchParams.get('unread') === '1';
 const [home, user, recent] = await Promise.all([
   getHome(session),
   getMe(session),
-  getRecentThreads(session, 30),
+  getRecentThreads(30, session, unreadOnly),
 ]);
 const threads = recent.threads ?? [];
 ---
@@ -22,16 +23,25 @@ const threads = recent.threads ?? [];
 
   <div class="shead" style="margin-top:8px">
     <h2>What's new</h2>
-    <span class="lab">{threads.length} recent threads</span>
+    <span class="lab">{threads.length} {unreadOnly ? 'unread' : 'recent'} threads</span>
+    {user && (
+      <div class="wn-filters">
+        <a class:list={['btn', 'btn--sm', !unreadOnly && 'btn--pink']} href="/whats-new">All recent</a>
+        <a class:list={['btn', 'btn--sm', unreadOnly && 'btn--pink']} href="/whats-new?unread=1">Unread only</a>
+      </div>
+    )}
   </div>
 
   {threads.length === 0 ? (
-    <p class="mod-empty">No recent activity yet.</p>
+    <p class="mod-empty">{unreadOnly ? 'You are caught up — no unread threads.' : 'No recent activity yet.'}</p>
   ) : (
     <div class="wn-list">
       {threads.map((t) => (
-        <article class="wn-item">
-          <h3><a href={t.url}>{t.title}</a></h3>
+        <article class:list={['wn-item', t.is_unread && 'wn-item--unread']}>
+          <h3>
+            {t.is_unread && <span class="unread-pill">New</span>}
+            <a href={t.url}>{t.title}</a>
+          </h3>
           <p class="wn-meta">
             <span>{t.category_name}</span>
             · <time datetime={t.last_activity_at}>{timeAgo(t.last_activity_at)}</time>
@@ -44,7 +54,21 @@ const threads = recent.threads ?? [];
 </Layout>
 
 <style>
+  .wn-filters { display: flex; gap: 8px; }
   .wn-list { display: grid; gap: 14px; margin-top: 16px; }
   .wn-item h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .wn-item--unread h3 a { font-weight: 800; }
   .wn-meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .unread-pill {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--pink);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
 </style>

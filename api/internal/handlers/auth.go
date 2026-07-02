@@ -174,6 +174,10 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	if unreadDM, err := a.dm.UnreadConversationCount(r.Context(), enriched.ID); err == nil {
 		out["unread_dm"] = unreadDM
 	}
+	viewer, _ := a.viewerFromRequest(r)
+	if unreadThreads, err := a.reader.UnreadThreadCount(r.Context(), viewer); err == nil {
+		out["unread_threads"] = unreadThreads
+	}
 	if pendingFriends, err := a.friends.PendingIncomingCount(r.Context(), enriched.ID); err == nil {
 		out["pending_friend_requests"] = pendingFriends
 	}

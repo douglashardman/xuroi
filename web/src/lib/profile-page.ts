@@ -167,6 +167,23 @@ export function initOwnProfileActions() {
     window.location.reload();
   });
 
+  document.getElementById('profile-bio-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const bio = (new FormData(form).get('bio') as string) ?? '';
+    const res = await fetch('/api/me/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bio }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Could not save bio', 'error');
+      return;
+    }
+    showToast('Bio saved', 'success');
+  });
+
   document.getElementById('dm-privacy-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;

@@ -44,7 +44,7 @@ func main() {
 		log.Fatalf("system actor: %v", err)
 	}
 
-	reader := query.NewReader(pool, siteCfg.Site, siteCfg.Posts, siteCfg.Intelligence)
+	reader := query.NewReader(pool, siteCfg.Site, siteCfg.Posts, siteCfg.Intelligence, siteCfg.SEO)
 
 	webauthnSvc, err := auth.NewWebAuthn(siteCfg.Site.Name)
 	if err != nil {

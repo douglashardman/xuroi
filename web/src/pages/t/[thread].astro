@@ -9,10 +9,12 @@ import ReplyForm from '../../components/ReplyForm.astro';
 import { formatDate } from '../../lib/api';
 import { threadJsonLd } from '../../lib/seo';
 import {
+  getAdminCategories,
   getMe,
   getReportReasons,
   getThread,
   markThreadRead,
+  recordThreadView,
   sessionFromCookieHeader,
 } from '../../lib/server-api';
 import Avatar from '../../components/Avatar.astro';
@@ -39,9 +41,21 @@ const [data, initialUser, reportReasons] = await Promise.all([
 ]);
 
 if (session) {
-  await markThreadRead(session, id);
+  await Promise.all([markThreadRead(session, id), recordThreadView(session, id)]);
 }
 const user = session ? await getMe(session) : initialUser;
+
+let moveForums: { id: string; name: string }[] = [];
+if (session && (initialUser?.is_admin || initialUser?.is_moderator)) {
+  try {
+    const adminCats = await getAdminCategories(session);
+    moveForums = (adminCats.categories ?? [])
+      .filter((c) => !c.is_group)
+      .map((c) => ({ id: c.id, name: c.name }));
+  } catch {
+    moveForums = [];
+  }
+}
 
 let quotePostId: string | null = null;
 let quoteAuthor: string | null = null;
@@ -95,8 +109,20 @@ const jsonLd = threadJsonLd(data, data.site.url);
         · last activity {formatDate(data.thread.last_activity_at)}
         {data.thread.is_locked && ' · Locked'}
         {data.thread.is_pinned && ' · Pinned'}
+        {(data.thread.view_count ?? 0) > 0 && ` · ${data.thread.view_count!.toLocaleString()} views`}
       </div>
       <div class="tmeta-actions">
+        {user && (
+          <button
+            type="button"
+            class="btn btn--sm btn--ghost thread-watch-btn"
+            id="thread-watch-btn"
+            data-thread-id={data.thread.id}
+            data-watching={data.thread.email_watching !== false ? '1' : '0'}
+          >
+            {data.thread.email_watching !== false ? 'Watching' : 'Watch'}
+          </button>
+        )}
         {user && <ThreadReportBtn threadId={data.thread.id} />}
         {(user?.is_admin || user?.is_moderator) && (
           <ThreadModGear
@@ -104,6 +130,8 @@ const jsonLd = threadJsonLd(data, data.site.url);
             pinned={data.thread.is_pinned}
             locked={data.thread.is_locked}
             reportCount={data.ui?.open_report_count ?? 0}
+            moveForums={moveForums}
+            currentCategoryId={data.category.id}
           />
         )}
       </div>

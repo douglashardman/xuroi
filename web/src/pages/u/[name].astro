@@ -36,6 +36,9 @@ const avIdx = accentIndex(profile.id);
       <div class="profile-meta">
         {profile.post_count.toLocaleString()} posts · joined {formatDate(profile.joined_at)}
       </div>
+      {profile.bio && !isOwnProfile && (
+        <p class="profile-bio">{profile.bio}</p>
+      )}
       {!isOwnProfile && user && (
         <div class="profile-actions" id="profile-actions">
           {profile.friendship === 'friends' ? (
@@ -59,6 +62,19 @@ const avIdx = accentIndex(profile.id);
   <p class="profile-note">
     Karma comes from likes on your posts — liking your own posts doesn't count.
   </p>
+
+  {isOwnProfile && (
+    <section class="profile-bio-edit">
+      <h2>About you</h2>
+      <form id="profile-bio-form" class="profile-bio-form">
+        <label>
+          Bio
+          <textarea name="bio" rows="4" maxlength="500" placeholder="A short intro for your profile…">{profile.bio ?? ''}</textarea>
+        </label>
+        <button type="submit" class="btn btn--sm">Save bio</button>
+      </form>
+    </section>
+  )}
 
   {isOwnProfile && (
     <section class="profile-notifications">

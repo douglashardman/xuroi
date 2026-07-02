@@ -27,6 +27,7 @@ export interface Actor {
   entitlements?: string[];
   unread_notifications?: number;
   unread_dm?: number;
+  unread_threads?: number;
   pending_friend_requests?: number;
   dm_privacy?: 'everyone' | 'friends_only' | 'off';
   avatar_url?: string;
@@ -174,8 +175,11 @@ export async function getCategory(
 export async function getRecentThreads(
   limit = 6,
   sessionToken?: string | null,
+  unreadOnly = false,
 ): Promise<RecentThreadsResponse> {
-  const res = await backendFetch(`/v1/threads/recent?limit=${limit}`, {}, sessionToken);
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (unreadOnly) params.set('unread_only', '1');
+  const res = await backendFetch(`/v1/threads/recent?${params}`, {}, sessionToken);
   if (!res.ok) {
     throw new Error(`API recent threads: ${res.status}`);
   }
@@ -301,6 +305,17 @@ export async function markThreadRead(sessionToken: string, threadId: string): Pr
   if (!res.ok && res.status !== 404) {
     throw new Error(`API mark thread read: ${res.status}`);
   }
+}
+
+export async function markCategoryRead(sessionToken: string, slug: string): Promise<number> {
+  const res = await backendFetch(`/v1/categories/${encodeURIComponent(slug)}/read`, { method: 'POST' }, sessionToken);
+  if (!res.ok) throw new Error(`API mark category read: ${res.status}`);
+  const data = (await res.json()) as { marked?: number };
+  return data.marked ?? 0;
+}
+
+export async function recordThreadView(sessionToken: string, threadId: string): Promise<void> {
+  await backendFetch(`/v1/threads/${threadId}/view`, { method: 'POST' }, sessionToken);
 }
 
 export async function getNotifications(

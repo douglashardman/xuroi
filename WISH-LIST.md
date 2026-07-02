@@ -55,7 +55,7 @@ These are why we exist. Incumbents don't have them natively.
 |---|---|---|---|---|
 | partial | A1 | Thread intelligence — auto summary | P0 | Heuristic v1 on thread + `/meta.json`; LLM optional via env |
 | ✓ | A2 | `/meta.json` per thread | P0 | Summary, participants, model_version live |
-| — | A3 | `/llm.txt` per thread | P1 | Plain-text digest for crawlers |
+| ✓ | A3 | `/llm.txt` per thread | P1 | Plain-text digest for crawlers |
 | ✓ | A4 | JSON-LD beyond snippet — FAQPage when Q&A | P0 | Heuristic question titles → FAQPage schema |
 | — | A5 | Semantic search (pgvector) | P1 | "face balanced fast greens" finds right threads |
 | — | A6 | Agent actor type + disclosure badge | P1 | Not human accounts pretending |
@@ -92,14 +92,14 @@ These are why we exist. Incumbents don't have them natively.
 | — | B12 | Restore deleted (mod) | P1 | [XF] | |
 | ✓ | B13 | Sticky / pin thread | P0 | All | Admin bar on thread page |
 | ✓ | B14 | Lock / unlock thread | P0 | All | Blocks replies when locked |
-| — | B15 | Move thread (category) | P1 | All | |
+| ✓ | B15 | Move thread (category) | P1 | All | Mod gear picker · API + UI |
 | — | B16 | Merge threads | P2 | All | |
 | — | B17 | Split thread | P2 | [XF] | |
 | — | B18 | Thread prefixes / labels | P2 | [XF] | "FS", "WTT", "[SOLD]" for BST |
 | — | B19 | Polls | P3 | All | |
 | — | B20 | Thread types (question, article, suggestion) | P2 | [XF] | Question → solution flow |
 | — | B21 | Drafts (save post before submit) | P1 | All | |
-| — | B22 | Post preview | P1 | All | |
+| ✓ | B22 | Post preview | P1 | All | Reply composer Preview toggle |
 | ✓ | B23 | @mentions | P1 | [XF][SMF] | `@slug`, `@"Name"`, `@[Name]` → profile links + notify |
 | ✓ | B24 | Markdown authoring → sanitized HTML | P0 | | goldmark + bluemonday UGC |
 | — | B25 | Link unfurl / embed preview | P2 | [XF] | |
@@ -112,13 +112,13 @@ These are why we exist. Incumbents don't have them natively.
 | — | B32 | Read time / word count on threads | P3 | — | Nice for SEO pages |
 | — | B33 | Print-friendly thread view | P4 | [SMF] | |
 | — | B34 | RSS/Atom feeds per category | P2 | All | |
-| partial | B35 | Activity feed / recent posts | P1 | All | Home recent threads + per-forum latest on `/community` |
-| — | B36 | "What's new" / unread tracking | P1 | All | |
-| — | B37 | Mark forum read | P1 | All | |
-| partial | B38 | Mark thread read | P1 | All | `thread_reads` + implicit on view; no unread badges yet |
-| — | B39 | Thread watch / subscribe | P1 | All | Email digest exists; no explicit watch UI |
+| ✓ | B35 | Activity feed / recent posts | P1 | All | `/whats-new` · home recent · per-forum latest |
+| ✓ | B36 | "What's new" / unread tracking | P1 | All | Unread filter on `/whats-new` · community unread counts |
+| ✓ | B37 | Mark forum read | P1 | All | `POST /v1/categories/{slug}/read` · button on forum page |
+| ✓ | B38 | Mark thread read | P1 | All | Badges on forum + whats-new · nav unread count |
+| ✓ | B39 | Thread watch / subscribe | P1 | All | Watch/mute toggle on thread · `email_thread_mutes` |
 | — | B40 | Category watch | P2 | All | |
-| — | B41 | Thread view counter | P1 | All | Don't inflate; bot-filter |
+| ✓ | B41 | Thread view counter | P1 | All | Member dedup 6h · `view_count` on thread |
 | — | B42 | Similar / related threads | P2 | [XU] | Semantic |
 | — | B43 | Featured / spotlight threads | P2 | [XF] | Homepage curation |
 | — | B44 | Scheduled publish (thread) | P4 | [XF] | |
@@ -145,7 +145,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | C11 | Profile banner | P3 | [XF] | |
 | — | C12 | Custom title | P2 | [XF] | |
 | — | C13 | Signature | P2 | All | Markdown, length limit |
-| — | C14 | About / bio field | P1 | All | |
+| ✓ | C14 | About / bio field | P1 | All | Profile bio · `PATCH /v1/me/profile` |
 | — | C15 | Location, website fields | P3 | All | |
 | — | C16 | Custom profile fields | P3 | All | |
 | — | C17 | Username change | P2 | [XF] | With mod approval option |
@@ -204,7 +204,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | E12 | Duplicate post detection | P2 | — | |
 | — | E13 | Word censor / filter | P2 | All | |
 | — | E14 | Link domain allow/deny | P2 | — | |
-| — | E15 | Force nofollow on user links | P1 | [XF] | SEO protection |
+| ✓ | E15 | Force nofollow on user links | P1 | [XF] | `seo.nofollow_user_links` in Admin settings |
 | ✓ | E16 | Warn user | P2 | [XF] | 8h red border overlay; 3 strikes → 7-day auto-ban |
 | — | E17 | Warning points / expiry | P3 | [XF] | |
 | — | E18 | Mod log (audit trail) | P1 | All | Event log helps |

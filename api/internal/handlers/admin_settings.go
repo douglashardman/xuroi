@@ -25,6 +25,7 @@ func (a *API) getAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 		"moderation":             a.siteCfg.Moderation,
 		"new_users":              a.siteCfg.NewUsers,
 		"spam":                   a.siteCfg.Spam,
+		"seo":                    a.siteCfg.SEO,
 		"reserved_display_names": a.siteCfg.ReservedDisplayNames,
 	})
 }
@@ -44,6 +45,7 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 		Moderation   *site.ModerationPolicy  `json:"moderation"`
 		NewUsers              *policy.NewUserPolicy `json:"new_users"`
 		Spam                  *spam.Policy          `json:"spam"`
+		SEO                   *site.SEOPolicy       `json:"seo"`
 		ReservedDisplayNames  *[]string             `json:"reserved_display_names"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -93,6 +95,9 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 	if req.Spam != nil {
 		cfg.Spam = req.Spam.Normalized()
 	}
+	if req.SEO != nil {
+		cfg.SEO = *req.SEO
+	}
 	if req.ReservedDisplayNames != nil {
 		names := make([]string, 0, len(*req.ReservedDisplayNames))
 		seen := make(map[string]struct{})
@@ -118,6 +123,7 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 	a.forum.SetPostPolicy(cfg.Posts)
 	a.reader.SetPostPolicy(cfg.Posts)
 	a.reader.SetIntelligence(cfg.Intelligence)
+	a.reader.SetSEOPolicy(cfg.SEO)
 	a.auth.SetReservedDisplayNames(cfg.ReservedDisplayNames)
 	writeJSON(w, http.StatusOK, map[string]any{"status": "saved"})
 }

@@ -30,6 +30,7 @@ export interface CategorySummary {
   locked_label?: string;
   thread_count: number;
   post_count: number;
+  unread_count?: number;
   latest?: CategoryLatestThread | null;
 }
 
@@ -49,9 +50,11 @@ export interface ThreadSummary {
   url: string;
   author_name: string;
   reply_count: number;
+  view_count?: number;
   last_activity_at: string;
   is_pinned: boolean;
   is_locked: boolean;
+  is_unread?: boolean;
 }
 
 export interface QuotedPost {
@@ -108,6 +111,7 @@ export interface RecentThread {
   category_slug: string;
   reply_count: number;
   last_activity_at: string;
+  is_unread?: boolean;
 }
 
 export interface RecentThreadsResponse {
@@ -131,12 +135,14 @@ export interface ThreadPageResponse {
     url: string;
     summary?: string | null;
     reply_count: number;
+    view_count?: number;
     is_locked: boolean;
     is_pinned: boolean;
+    email_watching?: boolean;
     created_at: string;
     last_activity_at: string;
   };
-  category: { name: string; slug: string; url: string };
+  category: { id: string; name: string; slug: string; url: string };
   posts: Post[];
   pagination: Pagination;
   ui?: {
@@ -170,6 +176,7 @@ export interface UserProfile {
   display_name: string;
   url: string;
   avatar_url?: string;
+  bio?: string;
   karma: number;
   post_count: number;
   joined_at: string;

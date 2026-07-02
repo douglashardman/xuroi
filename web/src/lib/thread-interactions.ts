@@ -829,6 +829,80 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
     }
   });
 
+  document.querySelector('[data-thread-move]')?.addEventListener('click', async (e) => {
+    closeAllModPopovers();
+    const btn = e.currentTarget as HTMLButtonElement;
+    const bar = btn.closest('[data-thread-id]');
+    const threadId = bar?.getAttribute('data-thread-id');
+    const currentCategory = bar?.getAttribute('data-current-category') || '';
+    const raw = bar?.getAttribute('data-move-forums') || '[]';
+    if (!threadId) return;
+    let forums: { id: string; name: string }[] = [];
+    try {
+      forums = JSON.parse(raw) as { id: string; name: string }[];
+    } catch {
+      forums = [];
+    }
+    const choices = forums.filter((f) => f.id !== currentCategory);
+    if (!choices.length) {
+      showToast('No other forums available', 'info');
+      return;
+    }
+    const lines = choices.map((f, i) => `${i + 1}. ${f.name}`).join('\n');
+    const pick = await promptDialog(`Move this thread to which forum?\n\n${lines}\n\nEnter forum number:`, {
+      title: 'Move thread',
+      placeholder: '1',
+      defaultValue: '1',
+    });
+    if (pick === null) return;
+    const idx = Number(pick.trim()) - 1;
+    if (idx < 0 || idx >= choices.length) {
+      showToast('Invalid forum number', 'error');
+      return;
+    }
+    btn.setAttribute('disabled', 'true');
+    try {
+      const res = await fetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category_id: choices[idx].id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Move failed');
+      showToast(`Moved to ${choices[idx].name}`, 'success');
+      setTimeout(() => location.reload(), 600);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Move failed', 'error');
+      btn.removeAttribute('disabled');
+    }
+  });
+
+  document.getElementById('thread-watch-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('thread-watch-btn') as HTMLButtonElement | null;
+    if (!btn) return;
+    const threadId = btn.dataset.threadId;
+    const watching = btn.dataset.watching === '1';
+    if (!threadId) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/threads/${threadId}/email-watch`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !watching }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Update failed');
+      const nowWatching = !watching;
+      btn.dataset.watching = nowWatching ? '1' : '0';
+      btn.textContent = nowWatching ? 'Watching' : 'Watch';
+      showToast(nowWatching ? 'You will get reply emails for this thread' : 'Reply emails muted for this thread', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Update failed', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   document.querySelector('[data-thread-lock]')?.addEventListener('click', async (e) => {
     closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;

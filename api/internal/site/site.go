@@ -125,6 +125,7 @@ type Config struct {
 	Moderation           ModerationPolicy
 	NewUsers             policy.NewUserPolicy
 	Spam                 spam.Policy
+	SEO                  SEOPolicy
 	ReservedDisplayNames []string
 	SiteJSONPath         string
 }
@@ -141,6 +142,7 @@ type fileConfig struct {
 	ReservedDisplayNames  []string              `json:"reserved_display_names"`
 	NewUsers              policy.NewUserPolicy  `json:"new_users"`
 	Spam                  spam.Policy           `json:"spam"`
+	SEO                   *SEOPolicy            `json:"seo"`
 	Features              struct {
 		ThreadIntelligence bool `json:"thread_intelligence"`
 	} `json:"features"`
@@ -165,6 +167,7 @@ func Load() Config {
 			Enabled:            true,
 			DigestDelayMinutes: 5,
 		},
+		SEO: DefaultSEOPolicy(),
 	}
 
 	path := os.Getenv("SITE_JSON")
@@ -197,6 +200,9 @@ func Load() Config {
 			cfg.ReservedDisplayNames = f.ReservedDisplayNames
 			cfg.NewUsers = f.NewUsers.Normalized()
 			cfg.Spam = f.Spam.Normalized()
+			if f.SEO != nil {
+				cfg.SEO = *f.SEO
+			}
 		}
 	}
 
@@ -249,6 +255,7 @@ func Save(cfg Config, path string) error {
 		"moderation":             cfg.Moderation,
 		"new_users":              cfg.NewUsers,
 		"spam":                   cfg.Spam,
+		"seo":                    cfg.SEO,
 		"reserved_display_names": cfg.ReservedDisplayNames,
 	}
 	for k, v := range patch {

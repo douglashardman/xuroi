@@ -90,6 +90,11 @@ const reservedNames = (s.reserved_display_names ?? []).join('\n');
     </section>
 
     <section class="settings-section">
+      <h3>SEO</h3>
+      <label class="check-label"><input type="checkbox" id="set-seo-nofollow" checked={s.seo?.nofollow_user_links !== false} /> Add nofollow to external links in posts</label>
+    </section>
+
+    <section class="settings-section">
       <h3>Reserved display names</h3>
       <p class="settings-hint">Blocked at registration (case-insensitive). One name per line. Built-in staff names are always reserved.</p>
       <label>Reserved names <textarea id="set-reserved-names" rows="6" placeholder="admin&#10;moderator&#10;puttertalk">{reservedNames}</textarea></label>
@@ -195,6 +200,9 @@ const reservedNames = (s.reserved_display_names ?? []).join('\n');
         score_threshold: Number((document.getElementById('set-spam-threshold') as HTMLInputElement).value) || 6,
         max_links_new_user: Number((document.getElementById('set-spam-max-links') as HTMLInputElement).value) || 2,
         new_account_hours: Number((document.getElementById('set-spam-new-hours') as HTMLInputElement).value) || 48,
+      },
+      seo: {
+        nofollow_user_links: (document.getElementById('set-seo-nofollow') as HTMLInputElement).checked,
       },
       moderation: {
         report_reasons: collectReportReasons(),

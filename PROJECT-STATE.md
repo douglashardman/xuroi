@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — Admin section delete + multi-group access + member groups UI  
+**Last updated:** July 2, 2026 — Full admin settings UI + anti-spam batch  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** Admin categories polish shipped · **Next:** E5 polish, spam scoring (E9)
+**Session status:** Unread/engagement batch shipped (11 items) · **Next:** full test & debug pass with Doug
 
 ---
 
@@ -97,6 +97,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 - [x] Report post · **report thread (E3)** · mod queue `/mod/reports` · **configurable report reasons (E4)** in `site.json`
 - [x] **Post approval queue** `/mod/queue` — classifieds forums moderated (E2)
 - [x] Admin panel `/admin` — overview, users, categories CRUD (section delete, multi-group access), ban/restore/warn, member groups editor
+- [x] **Site settings UI (K2)** — `/admin/settings` — posts, guests, email, spam, new members, report reasons, reserved names
 - [x] Post author IP audit · email verification resend
 
 ### SEO, legal, marketing
@@ -134,7 +135,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 | Inline mod tools (E5) | Gear popover shipped; more inline actions TBD |
 | Redis cache / job workers (M3–M4) | In-memory limiter v1; Redis wired in compose, not used yet |
 | S3/CDN (G5, M5, M8) | Local uploads; Cloudflare at cutover |
-| Site settings UI (K2) | `site.json` is source of truth; no admin editor yet |
+| Site settings UI (K2) | **Shipped** — `/admin/settings`; owner emails + env vars still file/env only |
 | Stripe/Patreon entitlements (L8) | Manual grants only; webhook stub |
 | A12 CDN read/write split | Architectural — at hosting cutover |
 
@@ -151,9 +152,11 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 
 ## Next up (P1 — product)
 
-1. Inline mod tools polish (E5)
-2. Spam scoring basics (E9)
-3. IP ban / email ban (E7/E8)
+1. **Full test & debug** — Doug walkthrough of all shipped features
+2. Inline mod tools polish (E5)
+3. Hard delete / restore (B11/B12) if needed post-test
+
+**Rule:** any new configurable setting ships with an Admin section.
 
 ---
 
@@ -190,10 +193,11 @@ go run ./cmd/intelligence         # thread summaries
 
 1. Read `../.grok/session/CHANGELOG.md` first
 2. Read this file + **WISH-LIST.md** P1 section
-3. Default next work: **P1** — E5 mod gear polish + spam scoring (E9)
-4. End of session: update CHANGELOG + this file
-5. Execute yourself — run commands, don't just instruct Doug
-6. Backups are critical (2019 data loss)
+3. Default next work: **P1** — B38 unread badges + B15 move-thread UI
+4. **Admin rule:** every setting gets an Admin section at ship time
+5. End of session: update CHANGELOG + this file
+6. Execute yourself — run commands, don't just instruct Doug
+7. Backups are critical (2019 data loss)
 
 ---
 

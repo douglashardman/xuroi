@@ -28,6 +28,7 @@ type Reader struct {
 	site         models.Site
 	postPolicy   site.PostPolicy
 	intelligence site.IntelligencePolicy
+	seoPolicy    site.SEOPolicy
 }
 
 func (r *Reader) SetPostPolicy(p site.PostPolicy) {
@@ -38,19 +39,50 @@ func (r *Reader) SetIntelligence(p site.IntelligencePolicy) {
 	r.intelligence = p.Normalized()
 }
 
-func NewReader(pool *pgxpool.Pool, site models.Site, postPolicy site.PostPolicy, intelligence site.IntelligencePolicy) *Reader {
+func (r *Reader) SetSEOPolicy(p site.SEOPolicy) {
+	r.seoPolicy = p
+}
+
+func NewReader(pool *pgxpool.Pool, site models.Site, postPolicy site.PostPolicy, intelligence site.IntelligencePolicy, seoPolicy site.SEOPolicy) *Reader {
 	return &Reader{
 		pool:         pool,
 		site:         site,
 		postPolicy:   postPolicy,
 		intelligence: intelligence.Normalized(),
+		seoPolicy:    seoPolicy,
 	}
+}
+
+func (r *Reader) postHTML(html string) string {
+	html = markdown.EnrichMediaImages(html)
+	if r.seoPolicy.NofollowUserLinks {
+		html = markdown.ApplyNofollow(html)
+	}
+	return html
 }
 
 func (r *Reader) Home(ctx context.Context, viewer access.Viewer) (models.HomeResponse, error) {
 	groups, flat, err := r.listCategoryTree(ctx, viewer)
 	if err != nil {
 		return models.HomeResponse{}, err
+	}
+	if viewer.ActorID != nil && len(flat) > 0 {
+		ids := make([]string, len(flat))
+		for i, c := range flat {
+			ids[i] = c.ID
+		}
+		counts, err := r.CategoryUnreadCounts(ctx, *viewer.ActorID, ids)
+		if err != nil {
+			return models.HomeResponse{}, err
+		}
+		for i := range flat {
+			flat[i].UnreadCount = counts[flat[i].ID]
+		}
+		for gi := range groups {
+			for fi := range groups[gi].Forums {
+				groups[gi].Forums[fi].UnreadCount = counts[groups[gi].Forums[fi].ID]
+			}
+		}
 	}
 	return models.HomeResponse{Site: r.site, Groups: groups, Categories: flat}, nil
 }
@@ -98,6 +130,13 @@ func (r *Reader) CategoryBySlug(ctx context.Context, slug string, page, perPage 
 	if err != nil {
 		return models.CategoryPageResponse{}, err
 	}
+	if viewer.ActorID != nil {
+		counts, err := r.CategoryUnreadCounts(ctx, *viewer.ActorID, []string{cat.ID})
+		if err != nil {
+			return models.CategoryPageResponse{}, err
+		}
+		cat.UnreadCount = counts[cat.ID]
+	}
 
 	pagination := paginate(page, perPage, total, func(p int) string {
 		if p == 1 {
@@ -133,16 +172,16 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	var accessLevel string
 	var accessLevels []string
 	err := r.pool.QueryRow(ctx, `
-		SELECT t.id, t.title, t.slug, t.reply_count, t.is_locked, t.is_pinned,
+		SELECT t.id, t.title, t.slug, t.reply_count, t.view_count, t.is_locked, t.is_pinned,
 		       t.created_at, t.last_activity_at,
-		       c.name, c.slug, c.access_level, c.access_levels
+		       c.id, c.name, c.slug, c.access_level, c.access_levels
 		FROM threads t
 		JOIN categories c ON c.id = t.category_id
 		WHERE t.id = $1 AND t.deleted_at IS NULL
 	`, id).Scan(
-		&thread.ID, &thread.Title, &thread.Slug, &thread.ReplyCount,
+		&thread.ID, &thread.Title, &thread.Slug, &thread.ReplyCount, &thread.ViewCount,
 		&thread.IsLocked, &thread.IsPinned, &thread.CreatedAt, &thread.LastActivityAt,
-		&cat.Name, &cat.Slug, &accessLevel, &accessLevels,
+		&cat.ID, &cat.Name, &cat.Slug, &accessLevel, &accessLevels,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return models.ThreadPageResponse{}, ErrNotFound
@@ -167,6 +206,11 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	thread.URL = models.ThreadURL(thread.Slug, thread.ID)
 	cat.URL = models.CategoryURL(cat.Slug)
 	thread.Summary = r.threadSummary(ctx, id)
+	if viewer.ActorID != nil {
+		if watching, err := r.threadEmailWatching(ctx, *viewer.ActorID, id); err == nil {
+			thread.EmailWatching = watching
+		}
+	}
 
 	var total int
 	err = r.pool.QueryRow(ctx, `
@@ -276,7 +320,7 @@ func (r *Reader) ThreadMeta(ctx context.Context, id string) (models.ThreadMeta, 
 
 func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserProfile, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT a.id, a.display_name, a.karma, a.created_at, COALESCE(a.avatar_url, ''),
+		SELECT a.id, a.display_name, a.karma, a.created_at, COALESCE(a.avatar_url, ''), COALESCE(a.bio, ''),
 		       (SELECT count(*) FROM posts p WHERE p.author_id = a.id AND p.deleted_at IS NULL)
 		FROM actors a
 		WHERE a.type = 'human'
@@ -289,7 +333,7 @@ func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserPr
 	want := strings.ToLower(nameSlug)
 	for rows.Next() {
 		var profile models.UserProfile
-		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.PostCount); err != nil {
+		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.Bio, &profile.PostCount); err != nil {
 			return models.UserProfile{}, fmt.Errorf("scan actor: %w", err)
 		}
 		if slug.FromDisplayName(profile.DisplayName) == want {
@@ -303,23 +347,36 @@ func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserPr
 	return models.UserProfile{}, ErrNotFound
 }
 
-func (r *Reader) RecentThreads(ctx context.Context, limit int, viewer access.Viewer) (models.RecentThreadsResponse, error) {
+func (r *Reader) RecentThreads(ctx context.Context, limit int, viewer access.Viewer, unreadOnly bool) (models.RecentThreadsResponse, error) {
 	if limit < 1 {
 		limit = 6
 	}
-	if limit > 20 {
-		limit = 20
+	if limit > 50 {
+		limit = 50
 	}
 
-	rows, err := r.pool.Query(ctx, `
+	querySQL := `
 		SELECT t.id, t.title, t.slug, t.reply_count, t.last_activity_at, c.name, c.slug, c.access_level, c.access_levels
 		FROM threads t
 		JOIN categories c ON c.id = t.category_id
 		JOIN posts op ON op.thread_id = t.id AND op.is_op AND op.deleted_at IS NULL
+	`
+	args := []any{limit * 3}
+	if unreadOnly && viewer.ActorID != nil {
+		querySQL += `
+		LEFT JOIN thread_reads tr ON tr.thread_id = t.id AND tr.actor_id = $2
+		WHERE t.deleted_at IS NULL AND op.moderation_status = 'approved' AND ` + unreadSQL + `
+		ORDER BY t.last_activity_at DESC
+		LIMIT $1`
+		args = append(args, *viewer.ActorID)
+	} else {
+		querySQL += `
 		WHERE t.deleted_at IS NULL AND op.moderation_status = 'approved'
 		ORDER BY t.last_activity_at DESC
-		LIMIT $1
-	`, limit*3)
+		LIMIT $1`
+	}
+
+	rows, err := r.pool.Query(ctx, querySQL, args...)
 	if err != nil {
 		return models.RecentThreadsResponse{}, fmt.Errorf("recent threads: %w", err)
 	}
@@ -350,6 +407,17 @@ func (r *Reader) RecentThreads(ctx context.Context, limit int, viewer access.Vie
 	}
 	if err := rows.Err(); err != nil {
 		return models.RecentThreadsResponse{}, err
+	}
+	if viewer.ActorID != nil && len(threads) > 0 {
+		ids := make([]string, len(threads))
+		for i, t := range threads {
+			ids[i] = t.ID
+		}
+		if unread, err := r.threadUnreadMap(ctx, *viewer.ActorID, ids); err == nil {
+			for i := range threads {
+				threads[i].IsUnread = unread[threads[i].ID]
+			}
+		}
 	}
 	return models.RecentThreadsResponse{Site: r.site, Threads: threads}, nil
 }
@@ -582,7 +650,7 @@ func (r *Reader) listThreadsInCategory(ctx context.Context, categoryID string, p
 		opFilter = `(op.moderation_status = 'approved' OR (op.moderation_status = 'pending' AND op.author_id = $4))`
 	}
 	querySQL := `
-		SELECT t.id, t.title, t.slug, t.reply_count, t.last_activity_at,
+		SELECT t.id, t.title, t.slug, t.reply_count, t.view_count, t.last_activity_at,
 		       t.is_pinned, t.is_locked, a.display_name
 		FROM threads t
 		JOIN actors a ON a.id = t.author_id
@@ -607,7 +675,7 @@ func (r *Reader) listThreadsInCategory(ctx context.Context, categoryID string, p
 	for rows.Next() {
 		var t models.ThreadSummary
 		if err := rows.Scan(
-			&t.ID, &t.Title, &t.Slug, &t.ReplyCount, &t.LastActivityAt,
+			&t.ID, &t.Title, &t.Slug, &t.ReplyCount, &t.ViewCount, &t.LastActivityAt,
 			&t.IsPinned, &t.IsLocked, &t.AuthorName,
 		); err != nil {
 			return nil, fmt.Errorf("scan thread: %w", err)
@@ -616,7 +684,21 @@ func (r *Reader) listThreadsInCategory(ctx context.Context, categoryID string, p
 		t.HasSummary = r.threadSummary(ctx, t.ID) != nil
 		out = append(out, t)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if viewer.ActorID != nil && len(out) > 0 {
+		ids := make([]string, len(out))
+		for i, t := range out {
+			ids[i] = t.ID
+		}
+		if unread, err := r.threadUnreadMap(ctx, *viewer.ActorID, ids); err == nil {
+			for i := range out {
+				out[i].IsUnread = unread[out[i].ID]
+			}
+		}
+	}
+	return out, nil
 }
 
 func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage int, viewer access.Viewer) ([]models.Post, error) {
@@ -688,7 +770,7 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 		}
 		p.Author.IsAgent = actorType == "agent"
 		p.Author.URL = models.UserURL(p.Author.Name)
-		p.BodyHTML = markdown.EnrichMediaImages(p.BodyHTML)
+		p.BodyHTML = r.postHTML(p.BodyHTML)
 		if bodyMarkdown != nil {
 			p.BodyMarkdown = bodyMarkdown
 		}
@@ -763,7 +845,7 @@ func (r *Reader) PostByID(ctx context.Context, postID string, viewerActorID *str
 
 	p.Author.IsAgent = actorType == "agent"
 	p.Author.URL = models.UserURL(p.Author.Name)
-	p.BodyHTML = markdown.EnrichMediaImages(p.BodyHTML)
+	p.BodyHTML = r.postHTML(p.BodyHTML)
 	if bodyMarkdown != nil {
 		p.BodyMarkdown = bodyMarkdown
 	}

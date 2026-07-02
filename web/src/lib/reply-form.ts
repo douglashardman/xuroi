@@ -2,6 +2,7 @@ import type { Post } from './api';
 import { bindRichTextToolbars, hasEditorContent, prepareEditorMarkdown } from './rich-text-editor';
 import { bindNewPost } from './thread-interactions';
 import { insertThreadPost } from './thread-post';
+import { togglePostPreview } from './post-preview';
 import { showToast } from './toast';
 
 function afterPostUrl(threadUrl: string, postId: string): string {
@@ -45,6 +46,8 @@ export function initReplyForm(box: HTMLElement) {
   const quoteIdInput = document.getElementById('quoted-post-id') as HTMLInputElement | null;
   const quoteClear = document.getElementById('quote-clear');
   const fullReplyBtn = document.getElementById('full-reply-btn');
+  const previewBtn = document.getElementById('reply-preview-btn') as HTMLButtonElement | null;
+  const previewEl = document.getElementById('reply-preview') as HTMLElement | null;
   const fullReplyBase = `${threadUrl}/reply`;
 
   function fullReplyUrl() {
@@ -104,6 +107,15 @@ export function initReplyForm(box: HTMLElement) {
       if (quoteBox) quoteBox.hidden = true;
     });
   }
+
+  previewBtn?.addEventListener('click', async () => {
+    if (!(body instanceof HTMLElement) || !previewEl) return;
+    try {
+      await togglePostPreview(body, previewEl, previewBtn);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Preview failed', 'error');
+    }
+  });
 
   btn?.addEventListener('click', async () => {
     if (!(body instanceof HTMLElement) || !hasEditorContent(body)) return;

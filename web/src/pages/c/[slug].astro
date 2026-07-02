@@ -31,9 +31,19 @@ const threads = data.threads ?? [];
 
   <div class="shead" style="margin-top:12px">
     <h2>{data.category.name}</h2>
-    <span class="lab">{data.category.thread_count} threads</span>
+    <span class="lab">
+      {data.category.thread_count} threads
+      {(data.category.unread_count ?? 0) > 0 && (
+        <> · <span class="unread-lab">{data.category.unread_count} unread</span></>
+      )}
+    </span>
     {user ? (
-      <a href={`/c/${slug}/new`}>New thread →</a>
+      <>
+        {(data.category.unread_count ?? 0) > 0 && (
+          <button type="button" class="btn btn--sm btn--ghost" id="mark-forum-read" data-slug={slug}>Mark forum read</button>
+        )}
+        <a href={`/c/${slug}/new`}>New thread →</a>
+      </>
     ) : (
       <a href="/community">All forums →</a>
     )}
@@ -48,10 +58,11 @@ const threads = data.threads ?? [];
   ) : (
     <div class="threads">
       {threads.map((thread, i) => (
-        <a class="thr" href={thread.url}>
-          <span class="dot" style={`background:${ACCENT_VARS[i % 3]}`}></span>
+        <a class:list={['thr', thread.is_unread && 'thr--unread']} href={thread.url}>
+          <span class:list={['dot', thread.is_unread && 'dot--unread']} style={`background:${ACCENT_VARS[i % 3]}`}></span>
           <div>
             <div class="t">
+              {thread.is_unread && <span class="unread-pill">New</span>}
               {thread.title}
               {thread.is_pinned && ' 📌'}
               {thread.is_locked && ' 🔒'}
@@ -69,3 +80,43 @@ const threads = data.threads ?? [];
 
   <Pagination pagination={data.pagination} />
 </Layout>
+
+{user && (data.category.unread_count ?? 0) > 0 && (
+  <script>
+    import { showToast } from '../../lib/toast';
+    document.getElementById('mark-forum-read')?.addEventListener('click', async () => {
+      const btn = document.getElementById('mark-forum-read') as HTMLButtonElement;
+      const slug = btn.dataset.slug;
+      if (!slug) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/categories/${slug}/read`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        showToast('Forum marked read', 'success');
+        setTimeout(() => location.reload(), 500);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Failed', 'error');
+        btn.disabled = false;
+      }
+    });
+  </script>
+)}
+
+<style>
+  .unread-lab { color: var(--pink); font-weight: 700; }
+  .thr--unread .t { font-weight: 800; }
+  .dot--unread { box-shadow: 0 0 0 2px var(--pink); }
+  .unread-pill {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--pink);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+</style>

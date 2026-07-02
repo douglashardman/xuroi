@@ -1,15 +1,27 @@
 ---
+interface MoveForum {
+  id: string;
+  name: string;
+}
+
 interface Props {
   threadId: string;
   pinned: boolean;
   locked: boolean;
   reportCount: number;
+  moveForums?: MoveForum[];
+  currentCategoryId?: string;
 }
 
-const { threadId, pinned, locked, reportCount } = Astro.props;
+const { threadId, pinned, locked, reportCount, moveForums = [], currentCategoryId = '' } = Astro.props;
 const showBadge = reportCount > 0;
 ---
-<div class="mod-gear-wrap mod-gear-wrap--thread" data-thread-id={threadId}>
+<div
+  class="mod-gear-wrap mod-gear-wrap--thread"
+  data-thread-id={threadId}
+  data-current-category={currentCategoryId}
+  data-move-forums={JSON.stringify(moveForums)}
+>
   <button
     type="button"
     class="mod-gear-btn"
@@ -46,6 +58,15 @@ const showBadge = reportCount > 0;
     >
       <span class="mod-popover-label">{locked ? 'Unlock thread' : 'Lock thread'}</span>
     </button>
+
+    {moveForums.length > 0 && (
+      <>
+        <div class="mod-popover-divider"></div>
+        <button type="button" class="mod-popover-item" data-thread-move>
+          <span class="mod-popover-label">Move thread…</span>
+        </button>
+      </>
+    )}
 
     <div class="mod-popover-divider"></div>
     <div class="mod-popover-head">Reports</div>

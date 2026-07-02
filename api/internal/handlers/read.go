@@ -70,6 +70,9 @@ func (a *API) getUserProfile(w http.ResponseWriter, r *http.Request) {
 	if profile.AvatarURL != "" {
 		out["avatar_url"] = profile.AvatarURL
 	}
+	if profile.Bio != "" {
+		out["bio"] = profile.Bio
+	}
 	if viewer, err := a.actorFromRequest(r); err == nil && viewer.ID != profile.ID {
 		if rel, rerr := a.friends.Relationship(r.Context(), viewer.ID, profile.ID); rerr == nil {
 			out["friendship"] = rel
@@ -95,12 +98,13 @@ func (a *API) listRecentThreads(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
+	unreadOnly := r.URL.Query().Get("unread_only") == "1" || r.URL.Query().Get("unread_only") == "true"
 	viewer, err := a.viewerFromRequest(r)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp, err := a.reader.RecentThreads(r.Context(), limit, viewer)
+	resp, err := a.reader.RecentThreads(r.Context(), limit, viewer, unreadOnly)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

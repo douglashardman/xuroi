@@ -17,7 +17,11 @@ const sectionCount = groups.length;
   <div class="shead" style="margin-top:40px">
     <h2>The Community</h2>
     <span class="lab">{sectionCount} sections · {forumCount} forums</span>
-    <a href="/whats-new">What's new →</a>
+    <a href="/whats-new">
+      What's new
+      {(user?.unread_threads ?? 0) > 0 && ` (${user!.unread_threads})`}
+       →
+    </a>
   </div>
 
   {groups.map((group, gi) => (
@@ -35,6 +39,9 @@ const sectionCount = groups.length;
               <div class="fstats">
                 <b>{forum.thread_count.toLocaleString()}</b> threads<br />
                 {formatCount(forum.post_count)} messages
+                {(forum.unread_count ?? 0) > 0 && (
+                  <><br /><span class="funread">{forum.unread_count} unread</span></>
+                )}
               </div>
               {forum.latest && (
                 <div class="flast">
@@ -90,6 +97,10 @@ const sectionCount = groups.length;
     color: var(--pink);
     text-decoration: none;
     font-weight: 600;
+  }
+  .funread {
+    color: var(--pink);
+    font-weight: 700;
   }
   @media (max-width: 820px) {
     .flock { display: none; }

@@ -48,6 +48,7 @@ type CategorySummary struct {
 	LockedLabel string  `json:"locked_label,omitempty"`
 	ThreadCount int     `json:"thread_count"`
 	PostCount   int     `json:"post_count"`
+	UnreadCount int     `json:"unread_count,omitempty"`
 	Latest      *CategoryLatestThread `json:"latest,omitempty"`
 }
 
@@ -67,9 +68,11 @@ type ThreadSummary struct {
 	URL            string    `json:"url"`
 	AuthorName     string    `json:"author_name"`
 	ReplyCount     int       `json:"reply_count"`
+	ViewCount      int       `json:"view_count,omitempty"`
 	LastActivityAt time.Time `json:"last_activity_at"`
 	IsPinned       bool      `json:"is_pinned"`
 	IsLocked       bool      `json:"is_locked"`
+	IsUnread       bool      `json:"is_unread,omitempty"`
 	HasSummary     bool      `json:"has_summary"`
 }
 
@@ -122,6 +125,7 @@ type UserProfile struct {
 	DisplayName string    `json:"display_name"`
 	URL         string    `json:"url"`
 	AvatarURL   string    `json:"avatar_url,omitempty"`
+	Bio         string    `json:"bio,omitempty"`
 	Karma       int       `json:"karma"`
 	PostCount   int       `json:"post_count"`
 	JoinedAt    time.Time `json:"joined_at"`
@@ -153,6 +157,7 @@ type Post struct {
 }
 
 type CategoryRef struct {
+	ID   string `json:"id"`
 	Name string `json:"name"`
 	Slug string `json:"slug"`
 	URL  string `json:"url"`
@@ -165,8 +170,10 @@ type ThreadDetail struct {
 	URL            string    `json:"url"`
 	Summary        *string   `json:"summary,omitempty"`
 	ReplyCount     int       `json:"reply_count"`
+	ViewCount      int       `json:"view_count,omitempty"`
 	IsLocked       bool      `json:"is_locked"`
 	IsPinned       bool      `json:"is_pinned"`
+	EmailWatching  bool      `json:"email_watching,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	LastActivityAt time.Time `json:"last_activity_at"`
 }
@@ -186,6 +193,7 @@ type RecentThread struct {
 	CategorySlug   string    `json:"category_slug"`
 	ReplyCount     int       `json:"reply_count"`
 	LastActivityAt time.Time `json:"last_activity_at"`
+	IsUnread       bool      `json:"is_unread,omitempty"`
 }
 
 type RecentThreadsResponse struct {

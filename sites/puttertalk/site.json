@@ -226,6 +226,9 @@
     "score_threshold": 6,
     "hold_for_moderation": true
   },
+  "seo": {
+    "nofollow_user_links": true
+  },
   "moderation": {
     "report_reasons": [
       { "id": "spam", "label": "Spam or advertising" },
