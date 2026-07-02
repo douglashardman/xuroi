@@ -2,8 +2,10 @@ package site
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/xuroi/xuroi/api/internal/models"
 )
@@ -61,6 +63,56 @@ func (p IntelligencePolicy) Normalized() IntelligencePolicy {
 	return out
 }
 
+type ReportReason struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	AllowDetail bool   `json:"allow_detail,omitempty"`
+}
+
+type ModerationPolicy struct {
+	ReportReasons []ReportReason `json:"report_reasons"`
+}
+
+func (p ModerationPolicy) Normalized() ModerationPolicy {
+	out := p
+	if len(out.ReportReasons) == 0 {
+		out.ReportReasons = DefaultReportReasons()
+	}
+	return out
+}
+
+func DefaultReportReasons() []ReportReason {
+	return []ReportReason{
+		{ID: "spam", Label: "Spam or advertising"},
+		{ID: "harassment", Label: "Harassment or abuse"},
+		{ID: "off_topic", Label: "Off-topic"},
+		{ID: "inappropriate", Label: "Inappropriate content"},
+		{ID: "other", Label: "Other", AllowDetail: true},
+	}
+}
+
+func (p ModerationPolicy) FormatReportReason(reasonID, detail string) (string, error) {
+	reasonID = strings.TrimSpace(reasonID)
+	detail = strings.TrimSpace(detail)
+	if reasonID == "" {
+		return "", errors.New("report reason required")
+	}
+	for _, r := range p.Normalized().ReportReasons {
+		if r.ID != reasonID {
+			continue
+		}
+		if r.AllowDetail && detail != "" {
+			text := r.Label + ": " + detail
+			if len(text) > 500 {
+				text = text[:500]
+			}
+			return text, nil
+		}
+		return r.Label, nil
+	}
+	return "", errors.New("invalid report reason")
+}
+
 type Config struct {
 	Site                  models.Site
 	Posts                 PostPolicy
@@ -68,6 +120,7 @@ type Config struct {
 	Guests                GuestPolicy
 	Intelligence          IntelligencePolicy
 	Email                 EmailPolicy
+	Moderation            ModerationPolicy
 	ReservedDisplayNames  []string
 }
 
@@ -78,8 +131,9 @@ type fileConfig struct {
 	Admin        AdminPolicy        `json:"admin"`
 	Guests       GuestPolicy        `json:"guests"`
 	Intelligence IntelligencePolicy `json:"intelligence"`
-	Email                 EmailPolicy `json:"email"`
-	ReservedDisplayNames  []string    `json:"reserved_display_names"`
+	Email                 EmailPolicy      `json:"email"`
+	Moderation            ModerationPolicy `json:"moderation"`
+	ReservedDisplayNames  []string         `json:"reserved_display_names"`
 	Features              struct {
 		ThreadIntelligence bool `json:"thread_intelligence"`
 	} `json:"features"`
@@ -131,6 +185,7 @@ func Load() Config {
 			if cfg.Email.FromName == "Community" && cfg.Site.Name != "" {
 				cfg.Email.FromName = cfg.Site.Name
 			}
+			cfg.Moderation = f.Moderation.Normalized()
 			cfg.ReservedDisplayNames = f.ReservedDisplayNames
 		}
 	}
@@ -154,5 +209,6 @@ func Load() Config {
 	if !cfg.Guests.ReadOnly {
 		cfg.Guests.ReadOnly = true
 	}
+	cfg.Moderation = cfg.Moderation.Normalized()
 	return cfg
 }

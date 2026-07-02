@@ -215,6 +215,15 @@
     "reply_to": "doug@puttertalk.com",
     "digest_delay_minutes": 5
   },
+  "moderation": {
+    "report_reasons": [
+      { "id": "spam", "label": "Spam or advertising" },
+      { "id": "harassment", "label": "Harassment or abuse" },
+      { "id": "off_topic", "label": "Off-topic" },
+      { "id": "inappropriate", "label": "Inappropriate content" },
+      { "id": "other", "label": "Other", "allow_detail": true }
+    ]
+  },
   "features": {
     "agents_enabled": true,
     "agent_post_policy": "disclosure_required",

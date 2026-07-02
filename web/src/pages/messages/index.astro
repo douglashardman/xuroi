@@ -7,6 +7,7 @@ import { getHome } from '../../lib/api';
 import { timeAgo } from '../../lib/api';
 import {
   getDMConversations,
+  getFriendRequests,
   getMe,
   sessionFromCookieHeader,
 } from '../../lib/server-api';
@@ -20,11 +21,14 @@ if (!user) {
   return Astro.redirect('/join');
 }
 
-const [home, conversations] = await Promise.all([
+const [home, conversations, friendReqs] = await Promise.all([
   getHome(session),
   getDMConversations(session!, { limit: 50 }),
+  getFriendRequests(session!),
 ]);
-const navUser = { ...user, unread_dm: 0 };
+const navUser = { ...user, unread_dm: 0, pending_friend_requests: 0 };
+const incoming = friendReqs.incoming ?? [];
+const outgoing = friendReqs.outgoing ?? [];
 ---
 <Layout title="Messages" site={home.site} user={navUser}>
   <div class="crumb">
@@ -36,8 +40,80 @@ const navUser = { ...user, unread_dm: 0 };
     <h2>Messages</h2>
   </div>
 
+  <section class="dm-compose-panel">
+    <h3 class="dm-panel-title">New message</h3>
+    <p class="dm-panel-hint">Start a conversation with any member whose messages are open to everyone, or with an existing friend.</p>
+    <div class="dm-compose-wrap">
+      <label class="sr-only" for="dm-recipient">Recipient</label>
+      <input
+        type="text"
+        id="dm-recipient"
+        class="dm-recipient-input"
+        placeholder="Search by name…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div id="dm-suggestions" class="dm-suggestions" hidden></div>
+    </div>
+    <button type="button" class="btn btn--pink btn--sm" id="dm-start-btn" disabled>Start conversation</button>
+  </section>
+
+  {incoming.length > 0 && (
+    <section class="dm-friends-panel">
+      <h3 class="dm-panel-title">Friend requests</h3>
+      <div class="dm-friend-list">
+        {incoming.map((req) => {
+          const avIdx = accentIndex(req.from.id);
+          return (
+            <div class="dm-friend-row" data-request-id={req.id}>
+              <Avatar
+                name={req.from.display_name}
+                avatarUrl={req.from.avatar_url}
+                size="dm"
+                accentClass={PAV_CLASSES[avIdx]}
+              />
+              <div class="dm-friend-body">
+                <a href={req.from.url} class="dm-friend-name">{req.from.display_name}</a>
+                <span class="dm-friend-meta">wants to connect</span>
+              </div>
+              <div class="dm-friend-actions">
+                <button type="button" class="btn btn--sm btn--pink dm-accept-btn" data-id={req.id}>Accept</button>
+                <button type="button" class="btn btn--sm dm-decline-btn" data-id={req.id}>Decline</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  )}
+
+  {outgoing.length > 0 && (
+    <section class="dm-friends-panel dm-friends-panel--out">
+      <h3 class="dm-panel-title">Sent requests</h3>
+      <div class="dm-friend-list">
+        {outgoing.map((req) => {
+          const avIdx = accentIndex(req.to.id);
+          return (
+            <div class="dm-friend-row">
+              <Avatar
+                name={req.to.display_name}
+                avatarUrl={req.to.avatar_url}
+                size="dm"
+                accentClass={PAV_CLASSES[avIdx]}
+              />
+              <div class="dm-friend-body">
+                <a href={req.to.url} class="dm-friend-name">{req.to.display_name}</a>
+                <span class="dm-friend-meta">Pending</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  )}
+
   {conversations.length === 0 ? (
-    <p class="mod-empty">No conversations yet. Visit a member's profile and tap Message to start one.</p>
+    <p class="mod-empty">No conversations yet — search above to start one.</p>
   ) : (
     <div class="dm-inbox">
       {conversations.map((c) => {
@@ -50,7 +126,7 @@ const navUser = { ...user, unread_dm: 0 };
             <Avatar
               name={c.other.display_name}
               avatarUrl={c.other.avatar_url}
-              size="post"
+              size="dm"
               accentClass={PAV_CLASSES[avIdx]}
             />
             <div class="dm-row-body">
@@ -70,11 +146,247 @@ const navUser = { ...user, unread_dm: 0 };
   )}
 </Layout>
 
+<script>
+  import { showToast } from '../../lib/toast';
+
+  type MemberHit = {
+    id: string;
+    display_name: string;
+    avatar_url?: string;
+    url: string;
+  };
+
+  const input = document.getElementById('dm-recipient') as HTMLInputElement | null;
+  const suggestions = document.getElementById('dm-suggestions') as HTMLDivElement | null;
+  const startBtn = document.getElementById('dm-start-btn') as HTMLButtonElement | null;
+  let selected: MemberHit | null = null;
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+
+  function setSelected(m: MemberHit | null) {
+    selected = m;
+    if (startBtn) startBtn.disabled = !m;
+  }
+
+  async function searchMembers(q: string) {
+    if (q.length < 2) {
+      if (suggestions) {
+        suggestions.hidden = true;
+        suggestions.innerHTML = '';
+      }
+      setSelected(null);
+      return;
+    }
+    const res = await fetch(`/api/dm/members/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Search failed');
+    const members: MemberHit[] = data.members ?? [];
+    if (!suggestions) return;
+    if (members.length === 0) {
+      suggestions.hidden = true;
+      suggestions.innerHTML = '';
+      setSelected(null);
+      return;
+    }
+    suggestions.hidden = false;
+    suggestions.innerHTML = members.map((m) => `
+      <button type="button" class="dm-suggestion" data-id="${m.id}" data-name="${m.display_name}" data-url="${m.url}">
+        <span class="dm-suggestion-name">${m.display_name}</span>
+      </button>
+    `).join('');
+    suggestions.querySelectorAll('.dm-suggestion').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const el = btn as HTMLButtonElement;
+        const hit: MemberHit = {
+          id: el.dataset.id!,
+          display_name: el.dataset.name!,
+          url: el.dataset.url!,
+        };
+        if (input) input.value = hit.display_name;
+        suggestions.hidden = true;
+        setSelected(hit);
+      });
+    });
+  }
+
+  input?.addEventListener('input', () => {
+    setSelected(null);
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      searchMembers(input!.value.trim()).catch((err) => {
+        showToast(err instanceof Error ? err.message : 'Search failed', 'error');
+      });
+    }, 200);
+  });
+
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && suggestions) {
+      suggestions.hidden = true;
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!suggestions || !input) return;
+    if ((e.target as HTMLElement).closest('.dm-compose-wrap')) return;
+    suggestions.hidden = true;
+  });
+
+  startBtn?.addEventListener('click', async () => {
+    if (!selected) return;
+    startBtn.disabled = true;
+    try {
+      const res = await fetch('/api/dm/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient_id: selected.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start conversation');
+      window.location.href = data.url || `/messages/${data.conversation_id}`;
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not start conversation', 'error');
+      startBtn.disabled = false;
+    }
+  });
+
+  document.querySelectorAll('.dm-accept-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = (btn as HTMLButtonElement).dataset.id;
+      if (!id) return;
+      (btn as HTMLButtonElement).disabled = true;
+      const res = await fetch(`/api/friends/requests/${id}/accept`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.error || 'Could not accept', 'error');
+        (btn as HTMLButtonElement).disabled = false;
+        return;
+      }
+      showToast('Friend request accepted', 'success');
+      window.location.reload();
+    });
+  });
+
+  document.querySelectorAll('.dm-decline-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = (btn as HTMLButtonElement).dataset.id;
+      if (!id) return;
+      (btn as HTMLButtonElement).disabled = true;
+      const res = await fetch(`/api/friends/requests/${id}/decline`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.error || 'Could not decline', 'error');
+        (btn as HTMLButtonElement).disabled = false;
+        return;
+      }
+      (btn as HTMLButtonElement).closest('.dm-friend-row')?.remove();
+    });
+  });
+</script>
+
 <style>
+  .dm-compose-panel,
+  .dm-friends-panel {
+    margin-top: 16px;
+    padding: 20px;
+    border: var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--blue);
+  }
+  .dm-friends-panel--out {
+    box-shadow: 4px 4px 0 var(--yellow);
+  }
+  .dm-panel-title {
+    margin: 0 0 6px;
+    font-size: 18px;
+  }
+  .dm-panel-hint {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .dm-compose-wrap {
+    position: relative;
+    margin-bottom: 12px;
+  }
+  .dm-recipient-input {
+    width: 100%;
+    max-width: 360px;
+    border: 2px solid var(--hair);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    background: var(--paper);
+  }
+  .dm-suggestions {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-width: 360px;
+    border: var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--ink);
+    overflow: hidden;
+  }
+  .dm-suggestion {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+  .dm-suggestion:hover {
+    background: color-mix(in srgb, var(--pink) 12%, var(--card));
+  }
+  .dm-suggestion-name {
+    font-family: Poppins, sans-serif;
+    font-weight: 600;
+  }
+  .dm-friend-list {
+    display: grid;
+    gap: 10px;
+  }
+  .dm-friend-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: var(--line);
+    border-radius: 12px;
+    background: var(--paper);
+  }
+  .dm-friend-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .dm-friend-name {
+    font-family: Poppins, sans-serif;
+    font-weight: 700;
+    text-decoration: none;
+    color: inherit;
+  }
+  .dm-friend-name:hover {
+    color: var(--pink);
+  }
+  .dm-friend-meta {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .dm-friend-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
   .dm-inbox {
     display: grid;
     gap: 10px;
-    margin-top: 8px;
+    margin-top: 16px;
   }
   .dm-row {
     display: flex;
@@ -141,5 +453,15 @@ const navUser = { ...user, unread_dm: 0 };
     font-size: 12px;
     display: grid;
     place-items: center;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
   }
 </style>

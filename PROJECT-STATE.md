@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — P1 messaging shipped (D1 + D7)  
+**Last updated:** July 2, 2026 — I5 notification prefs + E4 report reasons  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** P1 messaging done · **Next:** notification prefs (I5), report reasons (E4)
+**Session status:** P1 prefs + report reasons shipped · **Next:** thread report (E3), inline mod tools (E5)
 
 ---
 
@@ -94,7 +94,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 - [x] Session-aware API on community/category pages (staff rooms visible when signed in)
 
 ### Moderation & admin
-- [x] Report post · mod queue `/mod/reports`
+- [x] Report post · mod queue `/mod/reports` · **configurable report reasons (E4)** in `site.json`
 - [x] **Post approval queue** `/mod/queue` — classifieds forums moderated (E2)
 - [x] Admin panel `/admin` — overview, users, categories CRUD, ban/restore/warn
 - [x] Post author IP audit · email verification resend
@@ -107,6 +107,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 ### Email
 - [x] SES + log mailer · styled auth/notification templates · unsubscribe
 - [x] @mention emails (I2) — queued via `cmd/notify`
+- [x] **Notification preferences (I5)** — `/settings/email` · thread reply + @mention email toggles
 
 ### Notifications (P1)
 - [x] @mentions in posts/threads (B23) — `@slug`, `@"Name"`, `@[Name]` → profile links
@@ -150,9 +151,9 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 
 ## Next up (P1 — product)
 
-1. Notification preferences (I5) — per-type email toggles in settings UI
-2. Configurable report reasons (E4)
-3. Thread report (E3)
+1. Thread report (E3)
+2. Inline mod tools (E5)
+3. Spam scoring basics (E9)
 
 ---
 
@@ -189,7 +190,7 @@ go run ./cmd/intelligence         # thread summaries
 
 1. Read `../.grok/session/CHANGELOG.md` first
 2. Read this file + **WISH-LIST.md** P1 section
-3. Default next work: **P1** — notification prefs (I5) + report reasons (E4)
+3. Default next work: **P1** — thread report (E3) + inline mod tools (E5)
 4. End of session: update CHANGELOG + this file
 5. Execute yourself — run commands, don't just instruct Doug
 6. Backups are critical (2019 data loss)

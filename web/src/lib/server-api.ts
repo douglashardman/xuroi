@@ -27,8 +27,24 @@ export interface Actor {
   entitlements?: string[];
   unread_notifications?: number;
   unread_dm?: number;
+  pending_friend_requests?: number;
   dm_privacy?: 'everyone' | 'friends_only' | 'off';
   avatar_url?: string;
+}
+
+export interface FriendMember {
+  id: string;
+  display_name: string;
+  avatar_url?: string;
+  url: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  from: FriendMember;
+  to: FriendMember;
+  status: string;
+  created_at: string;
 }
 
 export interface DMParticipant {
@@ -326,11 +342,57 @@ export async function getDMConversation(
   return data;
 }
 
+export async function getUserProfile(
+  slug: string,
+  sessionToken?: string | null,
+): Promise<import('./api').UserProfile> {
+  const res = await backendFetch(`/v1/users/${encodeURIComponent(slug)}`, {}, sessionToken);
+  if (!res.ok) throw new Error(`API user ${slug}: ${res.status}`);
+  return res.json() as Promise<import('./api').UserProfile>;
+}
+
+export async function getFriendRequests(sessionToken: string): Promise<{
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+}> {
+  const res = await backendFetch('/v1/friends/requests', {}, sessionToken);
+  if (!res.ok) throw new Error(`API friend requests: ${res.status}`);
+  const data = (await res.json()) as { incoming: FriendRequest[]; outgoing: FriendRequest[] };
+  return {
+    incoming: data.incoming ?? [],
+    outgoing: data.outgoing ?? [],
+  };
+}
+
 export async function getDMPrivacy(sessionToken: string): Promise<string> {
   const res = await backendFetch('/v1/me/dm-privacy', {}, sessionToken);
   if (!res.ok) throw new Error(`API dm privacy: ${res.status}`);
   const data = (await res.json()) as { dm_privacy: string };
   return data.dm_privacy;
+}
+
+export type EmailPreferences = {
+  thread_replies_enabled: boolean;
+  mentions_enabled: boolean;
+};
+
+export async function getEmailPreferences(sessionToken: string): Promise<EmailPreferences> {
+  const res = await backendFetch('/v1/me/email-preferences', {}, sessionToken);
+  if (!res.ok) throw new Error(`API email preferences: ${res.status}`);
+  return res.json() as Promise<EmailPreferences>;
+}
+
+export type ReportReason = {
+  id: string;
+  label: string;
+  allow_detail?: boolean;
+};
+
+export async function getReportReasons(): Promise<ReportReason[]> {
+  const res = await backendFetch('/v1/moderation/report-reasons');
+  if (!res.ok) throw new Error(`API report reasons: ${res.status}`);
+  const data = (await res.json()) as { reasons?: ReportReason[] };
+  return data.reasons ?? [];
 }
 
 export function sessionFromCookieHeader(cookieHeader: string | null): string | null {

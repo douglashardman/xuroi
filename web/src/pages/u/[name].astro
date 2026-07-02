@@ -3,8 +3,8 @@ export const prerender = false;
 
 import ProfileAvatar from '../../components/ProfileAvatar.astro';
 import Layout from '../../layouts/Layout.astro';
-import { formatDate, getHome, getUser } from '../../lib/api';
-import { getMe, sessionFromCookieHeader } from '../../lib/server-api';
+import { formatDate, getHome } from '../../lib/api';
+import { getMe, getUserProfile, sessionFromCookieHeader } from '../../lib/server-api';
 import { PAV_CLASSES, accentIndex, userURL } from '../../lib/theme';
 
 const { name } = Astro.params;
@@ -14,7 +14,7 @@ const [home, user] = await Promise.all([getHome(), getMe(session)]);
 
 let profile;
 try {
-  profile = await getUser(name!);
+  profile = await getUserProfile(name!, session);
 } catch {
   return Astro.redirect('/community');
 }
@@ -26,7 +26,7 @@ const avIdx = accentIndex(profile.id);
   <div class="profile-hero">
     <ProfileAvatar
       name={profile.display_name}
-      avatarUrl={profile.avatar_url ?? user?.avatar_url}
+      avatarUrl={profile.avatar_url}
       accentClass={PAV_CLASSES[avIdx]}
       editable={isOwnProfile}
     />
@@ -37,9 +37,22 @@ const avIdx = accentIndex(profile.id);
         {profile.post_count.toLocaleString()} posts · joined {formatDate(profile.joined_at)}
       </div>
       {!isOwnProfile && user && (
-        <button type="button" class="btn btn--sm btn--pink profile-message-btn" id="profile-message-btn" data-recipient-id={profile.id}>
-          Message
-        </button>
+        <div class="profile-actions" id="profile-actions">
+          {profile.friendship === 'friends' ? (
+            <button type="button" class="btn btn--sm btn--pending" disabled>Friends</button>
+          ) : profile.friendship === 'pending_sent' ? (
+            <button type="button" class="btn btn--sm btn--pending" disabled>Friend Request Pending</button>
+          ) : profile.friendship === 'pending_received' ? (
+            <button type="button" class="btn btn--sm btn--pink" id="profile-accept-friend-btn" data-request-id={profile.incoming_friend_request_id}>Accept friend request</button>
+          ) : (
+            <button type="button" class="btn btn--sm" id="profile-friend-btn" data-recipient-id={profile.id}>Add friend</button>
+          )}
+          {(profile.can_message !== false) && (
+            <button type="button" class="btn btn--sm btn--pink profile-message-btn" id="profile-message-btn" data-recipient-id={profile.id}>
+              Message
+            </button>
+          )}
+        </div>
       )}
     </div>
   </div>
@@ -48,13 +61,23 @@ const avIdx = accentIndex(profile.id);
   </p>
 
   {isOwnProfile && (
+    <section class="profile-notifications">
+      <h2>Email notifications</h2>
+      <p class="profile-notifications-meta">
+        Control thread reply and @mention emails.
+        <a href="/settings/email">Manage email preferences →</a>
+      </p>
+    </section>
+  )}
+
+  {isOwnProfile && (
     <section class="profile-privacy">
       <h2>Message privacy</h2>
       <p class="profile-privacy-meta">Who can start a new conversation with you.</p>
       <form id="dm-privacy-form" class="profile-privacy-form">
         <label>
           <input type="radio" name="dm_privacy" value="everyone" checked={user.dm_privacy !== 'friends_only' && user.dm_privacy !== 'off'} />
-          Everyone — any member can message you
+          Open — any member can message you
         </label>
         <label>
           <input type="radio" name="dm_privacy" value="friends_only" checked={user.dm_privacy === 'friends_only'} />
@@ -90,143 +113,13 @@ const avIdx = accentIndex(profile.id);
       </button>
     </section>
   )}
+
+  <script>
+    import { initOwnProfileActions, initVisitorProfileActions } from '../../lib/profile-page';
+    initVisitorProfileActions();
+    initOwnProfileActions();
+  </script>
 </Layout>
-
-{!isOwnProfile && user && (
-  <script>
-    import { showToast } from '../../lib/toast';
-
-    document.getElementById('profile-message-btn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('profile-message-btn') as HTMLButtonElement;
-      const recipientId = btn.dataset.recipientId;
-      if (!recipientId) return;
-      btn.disabled = true;
-      try {
-        const res = await fetch('/api/dm/conversations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recipient_id: recipientId }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not start conversation');
-        window.location.href = data.url || `/messages/${data.conversation_id}`;
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Message failed', 'error');
-        btn.disabled = false;
-      }
-    });
-  </script>
-)}
-
-{isOwnProfile && (
-  <script>
-    import { openAvatarCrop } from '../../lib/avatar-crop';
-    import { passkeyCeremony } from '../../lib/passkey';
-    import { showToast } from '../../lib/toast';
-
-    const avatarInput = document.getElementById('avatar-input') as HTMLInputElement | null;
-    const avatarTrigger = document.getElementById('profile-avatar-trigger');
-
-    avatarTrigger?.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('#profile-avatar-remove')) return;
-      avatarInput?.click();
-    });
-
-    document.getElementById('profile-avatar-remove')?.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const res = await fetch('/api/me/avatar', { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        showToast(data.error || 'Could not remove photo', 'error');
-        return;
-      }
-      showToast('Profile photo removed', 'success');
-      window.location.reload();
-    });
-
-    avatarInput?.addEventListener('change', async () => {
-      const file = avatarInput.files?.[0];
-      avatarInput.value = '';
-      if (!file) return;
-
-      let cropped: Blob | null;
-      try {
-        cropped = await openAvatarCrop(file);
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Could not open image', 'error');
-        return;
-      }
-      if (!cropped) return;
-
-      const form = new FormData();
-      form.append('file', cropped, 'avatar.jpg');
-      avatarTrigger?.setAttribute('disabled', '');
-      try {
-        const res = await fetch('/api/me/avatar', { method: 'POST', body: form });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Upload failed');
-        showToast('Profile photo updated', 'success');
-        window.location.reload();
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Upload failed', 'error');
-        avatarTrigger?.removeAttribute('disabled');
-      }
-    });
-
-    document.getElementById('set-password-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const form = e.target as HTMLFormElement;
-      const password = new FormData(form).get('password') as string;
-      const res = await fetch('/api/auth/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || 'Could not set password', 'error');
-        return;
-      }
-      showToast('Password saved', 'success');
-      window.location.reload();
-    });
-
-    document.getElementById('dm-privacy-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const form = e.target as HTMLFormElement;
-      const dmPrivacy = new FormData(form).get('dm_privacy') as string;
-      const res = await fetch('/api/me/dm-privacy', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dm_privacy: dmPrivacy }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || 'Could not save privacy', 'error');
-        return;
-      }
-      showToast('Message privacy updated', 'success');
-    });
-
-    document.getElementById('add-passkey-btn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('add-passkey-btn') as HTMLButtonElement;
-      btn.disabled = true;
-      try {
-        const result = await passkeyCeremony(
-          '/api/auth/passkey/register/begin',
-          '/api/auth/passkey/register/finish',
-        );
-        if (!result.ok) throw new Error(result.error);
-        showToast('Passkey added', 'success');
-        window.location.reload();
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : 'Passkey failed', 'error');
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  </script>
-)}
 
 <style>
   .profile-hero {
@@ -256,8 +149,48 @@ const avIdx = accentIndex(profile.id);
     color: var(--muted);
     font-size: 14px;
   }
-  .profile-message-btn {
+  .profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-top: 14px;
+  }
+  .btn--pending {
+    cursor: not-allowed;
+    opacity: 0.72;
+    color: var(--muted);
+    background: var(--paper);
+    box-shadow: none;
+    transform: none;
+    pointer-events: none;
+  }
+  .btn--pending:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .profile-notifications {
+    margin-top: 28px;
+    padding: 24px;
+    border: var(--line);
+    border-radius: 16px;
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--green);
+  }
+  .profile-notifications h2 {
+    margin: 0 0 8px;
+    font-size: 20px;
+  }
+  .profile-notifications-meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .profile-notifications-meta a {
+    color: var(--pink);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
   }
   .profile-privacy {
     margin-top: 28px;

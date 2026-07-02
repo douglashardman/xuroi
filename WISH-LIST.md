@@ -40,7 +40,7 @@ Full pass against `PROJECT-STATE.md`, changelog, and codebase. **Status is alway
 |---|---|---|
 | **✓** | ~72 | Core forum (B1–B6, B7–B9, B13–B14, B24, B28), auth (C1–C5, C7, C9, C35–C36), media (G1, G3–G4, G10), SEO (H10–H11, H13, H15), admin (K1, K3–K5, K9, K19), platform (M1–M2, M6–M7), notifications (I1–I2, I4, I8–I9), avatars (C10), legal (N1–N2), PutterTalk seed (P1, P5) |
 | **partial** | ~25 | A1/A8/A10/A11, B10, B35/B38, C3 (passkeys parked), E1/E3/E7, F1/F2, G2, H16, I7, J1/J3/J7/J10, K2, L1, M3 |
-| **—** | ~178 | CDN/ops cutover (G5, M5, M8–M9, P7), prefs UI (I5), group PM (D2) |
+| **—** | ~176 | CDN/ops cutover (G5, M5, M8–M9, P7), group PM (D2) |
 | **P0 remaining** | ~12 | Mostly ops: H7 async search, A12 CDN split, G5 CDN, M5/M8/M9, P7 DNS, J2 Mustache renderer (deferred — Astro is launch UI), A10 validator CLI |
 
 **Fixes this audit:** B1–B6 marked shipped · I1/I8/I9 marked shipped · F3/F8/F9 staff rooms · E20 IP audit · J9 dark mode · C18 display names · D1 bumped to P1 · duplicate K19 → K25 · N/O/P status typos corrected
@@ -193,7 +193,7 @@ These are why we exist. Incumbents don't have them natively.
 | partial | E1 | Moderator role | P0 | All | `moderator_emails` in site.json; admin superset |
 | ✓ | E2 | Mod queue (approve posts) | P0 | All | `/mod/queue` · classifieds `post_moderation` · approve/reject API |
 | partial | E3 | Report post / thread | P0 | All | Post report + `/mod/reports` live; thread report TBD |
-| — | E4 | Report reasons (configurable) | P1 | [PB] | |
+| ✓ | E4 | Report reasons (configurable) | P1 | [PB] | `site.json` `moderation.report_reasons` · picker UI on report · `GET /v1/moderation/report-reasons` |
 | — | E5 | Inline mod tools | P1 | [XF] | |
 | ✓ | E6 | Ban user (temp / perm) | P0 | All | Admin UI; clears sessions |
 | partial | E7 | IP ban | P1 | All | Post IPs banned with account; cleared on restore |
@@ -294,7 +294,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | I2 | Email on @mention | P1 | All | `email_mention_queue` + notify worker |
 | — | I3 | Email digest (daily/weekly) | P2 | [SMF] | |
 | ✓ | I4 | In-app notification feed | P1 | [XF] | Bell · `/notifications` · mentions + thread_reply; auto-clear on view |
-| — | I5 | Notification preferences | P1 | [XF] | Per-type toggles in settings UI (`email_preferences` partial) |
+| ✓ | I5 | Notification preferences | P1 | [XF] | `/settings/email` · thread replies + @mentions toggles · `GET/PATCH /v1/me/email-preferences` |
 | — | I6 | Push notifications (web push) | P3 | [XF] | |
 | partial | I7 | Email queue / retry | P1 | All | Queue tables + worker; retry/backoff basic |
 | ✓ | I8 | Transactional email templates | P1 | — | thread_reply, magic_link, password_reset, mention |

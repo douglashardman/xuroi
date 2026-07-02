@@ -533,7 +533,17 @@ a.post-action {
   width: 64px;
   height: 64px;
   border-radius: 14px;
+}
+
+.pside .avatar--post {
   margin: 0 auto 10px;
+}
+
+.avatar--dm {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  margin: 0;
 }
 
 .avatar--profile {
@@ -1305,6 +1315,179 @@ a.post-action {
   transform: translate(-1px, -1px);
 }
 
+/* DM thread — global so client-inserted bubbles match SSR */
+.dm-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 24px;
+  padding: 18px 20px;
+  border: var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.dm-thread-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dm-thread-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.dm-thread-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.dm-thread-title a:hover {
+  color: var(--pink);
+}
+
+.dm-thread-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.dm-messages {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.dm-bubble {
+  max-width: min(85%, 520px);
+  padding: 12px 14px;
+  border: var(--line);
+  border-radius: 14px 14px 14px 4px;
+  background: var(--card);
+}
+
+.dm-bubble--mine {
+  margin-left: auto;
+  border-radius: 14px 14px 4px 14px;
+  background: color-mix(in srgb, var(--pink) 8%, var(--card));
+  border-color: color-mix(in srgb, var(--pink) 35%, var(--hair));
+}
+
+.dm-bubble--enter {
+  animation: dm-bubble-in 0.35s ease;
+}
+
+@keyframes dm-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dm-bubble-meta {
+  margin-bottom: 6px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.dm-bubble-body {
+  font-size: 15px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.dm-bubble-body p {
+  margin: 0 0 10px;
+}
+
+.dm-bubble-body p:last-child {
+  margin-bottom: 0;
+}
+
+.dm-bubble-body ul,
+.dm-bubble-body ol {
+  margin: 8px 0;
+  padding-left: 1.4em;
+}
+
+.dm-bubble-body blockquote {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--pink);
+  color: var(--muted);
+}
+
+.dm-bubble-body code {
+  font-size: 0.92em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--mist);
+}
+
+.dm-bubble-body a {
+  color: var(--pink);
+  font-weight: 600;
+}
+
+.dm-bubble-body img,
+.dm-bubble-body .post-inline-img {
+  max-width: min(100%, 360px);
+  height: auto;
+  border-radius: 12px;
+  border: var(--line);
+  margin: 10px 0;
+  display: block;
+  cursor: zoom-in;
+  box-shadow: 4px 4px 0 var(--ink);
+  transition: transform 0.12s ease;
+}
+
+.dm-bubble-body img:hover,
+.dm-bubble-body .post-inline-img:hover {
+  transform: translate(-1px, -1px);
+}
+
+.dm-bubble-body .post-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.dm-bubble-body .post-gallery img {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  margin: 0;
+}
+
+.dm-compose {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 4px 4px 0 var(--blue);
+}
+
+.dm-compose .rt-editor-area {
+  min-height: 88px;
+}
+
+.dm-compose-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 body.lightbox-open {
   overflow: hidden;
 }
@@ -1715,6 +1898,62 @@ body.dialog-open {
   background: var(--mist);
   border-radius: 6px;
   font-size: 13px;
+}
+
+.report-reason-intro {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.report-reason-form {
+  display: grid;
+  gap: 14px;
+}
+
+.report-reason-list {
+  display: grid;
+  gap: 10px;
+}
+
+.report-reason-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.report-reason-option input {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--pink);
+}
+
+.report-reason-detail {
+  display: grid;
+  gap: 6px;
+  font-family: Poppins, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.report-reason-detail textarea {
+  border: 2px solid var(--hair);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--paper);
+  resize: vertical;
+  min-height: 72px;
+}
+
+.report-reason-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .mod-report-panel-actions {

@@ -138,6 +138,29 @@ func (a *API) markDMRead(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (a *API) searchDMMembers(w http.ResponseWriter, r *http.Request) {
+	actor, ok := a.requireWritableActor(w, r)
+	if !ok {
+		return
+	}
+	q := r.URL.Query().Get("q")
+	limit := 10
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	members, err := a.dm.SearchMessageable(r.Context(), actor.ID, q, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if members == nil {
+		members = []dm.MemberHit{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"members": members})
+}
+
 func (a *API) getDMPrivacy(w http.ResponseWriter, r *http.Request) {
 	actor, err := a.actorFromRequest(r)
 	if errors.Is(err, auth.ErrInvalidSession) {

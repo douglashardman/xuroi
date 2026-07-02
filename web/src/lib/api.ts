@@ -142,7 +142,14 @@ export interface ThreadPageResponse {
     show_mod_bar?: boolean;
     open_report_count?: number;
     summary_label?: string;
+    report_reasons?: ReportReason[];
   };
+}
+
+export interface ReportReason {
+  id: string;
+  label: string;
+  allow_detail?: boolean;
 }
 
 async function fetchJSON<T>(path: string): Promise<T> {
@@ -165,6 +172,9 @@ export interface UserProfile {
   karma: number;
   post_count: number;
   joined_at: string;
+  friendship?: 'none' | 'friends' | 'pending_sent' | 'pending_received';
+  incoming_friend_request_id?: string;
+  can_message?: boolean;
 }
 
 export function getUser(slug: string) {

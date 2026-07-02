@@ -10,17 +10,20 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/xuroi/xuroi/api/internal/friends"
+	"github.com/xuroi/xuroi/api/internal/intelligence"
 	"github.com/xuroi/xuroi/api/internal/ids"
 	"github.com/xuroi/xuroi/api/internal/markdown"
 	"github.com/xuroi/xuroi/api/internal/slug"
 )
 
 type Service struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	friends *friends.Service
 }
 
-func New(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool}
+func New(pool *pgxpool.Pool, friendsSvc *friends.Service) *Service {
+	return &Service{pool: pool, friends: friendsSvc}
 }
 
 type Participant struct {
@@ -120,10 +123,88 @@ func (s *Service) CanMessage(ctx context.Context, senderID, recipientID string, 
 	case PrivacyOff:
 		return ErrDMDisabled
 	case PrivacyFriendsOnly:
+		if s.friends != nil {
+			ok, err := s.friends.AreFriends(ctx, senderID, recipientID)
+			if err != nil {
+				return err
+			}
+			if ok {
+				return nil
+			}
+		}
 		return ErrDMFriendsOnly
 	default:
 		return nil
 	}
+}
+
+type MemberHit struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	AvatarURL   string `json:"avatar_url,omitempty"`
+	URL         string `json:"url"`
+}
+
+func (s *Service) SearchMessageable(ctx context.Context, viewerID, query string, limit int) ([]MemberHit, error) {
+	query = strings.TrimSpace(query)
+	if len(query) < 2 {
+		return []MemberHit{}, nil
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 20 {
+		limit = 20
+	}
+	pattern := strings.ToLower(query) + "%"
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, display_name, COALESCE(avatar_url, ''), dm_privacy
+		FROM actors
+		WHERE type = 'human' AND id <> $1
+		  AND (
+		    LOWER(display_name) LIKE $2
+		    OR LOWER(display_name) LIKE $3
+		  )
+		ORDER BY display_name
+		LIMIT 40
+	`, viewerID, pattern, "% "+pattern)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	wantSlug := strings.ToLower(slug.FromDisplayName(query))
+	out := make([]MemberHit, 0, limit)
+	seen := make(map[string]bool)
+	for rows.Next() {
+		var id, name, avatar, privacy string
+		if err := rows.Scan(&id, &name, &avatar, &privacy); err != nil {
+			return nil, err
+		}
+		nameSlug := slug.FromDisplayName(name)
+		if !strings.HasPrefix(strings.ToLower(name), strings.ToLower(query)) &&
+			!strings.Contains(strings.ToLower(name), " "+strings.ToLower(query)) &&
+			!strings.HasPrefix(nameSlug, wantSlug) {
+			continue
+		}
+		if seen[id] {
+			continue
+		}
+		if err := s.CanMessage(ctx, viewerID, id, true); err != nil {
+			continue
+		}
+		seen[id] = true
+		out = append(out, MemberHit{
+			ID:          id,
+			DisplayName: name,
+			AvatarURL:   avatar,
+			URL:         "/u/" + nameSlug,
+		})
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, rows.Err()
 }
 
 func (s *Service) FindActorBySlug(ctx context.Context, nameSlug string) (string, error) {
@@ -243,7 +324,7 @@ func (s *Service) ListConversations(ctx context.Context, actorID string, limit i
 			return nil, err
 		}
 		if bodyHTML != nil {
-			sum.LastPreview = truncatePlain(stripHTML(*bodyHTML), 120)
+			sum.LastPreview = intelligence.TruncatePlain(intelligence.StripHTML(*bodyHTML), 120)
 		}
 		out = append(out, sum)
 	}
@@ -324,7 +405,7 @@ func (s *Service) SendMessage(ctx context.Context, senderID, convID, bodyMarkdow
 	if err != nil {
 		return Message{}, err
 	}
-	preview := truncatePlain(bodyMarkdown, 200)
+	preview := intelligence.TruncatePlain(bodyMarkdown, 200)
 	_, err = tx.Exec(ctx, `
 		INSERT INTO notifications (id, actor_id, type, from_actor_id, title, body, url, created_at)
 		VALUES ($1, $2, 'dm_message', $3, $4, $5, $6, $7)
@@ -386,14 +467,3 @@ func (s *Service) UnreadConversationCount(ctx context.Context, actorID string) (
 	return n, err
 }
 
-func stripHTML(html string) string {
-	return strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(html, "<", " <"), ">", "> "))
-}
-
-func truncatePlain(s string, max int) string {
-	s = strings.Join(strings.Fields(s), " ")
-	if len(s) <= max {
-		return s
-	}
-	return s[:max] + "…"
-}

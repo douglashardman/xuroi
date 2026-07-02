@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/xuroi/xuroi/api/internal/auth"
 	"github.com/xuroi/xuroi/api/internal/events"
@@ -111,13 +112,28 @@ func (a *API) reportPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Reason string `json:"reason"`
+		ReasonID string `json:"reason_id"`
+		Detail   string `json:"detail"`
+		Reason   string `json:"reason"`
 	}
 	if r.Body != nil {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 	}
 
-	evt, err := a.forum.ReportPost(r.Context(), postID, actor.ID, req.Reason)
+	reason := strings.TrimSpace(req.Reason)
+	if req.ReasonID != "" {
+		formatted, err := a.siteCfg.Moderation.FormatReportReason(req.ReasonID, req.Detail)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		reason = formatted
+	} else if reason == "" && len(a.siteCfg.Moderation.Normalized().ReportReasons) > 0 {
+		writeError(w, http.StatusBadRequest, "report reason required")
+		return
+	}
+
+	evt, err := a.forum.ReportPost(r.Context(), postID, actor.ID, reason)
 	if errors.Is(err, service.ErrAlreadyReported) {
 		writeError(w, http.StatusConflict, "you already reported this post")
 		return
@@ -137,4 +153,66 @@ func (a *API) reportPost(w http.ResponseWriter, r *http.Request) {
 		"status":    "reported",
 		"report_id": payload.ReportID,
 	})
+}
+
+func (a *API) deletePost(w http.ResponseWriter, r *http.Request) {
+	postID := r.PathValue("id")
+	staff, ok := a.requireStaff(w, r)
+	if !ok {
+		return
+	}
+
+	evt, err := a.forum.DeletePost(r.Context(), postID, staff.ID, staff.IsAdmin)
+	if errors.Is(err, service.ErrDeleteDisabled) {
+		writeError(w, http.StatusForbidden, "post deletion disabled")
+		return
+	}
+	if errors.Is(err, service.ErrForbiddenEdit) {
+		writeError(w, http.StatusForbidden, "cannot delete this post")
+		return
+	}
+	if err != nil {
+		if err.Error() == "post not found" {
+			writeError(w, http.StatusNotFound, "post not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":      evt.ID,
+		"type":    evt.Type,
+		"payload": json.RawMessage(evt.Payload),
+	})
+}
+
+func (a *API) moderateThread(w http.ResponseWriter, r *http.Request) {
+	threadID := r.PathValue("id")
+	if _, ok := a.requireStaff(w, r); !ok {
+		return
+	}
+
+	var req struct {
+		IsPinned *bool `json:"is_pinned"`
+		IsLocked *bool `json:"is_locked"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.IsPinned == nil && req.IsLocked == nil {
+		writeError(w, http.StatusBadRequest, "is_pinned or is_locked required")
+		return
+	}
+
+	events, err := a.forum.ModerateThread(r.Context(), threadID, req.IsPinned, req.IsLocked)
+	if err != nil {
+		if err.Error() == "thread not found" {
+			writeError(w, http.StatusNotFound, "thread not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"events": events})
 }

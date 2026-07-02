@@ -8,7 +8,13 @@ import PostEditForm from '../../components/PostEditForm.astro';
 import ReplyForm from '../../components/ReplyForm.astro';
 import { formatDate } from '../../lib/api';
 import { threadJsonLd } from '../../lib/seo';
-import { getMe, getThread, markThreadRead, sessionFromCookieHeader } from '../../lib/server-api';
+import {
+  getMe,
+  getReportReasons,
+  getThread,
+  markThreadRead,
+  sessionFromCookieHeader,
+} from '../../lib/server-api';
 import Avatar from '../../components/Avatar.astro';
 import { ACCENT_CLASSES, PAV_CLASSES, accentIndex } from '../../lib/theme';
 
@@ -22,9 +28,10 @@ const page = Number(Astro.url.searchParams.get('page') ?? '1');
 const quoteParam = Astro.url.searchParams.get('quote');
 const cookie = Astro.request.headers.get('cookie');
 const session = sessionFromCookieHeader(cookie);
-const [data, initialUser] = await Promise.all([
+const [data, initialUser, reportReasons] = await Promise.all([
   getThread(id, page, session),
   getMe(session),
+  getReportReasons(),
 ]);
 
 if (session) {
@@ -109,9 +116,15 @@ const jsonLd = threadJsonLd(data, data.site.url);
 
   <div
     id="thread-posts"
+    data-thread-id={data.thread.id}
+    data-last-page={data.pagination.current >= data.pagination.total ? '1' : '0'}
+    data-poll-page={data.pagination.total}
+    data-reply-count={data.thread.reply_count}
+    data-signed-in={user ? '1' : '0'}
     data-is-staff={(user?.is_admin || user?.is_moderator) ? '1' : '0'}
     data-is-admin={user?.is_admin ? '1' : '0'}
     data-can-perm-ban={user?.can_perm_ban ? '1' : '0'}
+    data-report-reasons={JSON.stringify(reportReasons)}
   >
   {data.posts.map((post) => {
     const idx = accentIndex(post.id);
@@ -255,6 +268,7 @@ const jsonLd = threadJsonLd(data, data.site.url);
 
 <script>
   import { initThreadInteractions } from '../../lib/thread-interactions.ts';
+  import { initThreadPoll } from '../../lib/thread-poll.ts';
 
   const modPanel = document.getElementById('mod-panel');
   const modBody = document.getElementById('mod-panel-body');
@@ -281,7 +295,8 @@ const jsonLd = threadJsonLd(data, data.site.url);
     if (e.key === 'Escape' && modPanel && !modPanel.hidden) closeModPanel();
   });
 
-  initThreadInteractions(openPanel);
+  initThreadInteractions(openPanel, closeModPanel);
+  initThreadPoll();
 
   const hash = window.location.hash;
   if (hash) {

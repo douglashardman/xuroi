@@ -1,4 +1,4 @@
-import type { Post } from './api';
+import type { Post, ReportReason } from './api';
 import { initLightbox } from './lightbox';
 import { findPostEditor } from './post-edit-form';
 import {
@@ -63,6 +63,89 @@ function setThreadPinned(pinned: boolean) {
 }
 
 type PanelFn = (title: string, html: string) => void;
+type ClosePanelFn = () => void;
+
+function loadReportReasons(): ReportReason[] {
+  const root = document.getElementById('thread-posts');
+  const raw = root?.getAttribute('data-report-reasons');
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as ReportReason[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function pickReportReason(openPanel: PanelFn, closePanel: ClosePanelFn): Promise<{ reason_id: string; detail: string } | null> {
+  const reasons = loadReportReasons();
+  if (!reasons.length) {
+    return promptDialog('Add an optional reason for moderators.', {
+      title: 'Report post',
+      placeholder: 'Reason (optional)',
+      defaultValue: '',
+    }).then((reason) => (reason === null ? null : { reason_id: '', detail: reason.trim() }));
+  }
+
+  const defaultId = reasons[0].id;
+  const radios = reasons.map((r, i) => `
+    <label class="report-reason-option">
+      <input type="radio" name="report_reason" value="${r.id}" ${i === 0 ? 'checked' : ''} data-allow-detail="${r.allow_detail ? '1' : '0'}" />
+      <span>${r.label}</span>
+    </label>
+  `).join('');
+
+  return new Promise((resolve) => {
+    openPanel('Report post', `
+      <p class="report-reason-intro">Tell moderators what’s wrong with this post.</p>
+      <form class="report-reason-form" id="report-reason-form">
+        <div class="report-reason-list">${radios}</div>
+        <label class="report-reason-detail" id="report-reason-detail" hidden>
+          <span>Details (optional)</span>
+          <textarea name="detail" rows="3" maxlength="500" placeholder="Add context for moderators"></textarea>
+        </label>
+        <div class="report-reason-actions">
+          <button type="button" class="btn btn--sm" data-report-cancel>Cancel</button>
+          <button type="submit" class="btn btn--sm btn--pink">Submit report</button>
+        </div>
+      </form>
+    `);
+
+    const body = document.getElementById('mod-panel-body');
+    const form = body?.querySelector('#report-reason-form') as HTMLFormElement | null;
+    const detailWrap = body?.querySelector('#report-reason-detail') as HTMLElement | null;
+    const detailInput = detailWrap?.querySelector('textarea') as HTMLTextAreaElement | null;
+
+    const syncDetail = () => {
+      const selected = form?.querySelector('input[name="report_reason"]:checked') as HTMLInputElement | null;
+      if (!detailWrap) return;
+      detailWrap.hidden = selected?.dataset.allowDetail !== '1';
+    };
+    syncDetail();
+    form?.querySelectorAll('input[name="report_reason"]').forEach((el) => {
+      el.addEventListener('change', syncDetail);
+    });
+
+    const finish = (value: { reason_id: string; detail: string } | null) => {
+      closePanel();
+      resolve(value);
+    };
+
+    body?.querySelector('[data-report-cancel]')?.addEventListener('click', () => finish(null));
+    form?.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const selected = form.querySelector('input[name="report_reason"]:checked') as HTMLInputElement | null;
+      if (!selected?.value) {
+        showToast('Pick a reason', 'error');
+        return;
+      }
+      finish({
+        reason_id: selected.value,
+        detail: detailInput?.value.trim() ?? '',
+      });
+    });
+  });
+}
 
 function threadPostsRoot() {
   return document.getElementById('thread-posts');
@@ -266,7 +349,7 @@ function bindModPanelActions(panelBody: HTMLElement, openPanel: PanelFn) {
   });
 }
 
-export function initThreadInteractions(openPanel: PanelFn) {
+export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePanelFn) {
   const postsRoot = document.getElementById('thread-posts');
   if (postsRoot) {
     initLightbox(postsRoot);
@@ -516,18 +599,17 @@ export function initThreadInteractions(openPanel: PanelFn) {
     if (reportBtn && !reportBtn.disabled) {
       const postId = reportBtn.getAttribute('data-report');
       if (!postId) return;
-      const reason = await promptDialog('Add an optional reason for moderators.', {
-        title: 'Report post',
-        placeholder: 'Reason (optional)',
-        defaultValue: '',
-      });
-      if (reason === null) return;
+      const picked = await pickReportReason(openPanel, closePanel);
+      if (picked === null) return;
       reportBtn.setAttribute('disabled', 'true');
       try {
+        const payload = picked.reason_id
+          ? { reason_id: picked.reason_id, detail: picked.detail }
+          : { reason: picked.detail };
         const res = await fetch(`/api/posts/${postId}/report`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reason: reason.trim() }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Report failed');

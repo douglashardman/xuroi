@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/xuroi/xuroi/api/internal/friends"
 	"github.com/xuroi/xuroi/api/internal/query"
 )
 
@@ -58,7 +59,33 @@ func (a *API) getUserProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, profile)
+	out := map[string]any{
+		"id":           profile.ID,
+		"display_name": profile.DisplayName,
+		"url":          profile.URL,
+		"karma":        profile.Karma,
+		"post_count":   profile.PostCount,
+		"joined_at":    profile.JoinedAt,
+	}
+	if profile.AvatarURL != "" {
+		out["avatar_url"] = profile.AvatarURL
+	}
+	if viewer, err := a.actorFromRequest(r); err == nil && viewer.ID != profile.ID {
+		if rel, rerr := a.friends.Relationship(r.Context(), viewer.ID, profile.ID); rerr == nil {
+			out["friendship"] = rel
+			if rel == friends.RelPendingReceived {
+				if reqID, _ := a.friends.PendingRequestID(r.Context(), viewer.ID, profile.ID); reqID != "" {
+					out["incoming_friend_request_id"] = reqID
+				}
+			}
+		}
+		if err := a.dm.CanMessage(r.Context(), viewer.ID, profile.ID, true); err == nil {
+			out["can_message"] = true
+		} else {
+			out["can_message"] = false
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (a *API) listRecentThreads(w http.ResponseWriter, r *http.Request) {

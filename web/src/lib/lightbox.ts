@@ -14,7 +14,7 @@ export function initLightbox(scope: ParentNode = document) {
   let activeImages: HTMLImageElement[] = [];
   let index = 0;
 
-  scope.querySelectorAll('.post-body').forEach((postBody) => {
+  scope.querySelectorAll('.post-body, .dm-bubble-body').forEach((postBody) => {
     const images = Array.from(postBody.querySelectorAll<HTMLImageElement>('img'));
     if (images.length === 0) return;
 

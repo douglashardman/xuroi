@@ -13,6 +13,7 @@ import (
 	"github.com/xuroi/xuroi/api/internal/access"
 	"github.com/xuroi/xuroi/api/internal/auth"
 	"github.com/xuroi/xuroi/api/internal/dm"
+	"github.com/xuroi/xuroi/api/internal/friends"
 	"github.com/xuroi/xuroi/api/internal/markdown"
 	"github.com/xuroi/xuroi/api/internal/media"
 	"github.com/xuroi/xuroi/api/internal/netutil"
@@ -32,11 +33,13 @@ type API struct {
 	limiter *ratelimit.Limiter
 	notify  *notify.Service
 	dm      *dm.Service
+	friends *friends.Service
 	siteCfg site.Config
 }
 
 func New(pool *pgxpool.Pool, forum *service.Forum, reader *query.Reader, authSvc *auth.Service, mediaStore *media.Store, limiter *ratelimit.Limiter, notifySvc *notify.Service, siteCfg site.Config) *API {
-	return &API{pool: pool, forum: forum, reader: reader, auth: authSvc, media: mediaStore, limiter: limiter, notify: notifySvc, dm: dm.New(pool), siteCfg: siteCfg}
+	friendsSvc := friends.New(pool)
+	return &API{pool: pool, forum: forum, reader: reader, auth: authSvc, media: mediaStore, limiter: limiter, notify: notifySvc, dm: dm.New(pool, friendsSvc), friends: friendsSvc, siteCfg: siteCfg}
 }
 
 func (a *API) Routes() http.Handler {
@@ -48,6 +51,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/categories/{slug}", a.getCategory)
 	mux.HandleFunc("GET /v1/threads/recent", a.listRecentThreads)
 	mux.HandleFunc("GET /v1/search", a.searchContent)
+	mux.HandleFunc("GET /v1/moderation/report-reasons", a.listReportReasons)
 	mux.HandleFunc("GET /v1/threads/{id}", a.getThread)
 	mux.HandleFunc("DELETE /v1/threads/{id}", a.deleteThread)
 	mux.HandleFunc("POST /v1/threads/{id}/read", a.markThreadRead)
@@ -89,6 +93,13 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("DELETE /v1/me/avatar", a.deleteAvatar)
 	mux.HandleFunc("GET /v1/me/dm-privacy", a.getDMPrivacy)
 	mux.HandleFunc("PATCH /v1/me/dm-privacy", a.setDMPrivacy)
+	mux.HandleFunc("GET /v1/me/email-preferences", a.getEmailPreferences)
+	mux.HandleFunc("PATCH /v1/me/email-preferences", a.setEmailPreferences)
+	mux.HandleFunc("GET /v1/dm/members/search", a.searchDMMembers)
+	mux.HandleFunc("GET /v1/friends/requests", a.listFriendRequests)
+	mux.HandleFunc("POST /v1/friends/requests", a.sendFriendRequest)
+	mux.HandleFunc("POST /v1/friends/requests/{id}/accept", a.acceptFriendRequest)
+	mux.HandleFunc("POST /v1/friends/requests/{id}/decline", a.declineFriendRequest)
 	mux.HandleFunc("GET /v1/dm/conversations", a.listDMConversations)
 	mux.HandleFunc("POST /v1/dm/conversations", a.startDMConversation)
 	mux.HandleFunc("GET /v1/dm/conversations/{id}", a.getDMConversation)

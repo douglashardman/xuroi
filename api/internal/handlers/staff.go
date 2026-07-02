@@ -7,6 +7,27 @@ import (
 	"github.com/xuroi/xuroi/api/internal/auth"
 )
 
+func (a *API) requireAdmin(w http.ResponseWriter, r *http.Request) (auth.Actor, bool) {
+	actor, err := a.actorFromRequest(r)
+	if errors.Is(err, auth.ErrInvalidSession) {
+		writeError(w, http.StatusUnauthorized, "sign in required")
+		return auth.Actor{}, false
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return auth.Actor{}, false
+	}
+	enriched, ok := a.enrichActorFull(w, r, actor)
+	if !ok {
+		return auth.Actor{}, false
+	}
+	if !enriched.IsAdmin {
+		writeError(w, http.StatusForbidden, "admin required")
+		return auth.Actor{}, false
+	}
+	return enriched, true
+}
+
 func (a *API) requireStaff(w http.ResponseWriter, r *http.Request) (auth.Actor, bool) {
 	actor, err := a.actorFromRequest(r)
 	if errors.Is(err, auth.ErrInvalidSession) {

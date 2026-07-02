@@ -1,0 +1,152 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { getHome } from '../../lib/api';
+import {
+  getEmailPreferences,
+  getMe,
+  sessionFromCookieHeader,
+} from '../../lib/server-api';
+import { userURL } from '../../lib/theme';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+
+if (!user) {
+  return Astro.redirect('/join');
+}
+
+const [home, prefs] = await Promise.all([
+  getHome(session),
+  getEmailPreferences(session!),
+]);
+---
+<Layout title="Email notifications" site={home.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › <a href={userURL(user.display_name)}>Profile</a>
+    › Email notifications
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Email notifications</h2>
+    <span class="lab">Opt in / out</span>
+  </div>
+
+  <section class="email-prefs">
+    <p class="email-prefs-meta">
+      Choose which emails we send to <strong>{user.email}</strong>.
+      In-app notifications in the bell are not affected.
+    </p>
+    <form id="email-prefs-form" class="email-prefs-form">
+      <label>
+        <input
+          type="checkbox"
+          name="thread_replies_enabled"
+          checked={prefs.thread_replies_enabled}
+        />
+        <span>
+          <strong>Thread replies</strong>
+          <small>Digest when someone posts in a thread you've participated in</small>
+        </span>
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          name="mentions_enabled"
+          checked={prefs.mentions_enabled}
+        />
+        <span>
+          <strong>@mentions</strong>
+          <small>When someone mentions you in a post or thread</small>
+        </span>
+      </label>
+      <button type="submit" class="btn btn--sm btn--pink">Save preferences</button>
+    </form>
+    <p class="email-prefs-note">
+      Every notification email also includes a one-click unsubscribe for that thread or mention.
+    </p>
+  </section>
+
+  <script>
+    import { showToast } from '../../lib/toast';
+
+    document.getElementById('email-prefs-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const data = new FormData(form);
+      const res = await fetch('/api/me/email-preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          thread_replies_enabled: data.get('thread_replies_enabled') === 'on',
+          mentions_enabled: data.get('mentions_enabled') === 'on',
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        showToast(body.error || 'Could not save preferences', 'error');
+        return;
+      }
+      showToast('Email preferences saved', 'success');
+    });
+  </script>
+</Layout>
+
+<style>
+  .email-prefs {
+    margin-top: 20px;
+    padding: 28px;
+    border: var(--line);
+    border-radius: 18px;
+    background: var(--card);
+    box-shadow: 6px 6px 0 var(--pink);
+    max-width: 520px;
+  }
+  .email-prefs-meta {
+    margin: 0 0 20px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .email-prefs-form {
+    display: grid;
+    gap: 16px;
+  }
+  .email-prefs-form label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .email-prefs-form input {
+    margin-top: 4px;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--pink);
+  }
+  .email-prefs-form span {
+    display: grid;
+    gap: 4px;
+  }
+  .email-prefs-form strong {
+    font-family: Poppins, sans-serif;
+    font-weight: 600;
+  }
+  .email-prefs-form small {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .email-prefs-note {
+    margin: 20px 0 0;
+    color: var(--faint);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+</style>
