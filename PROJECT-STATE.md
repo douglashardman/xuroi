@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — Nav UX + online presence + llms.txt  
+**Last updated:** July 2, 2026 — P1 Batch 2 (13 items)  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** Nav popover · online list · last seen · llms.txt fix shipped · **Next:** Doug test pass · more P1 pecking
+**Session status:** P1 Batch 2 shipped · **Next:** Peck next P1/P2 from WISH-LIST (E9 spam verify · C6 2FA · A5 semantic)
 
 ---
 
@@ -150,11 +150,20 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 
 ---
 
-## Next up (P1 — product)
+## Shipped (P1 Batch 2 — 13 items)
 
-1. **Full test & debug** — Doug walkthrough (mod purge/edit, lock reason, search filters, RSS, drafts)
-2. Restore deleted UI (B12 API shipped; mod UI TBD)
-3. Next P1 batch from wish list (C6 2FA, K17 maintenance, H8, etc.)
+- [x] **B12** — `/mod/trash` restore UI
+- [x] **K17** — Maintenance mode (admin settings · staff bypass)
+- [x] **C22/C23** — `/members` directory + search
+- [x] **A15** — Accepted answer (mod gear)
+- [x] **E8** — Email ban UI (admin users)
+- [x] **E19** — `/admin/log`
+- [x] **H12** — noindex pending threads
+- [x] **N4/C28** — Data export · account deletion
+- [x] **C31/C32** — Username + email blocklists (admin settings)
+- [x] **K8** — Backup trigger (admin panel)
+
+Migration **033** · `site.json` `maintenance` + `registration` sections
 
 **Rule:** any new configurable setting ships with an Admin section.
 
@@ -193,7 +202,7 @@ go run ./cmd/intelligence         # thread summaries
 
 1. Read `../.grok/session/CHANGELOG.md` first
 2. Read this file + **WISH-LIST.md** P1 section
-3. Default next work: **P1** — B38 unread badges + B15 move-thread UI
+3. Default next work: **P1/P2** — E9 spam scoring verify · B16 merge threads · C6 2FA
 4. **Admin rule:** every setting gets an Admin section at ship time
 5. End of session: update CHANGELOG + this file
 6. Execute yourself — run commands, don't just instruct Doug

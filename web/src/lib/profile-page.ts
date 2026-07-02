@@ -1,6 +1,6 @@
 import { openAvatarCrop } from './avatar-crop';
 import { passkeyCeremony } from './passkey';
-import { showToast } from './toast';
+import { confirm, promptDialog, showToast } from './toast';
 
 function makePendingButton(label: string) {
   const pending = document.createElement('button');
@@ -216,6 +216,56 @@ export function initOwnProfileActions() {
       return;
     }
     showToast('Message privacy updated', 'success');
+  });
+
+  document.getElementById('export-data-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('export-data-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/me/export');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Export failed');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'xuroi-export.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Export downloaded', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Export failed', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
+    const typed = await promptDialog('Type DELETE to permanently anonymize your account.', {
+      title: 'Delete account',
+      placeholder: 'DELETE',
+      defaultValue: '',
+    });
+    if (typed !== 'DELETE') return;
+    if (!(await confirm('This cannot be undone. Delete your account now?'))) return;
+    const btn = document.getElementById('delete-account-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/me/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: 'DELETE' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      showToast('Account deleted', 'success');
+      window.setTimeout(() => { window.location.href = '/community'; }, 500);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Delete failed', 'error');
+      btn.disabled = false;
+    }
   });
 
   document.getElementById('add-passkey-btn')?.addEventListener('click', async () => {

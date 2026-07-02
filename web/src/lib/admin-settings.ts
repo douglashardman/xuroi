@@ -125,6 +125,14 @@ export function buildSettingsPayload(baseAdmin: Record<string, unknown>, reasons
       report_reasons: collectReportReasons(reasonsRoot),
     },
     reserved_display_names: splitLines(field<HTMLTextAreaElement>('set-reserved-names').value),
+    registration: {
+      username_denylist: splitLines(field<HTMLTextAreaElement>('set-username-denylist').value),
+      blocked_email_domains: splitLines(field<HTMLTextAreaElement>('set-blocked-domains').value),
+    },
+    maintenance: {
+      enabled: field<HTMLInputElement>('set-maintenance-enabled').checked,
+      message: field<HTMLTextAreaElement>('set-maintenance-message').value.trim(),
+    },
   };
 }
 

@@ -1,10 +1,13 @@
 ---
 interface Props {
   postId: string;
+  threadId: string;
   warned: boolean;
+  isOP?: boolean;
+  isAccepted?: boolean;
 }
 
-const { postId, warned } = Astro.props;
+const { postId, threadId, warned, isOP = false, isAccepted = false } = Astro.props;
 ---
 <div class="mod-gear-wrap mod-gear-wrap--post">
   <button
@@ -28,6 +31,17 @@ const { postId, warned } = Astro.props;
     <button type="button" class="mod-popover-item" data-warn={postId} disabled={warned}>
       <span class="mod-popover-label">{warned ? 'Already warned' : 'Warn author'}</span>
     </button>
+    {!isOP && (
+      <button
+        type="button"
+        class="mod-popover-item"
+        data-accept-answer={postId}
+        data-thread-id={threadId}
+        disabled={isAccepted}
+      >
+        <span class="mod-popover-label">{isAccepted ? 'Accepted answer' : 'Mark as accepted answer'}</span>
+      </button>
+    )}
     <button type="button" class="mod-popover-item mod-popover-item--danger" data-remove={postId}>
       <span class="mod-popover-label">Remove post</span>
     </button>

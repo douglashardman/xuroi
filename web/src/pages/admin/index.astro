@@ -54,5 +54,44 @@ const [home, overview] = await Promise.all([getHome(), getAdminOverview(session!
       <p>All site policy — posts, email, spam, guests, reports, and more.</p>
       <span class="go">Site settings →</span>
     </a>
+    <a class="pillar c-green" href="/admin/log">
+      <h3>Admin log</h3>
+      <p>Category changes, settings saves, bans, and backups.</p>
+      <span class="go">View log →</span>
+    </a>
+    <button type="button" class="pillar c-yellow admin-backup-pillar" id="admin-backup-btn">
+      <h3>Backup now</h3>
+      <p>Run Postgres backup script — keeps last 14 snapshots.</p>
+      <span class="go">Trigger backup →</span>
+    </button>
   </div>
 </Layout>
+
+<script>
+  import { showToast } from '../../lib/toast';
+
+  document.getElementById('admin-backup-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('admin-backup-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/admin/backup', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.status || 'Backup failed');
+      showToast('Backup completed', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Backup failed', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .admin-backup-pillar {
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+  }
+</style>

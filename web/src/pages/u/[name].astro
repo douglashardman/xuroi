@@ -142,6 +142,22 @@ const avIdx = accentIndex(profile.id);
           </form>
         </article>
 
+        <article class="profile-card profile-card--pink">
+          <header class="profile-card-head">
+            <h2>Your data</h2>
+            <p class="profile-card-desc">Download a JSON export of your profile, posts, and notifications.</p>
+          </header>
+          <button type="button" class="btn btn--sm" id="export-data-btn">Download export</button>
+        </article>
+
+        <article class="profile-card profile-card--danger">
+          <header class="profile-card-head">
+            <h2>Delete account</h2>
+            <p class="profile-card-desc">Permanently anonymize your profile and sign out. Posts stay attributed to “Deleted User”.</p>
+          </header>
+          <button type="button" class="btn btn--sm btn--danger" id="delete-account-btn">Delete my account…</button>
+        </article>
+
         <article class="profile-card profile-card--ink">
           <header class="profile-card-head">
             <h2>Account security</h2>
@@ -322,6 +338,7 @@ const avIdx = accentIndex(profile.id);
   .profile-card--yellow { box-shadow: 4px 4px 0 var(--yellow); }
   .profile-card--blue { box-shadow: 4px 4px 0 var(--blue); }
   .profile-card--ink { box-shadow: 4px 4px 0 var(--ink); }
+  .profile-card--danger { box-shadow: 4px 4px 0 #dc2626; }
 
   .profile-card-head h2 {
     margin: 0;

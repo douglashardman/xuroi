@@ -25,7 +25,14 @@ const (
 	TypeThreadMoved         = "thread.moved"
 	TypePostReported        = "post.reported"
 	TypeThreadReported      = "thread.reported"
-	TypePostModerated       = "post.moderated"
+	TypePostModerated           = "post.moderated"
+	TypeThreadAcceptedAnswerSet = "thread.accepted_answer_set"
+	TypeThreadAcceptedAnswerClr = "thread.accepted_answer_cleared"
+	TypeAdminSettingsUpdated    = "admin.settings_updated"
+	TypeAdminUserBanned         = "admin.user_banned"
+	TypeAdminUserUnbanned       = "admin.user_unbanned"
+	TypeAdminBackupTriggered    = "admin.backup_triggered"
+	TypeAdminEmailBanned        = "admin.email_banned"
 )
 
 type Event struct {
@@ -180,6 +187,22 @@ type PostEdited struct {
 	BodyMarkdown string  `json:"body_markdown"`
 	BodyHTML     string  `json:"body_html"`
 	EditReason   *string `json:"edit_reason"`
+}
+
+type AcceptedAnswerChanged struct {
+	ThreadID string `json:"thread_id"`
+	PostID   string `json:"post_id,omitempty"`
+}
+
+type AdminUserAction struct {
+	ActorID    string `json:"actor_id"`
+	TargetName string `json:"target_name"`
+	Duration   string `json:"duration,omitempty"`
+}
+
+type AdminEmailBan struct {
+	Email    string `json:"email"`
+	Duration string `json:"duration,omitempty"`
 }
 
 func StreamThread(threadID string) string {

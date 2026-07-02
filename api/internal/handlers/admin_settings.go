@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/xuroi/xuroi/api/internal/events"
 	"github.com/xuroi/xuroi/api/internal/policy"
 	"github.com/xuroi/xuroi/api/internal/site"
 	"github.com/xuroi/xuroi/api/internal/spam"
@@ -24,6 +25,8 @@ func (a *API) siteSettingsPayload() map[string]any {
 		"spam":                   a.siteCfg.Spam,
 		"seo":                    a.siteCfg.SEO,
 		"reserved_display_names": a.siteCfg.ReservedDisplayNames,
+		"maintenance":            a.siteCfg.Maintenance,
+		"registration":           a.siteCfg.Registration,
 	}
 }
 
@@ -35,7 +38,8 @@ func (a *API) getAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.requireAdmin(w, r); !ok {
+	admin, ok := a.requireAdmin(w, r)
+	if !ok {
 		return
 	}
 	var req struct {
@@ -50,7 +54,9 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 		NewUsers              *policy.NewUserPolicy `json:"new_users"`
 		Spam                  *spam.Policy          `json:"spam"`
 		SEO                   *site.SEOPolicy       `json:"seo"`
-		ReservedDisplayNames  *[]string             `json:"reserved_display_names"`
+		ReservedDisplayNames  *[]string              `json:"reserved_display_names"`
+		Maintenance           *site.MaintenancePolicy `json:"maintenance"`
+		Registration          *site.RegistrationPolicy `json:"registration"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -113,6 +119,12 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 	if req.SEO != nil {
 		cfg.SEO = *req.SEO
 	}
+	if req.Maintenance != nil {
+		cfg.Maintenance = req.Maintenance.Normalized()
+	}
+	if req.Registration != nil {
+		cfg.Registration = req.Registration.Normalized()
+	}
 	if req.ReservedDisplayNames != nil {
 		names := make([]string, 0, len(*req.ReservedDisplayNames))
 		seen := make(map[string]struct{})
@@ -140,5 +152,9 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 	a.reader.SetIntelligence(cfg.Intelligence)
 	a.reader.SetSEOPolicy(cfg.SEO)
 	a.auth.SetReservedDisplayNames(cfg.ReservedDisplayNames)
+	a.auth.SetRegistrationPolicy(cfg.Registration)
+	_ = a.forum.LogAdminEvent(r.Context(), events.TypeAdminSettingsUpdated, admin.ID, map[string]string{
+		"path": cfg.SiteJSONPath,
+	})
 	writeJSON(w, http.StatusOK, a.siteSettingsPayload())
 }

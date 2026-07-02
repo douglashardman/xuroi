@@ -30,8 +30,12 @@ const sections = [
   { id: 'settings-spam', label: 'Spam' },
   { id: 'settings-seo', label: 'SEO' },
   { id: 'settings-names', label: 'Reserved names' },
+  { id: 'settings-registration', label: 'Registration' },
+  { id: 'settings-maintenance', label: 'Maintenance' },
   { id: 'settings-reports', label: 'Reports' },
 ];
+const usernameDenylist = (s.registration?.username_denylist ?? []).join('\n');
+const blockedDomains = (s.registration?.blocked_email_domains ?? []).join('\n');
 ---
 <Layout title="Site settings" site={home.site} user={user} noIndex={true} skipBanCheck={true} adminPage={true}>
   <div class="crumb">
@@ -247,6 +251,42 @@ const sections = [
             <span>Reserved names</span>
             <textarea class="admin-settings-input admin-settings-textarea" id="set-reserved-names" rows="6" placeholder="admin&#10;moderator&#10;puttertalk">{reservedNames}</textarea>
             <span class="admin-settings-hint">One name per line.</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-settings-card" id="settings-registration">
+        <header class="admin-settings-card-head">
+          <h3>Registration blocklists</h3>
+          <p>Extra username denials and disposable email domains beyond reserved staff names.</p>
+        </header>
+        <div class="admin-settings-grid">
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>Username denylist</span>
+            <textarea class="admin-settings-input admin-settings-textarea" id="set-username-denylist" rows="4" placeholder="badword&#10;spamname">{usernameDenylist}</textarea>
+            <span class="admin-settings-hint">One name per line (case-insensitive exact match).</span>
+          </label>
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>Blocked email domains</span>
+            <textarea class="admin-settings-input admin-settings-textarea" id="set-blocked-domains" rows="4" placeholder="mailinator.com">{blockedDomains}</textarea>
+            <span class="admin-settings-hint">One domain per line — blocks registration and login.</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-settings-card" id="settings-maintenance">
+        <header class="admin-settings-card-head">
+          <h3>Maintenance mode</h3>
+          <p>Public visitors see a maintenance page. Staff and moderators can still access the site.</p>
+        </header>
+        <div class="admin-settings-grid">
+          <label class="admin-settings-check admin-settings-field--wide">
+            <input type="checkbox" id="set-maintenance-enabled" checked={s.maintenance?.enabled === true} />
+            <span>Enable maintenance mode</span>
+          </label>
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>Message</span>
+            <textarea class="admin-settings-input admin-settings-textarea" id="set-maintenance-message" rows="3">{s.maintenance?.message ?? ''}</textarea>
           </label>
         </div>
       </section>

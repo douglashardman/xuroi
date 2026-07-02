@@ -103,6 +103,9 @@ function shortId(id: string) {
                   data-warnings={u.warning_count ?? 0}
                 >Warn…</button>
                 <button type="button" class="btn btn--sm btn--ghost btn--danger" data-ban={u.id} data-name={u.display_name}>Ban…</button>
+                {u.email && (
+                  <button type="button" class="btn btn--sm btn--ghost" data-ban-email={u.email} data-name={u.display_name}>Ban email…</button>
+                )}
                 <button
                   type="button"
                   class="btn btn--sm btn--ghost"
@@ -288,6 +291,22 @@ function shortId(id: string) {
     } finally {
       submit.disabled = false;
     }
+  });
+
+  document.querySelectorAll('[data-ban-email]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const email = btn.getAttribute('data-ban-email');
+      const name = btn.getAttribute('data-name') ?? 'member';
+      if (!email) return;
+      const reason = window.prompt(`Ban email for ${name} (${email}). Reason:`);
+      if (!reason?.trim()) return;
+      try {
+        await adminAction('/api/admin/email-bans', { email, reason: reason.trim(), duration: 'permanent' });
+        showToast(`Email banned — ${email}`);
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Email ban failed', 'error');
+      }
+    });
   });
 
   document.querySelectorAll('[data-warn]').forEach((btn) => {

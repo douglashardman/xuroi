@@ -1038,6 +1038,51 @@ func (f *Forum) DeleteThread(ctx context.Context, threadID, staffID string) (eve
 	})
 }
 
+func (f *Forum) SetAcceptedAnswer(ctx context.Context, threadID, postID, staffID string) (events.Event, error) {
+	var exists bool
+	err := f.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM posts p
+			JOIN threads t ON t.id = p.thread_id
+			WHERE p.id = $1 AND p.thread_id = $2 AND p.deleted_at IS NULL AND t.deleted_at IS NULL
+		)
+	`, postID, threadID).Scan(&exists)
+	if err != nil {
+		return events.Event{}, err
+	}
+	if !exists {
+		return events.Event{}, fmt.Errorf("post not found")
+	}
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypeThreadAcceptedAnswerSet,
+		ActorID:  strPtr(staffID),
+		Payload: events.AcceptedAnswerChanged{
+			ThreadID: threadID,
+			PostID:   postID,
+		},
+	})
+}
+
+func (f *Forum) ClearAcceptedAnswer(ctx context.Context, threadID, staffID string) (events.Event, error) {
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypeThreadAcceptedAnswerClr,
+		ActorID:  strPtr(staffID),
+		Payload:  events.AcceptedAnswerChanged{ThreadID: threadID},
+	})
+}
+
+func (f *Forum) LogAdminEvent(ctx context.Context, evtType string, actorID string, payload any) error {
+	_, err := f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamSite(),
+		Type:     evtType,
+		ActorID:  strPtr(actorID),
+		Payload:  payload,
+	})
+	return err
+}
+
 func Slugify(title string) string {
 	s := strings.ToLower(strings.TrimSpace(title))
 	s = slugSanitizer.ReplaceAllString(s, "-")

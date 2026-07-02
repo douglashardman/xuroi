@@ -660,6 +660,30 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
       return;
     }
 
+    const acceptBtn = target.closest('[data-accept-answer]') as HTMLButtonElement | null;
+    if (acceptBtn && isStaffViewer()) {
+      closeAllModPopovers();
+      const postId = acceptBtn.getAttribute('data-accept-answer');
+      const threadId = acceptBtn.getAttribute('data-thread-id') || document.getElementById('thread-posts')?.getAttribute('data-thread-id');
+      if (!postId || !threadId) return;
+      acceptBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/mod/threads/${threadId}/accepted-answer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: postId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        showToast('Accepted answer set — refresh to see badge', 'success');
+        window.setTimeout(() => window.location.reload(), 400);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Failed', 'error');
+        acceptBtn.disabled = false;
+      }
+      return;
+    }
+
     const removeBtn = target.closest('[data-remove]') as HTMLButtonElement | null;
     if (removeBtn && isStaffViewer()) {
       closeAllModPopovers();

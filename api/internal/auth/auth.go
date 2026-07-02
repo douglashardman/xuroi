@@ -18,6 +18,7 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/xuroi/xuroi/api/internal/ids"
+	"github.com/xuroi/xuroi/api/internal/site"
 )
 
 const (
@@ -27,10 +28,12 @@ const (
 )
 
 var (
-	ErrInvalidInput   = errors.New("invalid input")
-	ErrEmailTaken     = errors.New("email already registered")
-	ErrNotFound       = errors.New("not found")
-	ErrInvalidSession = errors.New("invalid session")
+	ErrInvalidInput        = errors.New("invalid input")
+	ErrEmailTaken          = errors.New("email already registered")
+	ErrNotFound            = errors.New("not found")
+	ErrInvalidSession      = errors.New("invalid session")
+	ErrEmailDomainBlocked  = errors.New("email domain not allowed")
+	ErrUsernameDenied      = errors.New("username not allowed")
 )
 
 type Actor struct {
@@ -51,6 +54,7 @@ type Service struct {
 	pool          *pgxpool.Pool
 	webauthn      *webauthn.WebAuthn
 	reservedNames map[string]struct{}
+	regPolicy     site.RegistrationPolicy
 }
 
 func NewService(pool *pgxpool.Pool, wa *webauthn.WebAuthn) *Service {
@@ -78,6 +82,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Actor, string
 	}
 	if _, err := mail.ParseAddress(email); err != nil {
 		return Actor{}, "", ErrInvalidInput
+	}
+	if s.regPolicy.EmailDomainBlocked(email) {
+		return Actor{}, "", ErrEmailDomainBlocked
 	}
 	if _, err := s.CheckEmailBanned(ctx, email); errors.Is(err, ErrBanned) {
 		return Actor{}, "", ErrBanned

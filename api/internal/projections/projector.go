@@ -60,6 +60,10 @@ func (p *Projector) Apply(ctx context.Context, tx pgx.Tx, evt events.Event) erro
 		return p.applyThreadReported(ctx, tx, evt)
 	case events.TypePostModerated:
 		return p.applyPostModerated(ctx, tx, evt)
+	case events.TypeThreadAcceptedAnswerSet:
+		return p.applyAcceptedAnswer(ctx, tx, evt, true)
+	case events.TypeThreadAcceptedAnswerClr:
+		return p.applyAcceptedAnswer(ctx, tx, evt, false)
 	default:
 		return nil
 	}
@@ -675,4 +679,19 @@ func (p *Projector) categoryPostModeration(ctx context.Context, tx pgx.Tx, categ
 		return false, fmt.Errorf("category moderation: %w", err)
 	}
 	return moderated, nil
+}
+
+func (p *Projector) applyAcceptedAnswer(ctx context.Context, tx pgx.Tx, evt events.Event, set bool) error {
+	var payload events.AcceptedAnswerChanged
+	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshal accepted answer: %w", err)
+	}
+	var postID *string
+	if set && payload.PostID != "" {
+		postID = &payload.PostID
+	}
+	_, err := tx.Exec(ctx, `
+		UPDATE threads SET accepted_answer_post_id = $2 WHERE id = $1 AND deleted_at IS NULL
+	`, payload.ThreadID, postID)
+	return err
 }

@@ -60,6 +60,8 @@ const showReports = user?.is_admin || user?.is_moderator;
           {user?.is_admin && <a href="/admin">Admin</a>}
           {showReports && <a href="/mod/reports">Reports</a>}
           {showReports && <a href="/mod/queue">Approval queue</a>}
+          {showReports && <a href="/mod/trash">Deleted</a>}
+          <a href="/members">Members</a>
         </div>
       )}
     </div>

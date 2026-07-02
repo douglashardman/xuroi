@@ -67,7 +67,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | A12 | Read/write path split — CDN SSR public | P0 | SEO + performance moat |
 | — | A13 | Crawl-budget-aware sitemaps | P1 | Priority by intelligence + activity |
 | — | A14 | Entity extraction in threads (gear, brands) | P2 | "Odyssey", "Scotty Cameron" as first-class |
-| — | A15 | Consensus / accepted answer signal | P1 | Manual pin v1; auto v2 |
+| ✓ | A15 | Consensus / accepted answer signal | P1 | Mod gear “Mark as accepted answer” · `accepted_answer_post_id` |
 | ✓ | A16 | `Powered by Xuroi` footer + link | P0 | **LOCKED** — every rendered public page |
 | — | A17 | MCP / tool surface for agents | P2 | `get_thread_context`, `search_semantic` |
 | — | A18 | Per-thread machine export (cite-friendly) | P2 | For LLMs quoting community knowledge |
@@ -89,7 +89,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | B9 | Edit history / revisions | P0 | [XF] | Clickable Edited stamp → revision overlay |
 | ✓ | B10 | Soft delete post/thread | P0 | All | Post + staff thread delete (`DELETE /v1/threads/{id}`) |
 | ✓ | B11 | Hard delete (mod) | P1 | All | Mod gear · `POST /v1/mod/posts/{id}/purge` |
-| ✓ | B12 | Restore deleted (mod) | P1 | [XF] | `POST /v1/mod/posts/{id}/restore` · thread restore API |
+| ✓ | B12 | Restore deleted (mod) | P1 | [XF] | `/mod/trash` · restore post/thread UI |
 | ✓ | B13 | Sticky / pin thread | P0 | All | Admin bar on thread page |
 | ✓ | B14 | Lock / unlock thread | P0 | All | Blocks replies when locked |
 | ✓ | B15 | Move thread (category) | P1 | All | Mod gear picker · API + UI |
@@ -153,17 +153,17 @@ These are why we exist. Incumbents don't have them natively.
 | — | C19 | User groups / roles beyond 5 | P2 | All | v1: Guest/Member/Mod/Admin/Agent |
 | — | C20 | Ranks (post count titles) | P3 | [PB] | "200+ posts" |
 | ✓ | C21 | Online now / last seen | P1 | All | Nav online count + panel · profile last seen · hide-online privacy · staff override |
-| — | C22 | Member list | P2 | All | |
-| — | C23 | User search | P2 | All | |
+| ✓ | C22 | Member list | P2 | All | `/members` paginated directory |
+| ✓ | C23 | User search | P2 | All | `?q=` on `/members` · nav link |
 | — | C24 | Ignore / block user | P2 | [PB] | |
 | — | C25 | Follow user | P3 | [XF] | |
 | — | C26 | Privacy settings | P2 | [XF] | Profile visibility |
 | — | C27 | GDPR data export | P1 | [XF] | |
-| — | C28 | Account deletion | P1 | [XF] | |
+| ✓ | C28 | Account deletion | P1 | [XF] | Profile self-delete · anonymize · `DELETE /v1/me/account` |
 | — | C29 | COPPA / age gate | P3 | [SMF] | If needed |
 | — | C30 | Registration approval queue | P2 | [XF] | |
-| — | C31 | Username denylist | P1 | [PB] | |
-| — | C32 | Email denylist / disposable block | P1 | — | |
+| ✓ | C31 | Username denylist | P1 | [PB] | Admin settings `registration.username_denylist` |
+| ✓ | C32 | Email denylist / disposable block | P1 | — | Admin settings `registration.blocked_email_domains` |
 | — | C33 | Connected accounts (Google, Apple) | P2 | [XF] | |
 | — | C34 | OAuth2 provider (login with Xuroi) | P3 | [XF] | For product phase |
 | ✓ | C35 | User state: banned, discouraged, valid | P0 | All | `actors.state`; temp ban via `banned_until` |
@@ -197,7 +197,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | E5 | Inline mod tools | P1 | [XF] | Gear: pin/lock/move/reports/delete · post audit/warn/remove/purge/mod-edit |
 | ✓ | E6 | Ban user (temp / perm) | P0 | All | Admin UI; clears sessions |
 | partial | E7 | IP ban | P1 | All | Post IPs banned with account; cleared on restore |
-| — | E8 | Email ban | P1 | All | |
+| ✓ | E8 | Email ban | P1 | All | Admin users “Ban email” · `POST /v1/admin/email-bans` |
 | — | E9 | Spam scoring (basic) | P1 | [XF] | Rate, links, new account |
 | — | E10 | Spam scoring (ML / Akismet) | P2 | [XF] | |
 | ✓ | E11 | Flood control / rate limits | P0 | All | Post + thread + login limits; in-memory v1 |
@@ -208,7 +208,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | E16 | Warn user | P2 | [XF] | 8h red border overlay; 3 strikes → 7-day auto-ban |
 | — | E17 | Warning points / expiry | P3 | [XF] | |
 | ✓ | E18 | Mod log (audit trail) | P1 | All | `/mod/log` · richer event summaries |
-| — | E19 | Admin log | P1 | [XF] | |
+| ✓ | E19 | Admin log | P1 | [XF] | `/admin/log` · category/settings/ban/backup events |
 | ✓ | E20 | View IPs (mod) | P1 | All | Admin post audit (`author_ip`) |
 | — | E21 | Thread reply ban | P2 | [XF] | |
 | — | E22 | Discourage mode (shadow throttle) | P3 | [XF] | |
@@ -278,7 +278,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | H9 | Trending threads | P2 | — | |
 | ✓ | H10 | Sitemap XML | P0 | [XF] | `/sitemap.xml` from API thread index |
 | ✓ | H11 | robots.txt | P0 | All | `/robots.txt`; disallows /admin, /mod |
-| — | H12 | Meta robots per content | P1 | [XF] | noindex moderated |
+| ✓ | H12 | Meta robots per content | P1 | [XF] | `noindex` on pending-approval threads |
 | ✓ | H13 | Canonical URLs | P0 | [XF] | `<link rel="canonical">` in Layout |
 | — | H14 | Crawler / bot detection | P2 | [SMF] | Not SMF's log_spider_hits |
 | ✓ | H15 | Open Graph + Twitter cards | P0 | [XF] | Layout meta; thread `og:type=article` |
@@ -339,7 +339,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | K5 | Ban management | P0 | All | Ban / discourage / restore in admin UI |
 | — | K6 | Agent / API key management | P1 | [XF] | |
 | partial | K7 | Theme activation | P0 | [XU] | `default_theme` in site.json; Astro production UI |
-| — | K8 | Backup / restore UI | P1 | — | **Critical for Doug** — script exists, no UI |
+| ✓ | K8 | Backup / restore UI | P1 | — | Admin “Backup now” · `POST /v1/admin/backup` |
 | ✓ | K9 | Automated backup schedule | P0 | | launchd 6h (Mac) + `backup.sh`; Linux cron in install script |
 | — | K10 | Health dashboard | P2 | — | |
 | — | K11 | Cron / job monitor | P2 | [XF] | |
@@ -348,7 +348,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | K14 | Help pages / FAQ CMS | P2 | [XF] | |
 | — | K15 | Navigation editor | P3 | [XF] | |
 | — | K16 | Notice system (banners) | P2 | [XF] | |
-| — | K17 | Maintenance mode | P1 | All | |
+| ✓ | K17 | Maintenance mode | P1 | All | Admin settings toggle · `/maintenance` · staff bypass |
 | — | K18 | Force agreement (TOS) | P2 | [XF] | |
 | ✓ | K19 | Reserved display names (anti-impersonation) | P0 | — | `reserved_display_names` in site.json |
 | — | K25 | Contact form | P2 | [XF] | Was duplicate K19 |
@@ -411,7 +411,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | N1 | Terms of service page | P0 | `/terms` |
 | ✓ | N2 | Privacy policy page | P0 | `/privacy` |
 | — | N3 | Cookie policy | P2 | |
-| — | N4 | GDPR export + delete | P1 | |
+| ✓ | N4 | GDPR export + delete | P1 | | `GET /v1/me/export` · profile delete card |
 | — | N5 | DMCA agent / takedown | P1 | |
 | — | N6 | Age verification (if needed) | P4 | |
 | — | N7 | Content retention policy | P2 | |

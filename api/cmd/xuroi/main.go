@@ -52,6 +52,7 @@ func main() {
 	}
 	authSvc := auth.NewService(pool, webauthnSvc)
 	authSvc.SetReservedDisplayNames(siteCfg.ReservedDisplayNames)
+	authSvc.SetRegistrationPolicy(siteCfg.Registration)
 
 	emailCfg := email.MergeSiteDefaults(email.ConfigFromEnv(), siteCfg)
 	mailer, err := email.NewMailer(emailCfg)

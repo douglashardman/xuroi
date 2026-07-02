@@ -156,6 +156,7 @@ type Post struct {
 	IsWarned          bool        `json:"is_warned,omitempty"`
 	ModerationStatus  string      `json:"moderation_status,omitempty"`
 	PendingModeration bool        `json:"pending_moderation,omitempty"`
+	IsAcceptedAnswer  bool        `json:"is_accepted_answer,omitempty"`
 }
 
 type CategoryRef struct {
@@ -175,10 +176,11 @@ type ThreadDetail struct {
 	ViewCount      int       `json:"view_count,omitempty"`
 	IsLocked       bool      `json:"is_locked"`
 	LockReason     string    `json:"lock_reason,omitempty"`
-	IsPinned       bool      `json:"is_pinned"`
-	EmailWatching  bool      `json:"email_watching,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	LastActivityAt time.Time `json:"last_activity_at"`
+	IsPinned              bool      `json:"is_pinned"`
+	EmailWatching         bool      `json:"email_watching,omitempty"`
+	AcceptedAnswerPostID  *string   `json:"accepted_answer_post_id,omitempty"`
+	CreatedAt             time.Time `json:"created_at"`
+	LastActivityAt        time.Time `json:"last_activity_at"`
 }
 
 type HomeResponse struct {
@@ -223,6 +225,7 @@ type ThreadPageResponse struct {
 		ShowModBar      bool   `json:"show_mod_bar"`
 		OpenReportCount int    `json:"open_report_count,omitempty"`
 		SummaryLabel    string `json:"summary_label,omitempty"`
+		NoIndex         bool   `json:"no_index,omitempty"`
 	} `json:"ui"`
 }
 

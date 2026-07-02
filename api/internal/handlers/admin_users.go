@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/xuroi/xuroi/api/internal/auth"
+	"github.com/xuroi/xuroi/api/internal/events"
 	"github.com/xuroi/xuroi/api/internal/query"
 	"github.com/xuroi/xuroi/api/internal/service"
 )
@@ -107,6 +108,16 @@ func (a *API) banUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	targetName := actorID
+	if u, uerr := a.reader.AdminUserByID(r.Context(), actorID); uerr == nil {
+		targetName = u.DisplayName
+	}
+	_ = a.forum.LogAdminEvent(r.Context(), events.TypeAdminUserBanned, staff.ID, events.AdminUserAction{
+		ActorID:    actorID,
+		TargetName: targetName,
+		Duration:   string(duration),
+	})
+
 	out := map[string]any{"status": "banned", "duration": string(duration)}
 	if purgeResult != nil {
 		out["posts_removed"] = purgeResult.PostsRemoved
@@ -116,16 +127,25 @@ func (a *API) banUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) unbanUser(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.requireAdmin(w, r); !ok {
+	admin, ok := a.requireAdmin(w, r)
+	if !ok {
 		return
 	}
 
 	actorID := r.PathValue("id")
+	targetName := actorID
+	if u, uerr := a.reader.AdminUserByID(r.Context(), actorID); uerr == nil {
+		targetName = u.DisplayName
+	}
 	if err := a.auth.ClearBan(r.Context(), actorID); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	_ = a.auth.SetDiscouraged(r.Context(), actorID, false)
+	_ = a.forum.LogAdminEvent(r.Context(), events.TypeAdminUserUnbanned, admin.ID, events.AdminUserAction{
+		ActorID:    actorID,
+		TargetName: targetName,
+	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "active"})
 }
 

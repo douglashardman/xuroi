@@ -1,0 +1,143 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { formatDate, getHome } from '../../lib/api';
+import { getMe, sessionFromCookieHeader } from '../../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+if (!user?.is_admin && !user?.is_moderator) {
+  return Astro.redirect('/community');
+}
+
+const home = await getHome();
+const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/mod/trash?limit=50`, {
+  headers: { 'X-Session-Token': session! },
+});
+const data = res.ok ? await res.json() : { posts: [], threads: [] };
+const posts = data.posts ?? [];
+const threads = data.threads ?? [];
+---
+<Layout title="Deleted content" site={home.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Mod tools
+    › Deleted
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Deleted content</h2>
+    <span class="lab">{posts.length} posts · {threads.length} threads</span>
+  </div>
+
+  <p class="mod-hint">Soft-deleted posts and threads can be restored here. Permanent purges cannot.</p>
+
+  <section class="mod-trash-section">
+    <h3>Deleted threads</h3>
+    {threads.length === 0 ? (
+      <p class="mod-empty">No deleted threads.</p>
+    ) : (
+      <div class="mod-report-list">
+        {threads.map((t: {
+          thread_id: string;
+          title: string;
+          thread_url: string;
+          category_name: string;
+          author_name: string;
+          reply_count: number;
+          deleted_at: string;
+        }) => (
+          <article class="mod-report-card" data-trash-thread={t.thread_id}>
+            <div class="mod-report-meta">
+              <time datetime={t.deleted_at}>{formatDate(t.deleted_at)}</time>
+              · <strong>{t.author_name}</strong>
+              · {t.category_name}
+              · {t.reply_count} replies
+            </div>
+            <h4 class="mod-report-thread">{t.title}</h4>
+            <div class="mod-report-actions">
+              <button type="button" class="btn btn--sm btn--pink" data-restore-thread={t.thread_id}>Restore thread</button>
+            </div>
+          </article>
+        ))}
+      </div>
+    )}
+  </section>
+
+  <section class="mod-trash-section">
+    <h3>Deleted posts</h3>
+    {posts.length === 0 ? (
+      <p class="mod-empty">No deleted posts.</p>
+    ) : (
+      <div class="mod-report-list">
+        {posts.map((p: {
+          post_id: string;
+          thread_title: string;
+          thread_url: string;
+          category_name: string;
+          author_name: string;
+          excerpt: string;
+          is_op: boolean;
+          deleted_at: string;
+        }) => (
+          <article class="mod-report-card" data-trash-post={p.post_id}>
+            <div class="mod-report-meta">
+              <time datetime={p.deleted_at}>{formatDate(p.deleted_at)}</time>
+              · <strong>{p.author_name}</strong>
+              {p.is_op && ' · OP'}
+              · {p.category_name}
+            </div>
+            <h4 class="mod-report-thread">
+              <a href={p.thread_url}>{p.thread_title}</a>
+            </h4>
+            <p class="mod-report-excerpt">{p.excerpt}</p>
+            <div class="mod-report-actions">
+              <button type="button" class="btn btn--sm btn--pink" data-restore-post={p.post_id}>Restore post</button>
+              <a class="btn btn--sm" href={p.thread_url}>View thread</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    )}
+  </section>
+</Layout>
+
+<script>
+  import { showToast } from '../../lib/toast';
+
+  async function restore(btn: HTMLButtonElement, path: string, selector: string) {
+    btn.disabled = true;
+    try {
+      const res = await fetch(path, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      const card = btn.closest(selector);
+      card?.classList.add('mod-report-card--out');
+      window.setTimeout(() => card?.remove(), 220);
+      showToast('Restored', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Restore failed', 'error');
+      btn.disabled = false;
+    }
+  }
+
+  document.querySelectorAll('[data-restore-post]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-restore-post');
+      restore(btn as HTMLButtonElement, `/api/mod/posts/${id}/restore`, '[data-trash-post]');
+    });
+  });
+  document.querySelectorAll('[data-restore-thread]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-restore-thread');
+      restore(btn as HTMLButtonElement, `/api/mod/threads/${id}/restore`, '[data-trash-thread]');
+    });
+  });
+</script>
+
+<style>
+  .mod-trash-section { margin-top: 24px; }
+  .mod-trash-section h3 { margin-bottom: 10px; font-size: 1rem; }
+</style>

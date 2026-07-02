@@ -180,16 +180,18 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	var cat models.CategoryRef
 	var accessLevel string
 	var accessLevels []string
+	var acceptedAnswer *string
 	err := r.pool.QueryRow(ctx, `
 		SELECT t.id, t.title, t.slug, t.reply_count, t.view_count, t.is_locked, COALESCE(t.lock_reason, ''), t.is_pinned,
-		       t.created_at, t.last_activity_at,
+		       t.accepted_answer_post_id, t.created_at, t.last_activity_at,
 		       c.id, c.name, c.slug, c.access_level, c.access_levels
 		FROM threads t
 		JOIN categories c ON c.id = t.category_id
 		WHERE t.id = $1 AND t.deleted_at IS NULL
 	`, id).Scan(
 		&thread.ID, &thread.Title, &thread.Slug, &thread.ReplyCount, &thread.ViewCount,
-		&thread.IsLocked, &thread.LockReason, &thread.IsPinned, &thread.CreatedAt, &thread.LastActivityAt,
+		&thread.IsLocked, &thread.LockReason, &thread.IsPinned, &acceptedAnswer,
+		&thread.CreatedAt, &thread.LastActivityAt,
 		&cat.ID, &cat.Name, &cat.Slug, &accessLevel, &accessLevels,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -213,8 +215,15 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 		return models.ThreadPageResponse{}, ErrNotFound
 	}
 	thread.URL = models.ThreadURL(thread.Slug, thread.ID)
+	thread.AcceptedAnswerPostID = acceptedAnswer
 	cat.URL = models.CategoryURL(cat.Slug)
 	thread.Summary = r.threadSummary(ctx, id)
+
+	var opStatus string
+	_ = r.pool.QueryRow(ctx, `
+		SELECT moderation_status FROM posts
+		WHERE thread_id = $1 AND is_op AND deleted_at IS NULL
+	`, id).Scan(&opStatus)
 	if viewer.ActorID != nil {
 		if watching, err := r.threadEmailWatching(ctx, *viewer.ActorID, id); err == nil {
 			thread.EmailWatching = watching
@@ -275,6 +284,14 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	}
 	resp.UI.ShowModBar = viewer.IsStaff
 	resp.UI.SummaryLabel = r.intelligence.SummaryLabel
+	resp.UI.NoIndex = opStatus == "pending"
+	if acceptedAnswer != nil {
+		for i := range resp.Posts {
+			if resp.Posts[i].ID == *acceptedAnswer {
+				resp.Posts[i].IsAcceptedAnswer = true
+			}
+		}
+	}
 	if viewer.IsStaff {
 		if n, err := r.OpenReportCount(ctx, id); err == nil {
 			resp.UI.OpenReportCount = n
@@ -337,7 +354,7 @@ func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserPr
 		       a.hide_online_status,
 		       (SELECT count(*) FROM posts p WHERE p.author_id = a.id AND p.deleted_at IS NULL)
 		FROM actors a
-		WHERE a.type = 'human'
+		WHERE a.type = 'human' AND a.deleted_at IS NULL
 	`)
 	if err != nil {
 		return models.UserProfile{}, fmt.Errorf("list actors: %w", err)

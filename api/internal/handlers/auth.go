@@ -53,6 +53,14 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "display name already taken")
 		return
 	}
+	if errors.Is(err, auth.ErrUsernameDenied) {
+		writeError(w, http.StatusConflict, "display name is not allowed")
+		return
+	}
+	if errors.Is(err, auth.ErrEmailDomainBlocked) {
+		writeError(w, http.StatusConflict, "email provider is not allowed")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

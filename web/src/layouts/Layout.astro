@@ -44,8 +44,30 @@ const {
   llmDigestUrl,
 } = Astro.props;
 
-if (!skipBanCheck && !Astro.url.pathname.startsWith('/banned')) {
-  const session = sessionFromCookieHeader(Astro.request.headers.get('cookie'));
+const path = Astro.url.pathname;
+const session = sessionFromCookieHeader(Astro.request.headers.get('cookie'));
+const bypassMaintenance = path.startsWith('/maintenance') || path.startsWith('/admin') || path.startsWith('/api') || adminPage;
+if (!bypassMaintenance) {
+  const statusRes = await backendFetch('/v1/site/status', {}, session);
+  if (statusRes.ok) {
+    const statusData = await statusRes.json();
+    if (statusData.maintenance?.enabled) {
+      let staffBypass = false;
+      if (session) {
+        const meRes = await backendFetch('/v1/auth/me', {}, session);
+        if (meRes.ok) {
+          const me = await meRes.json();
+          staffBypass = !!(me.is_admin || me.is_moderator);
+        }
+      }
+      if (!staffBypass) {
+        return Astro.redirect('/maintenance');
+      }
+    }
+  }
+}
+
+if (!skipBanCheck && !path.startsWith('/banned')) {
   const banRes = await backendFetch('/v1/auth/ban-status', {}, session);
   if (banRes.ok) {
     const banData = await banRes.json();
@@ -61,8 +83,7 @@ const canonicalUrl = canonical ?? new URL(Astro.url.pathname + Astro.url.search,
 const shareImage = ogImage ?? `${siteBase}/brand/pt-bug.svg`;
 
 let activeWarning: ActiveWarning | null = null;
-if (!skipBanCheck && !Astro.url.pathname.startsWith('/banned')) {
-  const session = sessionFromCookieHeader(Astro.request.headers.get('cookie'));
+if (!skipBanCheck && !path.startsWith('/banned')) {
   if (session) {
     const meRes = await backendFetch('/v1/auth/me', {}, session);
     if (meRes.ok) {

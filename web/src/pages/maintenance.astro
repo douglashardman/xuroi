@@ -1,0 +1,46 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome } from '../lib/api';
+import { backendFetch, getMe, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, user, statusRes] = await Promise.all([
+  getHome(session),
+  getMe(session),
+  backendFetch('/v1/site/status', {}, session),
+]);
+const status = statusRes.ok ? await statusRes.json() : { maintenance: { enabled: false, message: '' } };
+const message = status.maintenance?.message ?? "We're doing a quick tune-up. Back shortly.";
+---
+<Layout title="Maintenance" site={home.site} user={user} skipBanCheck={true} noIndex={true}>
+  <div class="maintenance-page">
+    <h1>Be right back</h1>
+    <p>{message}</p>
+    {user?.is_admin || user?.is_moderator ? (
+      <p class="maintenance-staff-hint">
+        You're signed in as staff — <a href="/community">continue to the community</a> or
+        <a href="/admin/settings#settings-maintenance">turn off maintenance</a>.
+      </p>
+    ) : (
+      <p class="maintenance-staff-hint">Signed-in members can check back soon. Thanks for your patience.</p>
+    )}
+  </div>
+</Layout>
+
+<style>
+  .maintenance-page {
+    margin: 48px auto;
+    max-width: 520px;
+    text-align: center;
+    padding: 32px 24px;
+    border: var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .maintenance-page h1 { margin-bottom: 12px; }
+  .maintenance-staff-hint { margin-top: 18px; font-size: 0.95rem; color: var(--muted, #666); }
+</style>

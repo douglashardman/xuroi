@@ -32,6 +32,8 @@ var modEventTypes = []string{
 	events.TypePostDeleted,
 	events.TypePostRestored,
 	events.TypePostEdited,
+	events.TypeThreadAcceptedAnswerSet,
+	events.TypeThreadAcceptedAnswerClr,
 }
 
 func (r *Reader) ModLog(ctx context.Context, limit int) ([]ModLogEntry, error) {
@@ -133,6 +135,14 @@ func summarizeModEvent(evtType string, payload json.RawMessage) string {
 			return fmt.Sprintf("Post edited — %s", *p.EditReason)
 		}
 		return "Post edited"
+	case events.TypeThreadAcceptedAnswerSet:
+		var p events.AcceptedAnswerChanged
+		if json.Unmarshal(payload, &p) == nil {
+			return fmt.Sprintf("Accepted answer set (%s)", shortID(p.PostID))
+		}
+		return "Accepted answer set"
+	case events.TypeThreadAcceptedAnswerClr:
+		return "Accepted answer cleared"
 	default:
 		return evtType
 	}

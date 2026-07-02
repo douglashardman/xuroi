@@ -87,6 +87,7 @@ export interface Post {
   is_warned?: boolean;
   pending_moderation?: boolean;
   moderation_status?: string;
+  is_accepted_answer?: boolean;
 }
 
 export interface Pagination {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/xuroi/xuroi/api/internal/site"
 	"github.com/xuroi/xuroi/api/internal/slug"
 )
 
@@ -17,6 +18,7 @@ type UnavailableReason string
 const (
 	ReasonInvalid  UnavailableReason = "invalid"
 	ReasonReserved UnavailableReason = "reserved"
+	ReasonDenied   UnavailableReason = "denied"
 	ReasonTaken    UnavailableReason = "taken"
 )
 
@@ -45,6 +47,10 @@ func (s *Service) SetReservedDisplayNames(names []string) {
 	s.reservedNames = BuildReservedSet(names)
 }
 
+func (s *Service) SetRegistrationPolicy(p site.RegistrationPolicy) {
+	s.regPolicy = p.Normalized()
+}
+
 // DisplayNameAvailable reports whether the name is free (case-insensitive + slug).
 func (s *Service) DisplayNameAvailable(ctx context.Context, displayName string) (available bool, nameSlug string, reason UnavailableReason, err error) {
 	name := normalizeDisplayName(displayName)
@@ -54,6 +60,9 @@ func (s *Service) DisplayNameAvailable(ctx context.Context, displayName string) 
 	}
 	if reservedDisplayName(name, s.reservedNames) {
 		return false, nameSlug, ReasonReserved, nil
+	}
+	if s.regPolicy.UsernameDenied(name) || s.regPolicy.UsernameDenied(nameSlug) {
+		return false, nameSlug, ReasonDenied, nil
 	}
 	taken, err := s.displayNameTaken(ctx, name, nameSlug)
 	if err != nil {
@@ -76,6 +85,8 @@ func (s *Service) assertDisplayNameAvailable(ctx context.Context, displayName st
 	switch reason {
 	case ReasonReserved:
 		return ErrDisplayNameReserved
+	case ReasonDenied:
+		return ErrUsernameDenied
 	default:
 		return ErrDisplayNameTaken
 	}
@@ -87,6 +98,7 @@ func (s *Service) displayNameTaken(ctx context.Context, displayName, wantSlug st
 		SELECT EXISTS (
 			SELECT 1 FROM actors
 			WHERE type = 'human'
+			  AND deleted_at IS NULL
 			  AND LOWER(TRIM(display_name)) = LOWER(TRIM($1))
 		)
 	`, displayName).Scan(&exact)
@@ -98,7 +110,7 @@ func (s *Service) displayNameTaken(ctx context.Context, displayName, wantSlug st
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT display_name FROM actors WHERE type = 'human'
+		SELECT display_name FROM actors WHERE type = 'human' AND deleted_at IS NULL
 	`)
 	if err != nil {
 		return false, err

@@ -1,0 +1,94 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import Avatar from '../components/Avatar.astro';
+import { formatDate, getHome } from '../lib/api';
+import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+import { PAV_CLASSES, accentIndex } from '../lib/theme';
+
+const q = Astro.url.searchParams.get('q') ?? '';
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? '1'));
+const limit = 40;
+const offset = (page - 1) * limit;
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, user] = await Promise.all([getHome(session), getMe(session)]);
+
+const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+if (q) params.set('q', q);
+const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/members?${params}`);
+const data = res.ok ? await res.json() : { members: [], total: 0 };
+const members = data.members ?? [];
+const total = data.total ?? 0;
+const totalPages = Math.max(1, Math.ceil(total / limit));
+---
+<Layout title="Members" site={home.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Members
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Member directory</h2>
+    <span class="lab">{total} members</span>
+  </div>
+
+  <form class="admin-search" method="get">
+    <input type="search" name="q" value={q} placeholder="Search by display name" />
+    <button type="submit" class="btn btn--sm btn--pink">Search</button>
+  </form>
+
+  {members.length === 0 ? (
+    <p class="mod-empty">No members match that search.</p>
+  ) : (
+    <div class="member-directory">
+      {members.map((m: {
+        id: string;
+        display_name: string;
+        url: string;
+        avatar_url?: string;
+        post_count: number;
+        joined_at: string;
+      }) => (
+        <a class="member-directory-row" href={m.url}>
+          <Avatar name={m.display_name} avatarUrl={m.avatar_url} accentClass={PAV_CLASSES[accentIndex(m.id)]} size="md" />
+          <span class="member-directory-name">{m.display_name}</span>
+          <span class="lab">{m.post_count} posts</span>
+          <span class="lab">Joined {formatDate(m.joined_at)}</span>
+        </a>
+      ))}
+    </div>
+  )}
+
+  {totalPages > 1 && (
+    <nav class="pagination" aria-label="Members pages">
+      {page > 1 && (
+        <a class="btn btn--sm" href={`/members?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page - 1) })}`}>← Prev</a>
+      )}
+      <span class="lab">Page {page} of {totalPages}</span>
+      {page < totalPages && (
+        <a class="btn btn--sm" href={`/members?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page + 1) })}`}>Next →</a>
+      )}
+    </nav>
+  )}
+</Layout>
+
+<style>
+  .member-directory { display: grid; gap: 8px; margin-top: 16px; }
+  .member-directory-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    align-items: center;
+    padding: 12px 14px;
+    border: var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    text-decoration: none;
+    color: inherit;
+  }
+  .member-directory-row:hover { border-color: var(--pink); }
+  .member-directory-name { font-weight: 600; flex: 1; min-width: 140px; }
+</style>
