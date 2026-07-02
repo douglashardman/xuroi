@@ -36,11 +36,38 @@ const avIdx = accentIndex(profile.id);
       <div class="profile-meta">
         {profile.post_count.toLocaleString()} posts · joined {formatDate(profile.joined_at)}
       </div>
+      {!isOwnProfile && user && (
+        <button type="button" class="btn btn--sm btn--pink profile-message-btn" id="profile-message-btn" data-recipient-id={profile.id}>
+          Message
+        </button>
+      )}
     </div>
   </div>
   <p class="profile-note">
     Karma comes from likes on your posts — liking your own posts doesn't count.
   </p>
+
+  {isOwnProfile && (
+    <section class="profile-privacy">
+      <h2>Message privacy</h2>
+      <p class="profile-privacy-meta">Who can start a new conversation with you.</p>
+      <form id="dm-privacy-form" class="profile-privacy-form">
+        <label>
+          <input type="radio" name="dm_privacy" value="everyone" checked={user.dm_privacy !== 'friends_only' && user.dm_privacy !== 'off'} />
+          Everyone — any member can message you
+        </label>
+        <label>
+          <input type="radio" name="dm_privacy" value="friends_only" checked={user.dm_privacy === 'friends_only'} />
+          Existing contacts only — strangers can't start new chats
+        </label>
+        <label>
+          <input type="radio" name="dm_privacy" value="off" checked={user.dm_privacy === 'off'} />
+          Off — no new messages (you also can't send)
+        </label>
+        <button type="submit" class="btn btn--sm">Save privacy</button>
+      </form>
+    </section>
+  )}
 
   {isOwnProfile && (
     <section class="profile-security">
@@ -64,6 +91,32 @@ const avIdx = accentIndex(profile.id);
     </section>
   )}
 </Layout>
+
+{!isOwnProfile && user && (
+  <script>
+    import { showToast } from '../../lib/toast';
+
+    document.getElementById('profile-message-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('profile-message-btn') as HTMLButtonElement;
+      const recipientId = btn.dataset.recipientId;
+      if (!recipientId) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/dm/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipient_id: recipientId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not start conversation');
+        window.location.href = data.url || `/messages/${data.conversation_id}`;
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Message failed', 'error');
+        btn.disabled = false;
+      }
+    });
+  </script>
+)}
 
 {isOwnProfile && (
   <script>
@@ -138,6 +191,23 @@ const avIdx = accentIndex(profile.id);
       window.location.reload();
     });
 
+    document.getElementById('dm-privacy-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const dmPrivacy = new FormData(form).get('dm_privacy') as string;
+      const res = await fetch('/api/me/dm-privacy', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dm_privacy: dmPrivacy }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Could not save privacy', 'error');
+        return;
+      }
+      showToast('Message privacy updated', 'success');
+    });
+
     document.getElementById('add-passkey-btn')?.addEventListener('click', async () => {
       const btn = document.getElementById('add-passkey-btn') as HTMLButtonElement;
       btn.disabled = true;
@@ -185,6 +255,43 @@ const avIdx = accentIndex(profile.id);
   .profile-meta {
     color: var(--muted);
     font-size: 14px;
+  }
+  .profile-message-btn {
+    margin-top: 14px;
+  }
+  .profile-privacy {
+    margin-top: 28px;
+    padding: 24px;
+    border: var(--line);
+    border-radius: 16px;
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--yellow);
+  }
+  .profile-privacy h2 {
+    margin: 0 0 8px;
+    font-size: 20px;
+  }
+  .profile-privacy-meta {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .profile-privacy-form {
+    display: grid;
+    gap: 10px;
+    max-width: 420px;
+  }
+  .profile-privacy-form label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  .profile-privacy-form input {
+    margin-top: 3px;
+    flex-shrink: 0;
   }
   .profile-security {
     margin-top: 28px;

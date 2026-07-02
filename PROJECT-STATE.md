@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — P0 code sweep shipped (search, mod queue, thread delete)  
+**Last updated:** July 2, 2026 — P1 messaging shipped (D1 + D7)  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** P0 code ~done · **Next:** P1 messaging (D1) + DM privacy (D7)
+**Session status:** P1 messaging done · **Next:** notification prefs (I5), report reasons (E4)
 
 ---
 
@@ -45,7 +45,7 @@
 
 ```
 xuroi/                    ← git root on GitHub
-  api/                    Go API, auth, events, migrations (001–023)
+  api/                    Go API, auth, events, migrations (001–024)
   web/                    Astro SSR — production UI for launch
   worker/                 README only; jobs run via api/cmd/* for now
   theme-contract/         Schema, fixtures, THEMING.md
@@ -112,6 +112,11 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 - [x] @mentions in posts/threads (B23) — `@slug`, `@"Name"`, `@[Name]` → profile links
 - [x] In-app notification feed (I4) — bell badge in nav · `/notifications` · mark read
 
+### Private messaging (P1)
+- [x] **1:1 DMs (D1)** — `/messages` inbox · `/messages/{id}` thread · profile Message button
+- [x] **DM privacy (D7)** — everyone / friends_only / off · profile settings · `dm_privacy` on `/v1/auth/me`
+- [x] Migration **024** · `GET/POST /v1/dm/conversations` · send/read · in-app `dm_message` notifications
+
 ### Theme / tooling
 - [x] Theme validator CLI (`cmd/themevalidate`) — contract check (J4 partial)
 - [x] Astro PutterTalk theme = production UI (J2 Mustache deferred)
@@ -145,9 +150,9 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 
 ## Next up (P1 — product)
 
-1. **Private messaging** (D1) + **DM privacy setting** (D7: everyone / friends-only / off)
-2. Notification preferences (I5) — per-type email toggles in settings UI
-3. Configurable report reasons (E4)
+1. Notification preferences (I5) — per-type email toggles in settings UI
+2. Configurable report reasons (E4)
+3. Thread report (E3)
 
 ---
 
@@ -184,7 +189,7 @@ go run ./cmd/intelligence         # thread summaries
 
 1. Read `../.grok/session/CHANGELOG.md` first
 2. Read this file + **WISH-LIST.md** P1 section
-3. Default next work: **P1** — private messaging (D1) + DM privacy (D7)
+3. Default next work: **P1** — notification prefs (I5) + report reasons (E4)
 4. End of session: update CHANGELOG + this file
 5. Execute yourself — run commands, don't just instruct Doug
 6. Backups are critical (2019 data loss)

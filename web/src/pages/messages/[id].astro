@@ -1,0 +1,227 @@
+---
+export const prerender = false;
+
+import Avatar from '../../components/Avatar.astro';
+import Layout from '../../layouts/Layout.astro';
+import { formatDate, getHome } from '../../lib/api';
+import {
+  getDMConversation,
+  getMe,
+  sessionFromCookieHeader,
+} from '../../lib/server-api';
+import { PAV_CLASSES, accentIndex } from '../../lib/theme';
+
+const { id } = Astro.params;
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+
+if (!user) {
+  return Astro.redirect('/join');
+}
+
+let conversation;
+try {
+  conversation = await getDMConversation(session!, id!);
+} catch {
+  return Astro.redirect('/messages');
+}
+
+const home = await getHome(session);
+const other = conversation.other;
+const avIdx = accentIndex(other.id);
+const navUser = { ...user, unread_dm: 0 };
+---
+<Layout title={`Chat with ${other.display_name}`} site={home.site} user={navUser}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › <a href="/messages">Messages</a>
+    › {other.display_name}
+  </div>
+
+  <div class="dm-thread-head">
+    <Avatar
+      name={other.display_name}
+      avatarUrl={other.avatar_url}
+      size="post"
+      accentClass={PAV_CLASSES[avIdx]}
+    />
+    <div>
+      <h2 class="dm-thread-title">
+        <a href={other.url}>{other.display_name}</a>
+      </h2>
+      <p class="dm-thread-meta">Private conversation</p>
+    </div>
+  </div>
+
+  <div class="dm-messages" id="dm-messages">
+    {conversation.messages.length === 0 ? (
+      <p class="mod-empty">Say hello — this conversation is just getting started.</p>
+    ) : (
+      conversation.messages.map((m) => (
+        <article class:list={['dm-bubble', m.is_mine && 'dm-bubble--mine']} data-msg-id={m.id}>
+          <div class="dm-bubble-meta">
+            <time datetime={m.created_at}>{formatDate(m.created_at)}</time>
+          </div>
+          <div class="dm-bubble-body" set:html={m.body_html} />
+        </article>
+      ))
+    )}
+  </div>
+
+  <form class="dm-compose" id="dm-compose" data-conv-id={conversation.id}>
+    <label class="sr-only" for="dm-body">Message</label>
+    <textarea
+      id="dm-body"
+      name="body"
+      rows="3"
+      placeholder={`Message ${other.display_name}…`}
+      required
+      maxlength="10000"
+    />
+    <button type="submit" class="btn btn--pink">Send</button>
+  </form>
+</Layout>
+
+<script>
+  import { showToast } from '../../lib/toast';
+
+  const form = document.getElementById('dm-compose') as HTMLFormElement | null;
+  const list = document.getElementById('dm-messages');
+  const textarea = document.getElementById('dm-body') as HTMLTextAreaElement | null;
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const convId = form.dataset.convId;
+    const body = textarea?.value.trim();
+    if (!convId || !body) return;
+
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/dm/conversations/${convId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body_markdown: body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not send message');
+
+      const empty = list?.querySelector('.mod-empty');
+      empty?.remove();
+
+      const article = document.createElement('article');
+      article.className = 'dm-bubble dm-bubble--mine';
+      article.dataset.msgId = data.id;
+      article.innerHTML = `
+        <div class="dm-bubble-meta"><time datetime="${data.created_at}">just now</time></div>
+        <div class="dm-bubble-body">${data.body_html}</div>
+      `;
+      list?.appendChild(article);
+      article.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      if (textarea) textarea.value = '';
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Send failed', 'error');
+    } finally {
+      btn.disabled = false;
+      textarea?.focus();
+    }
+  });
+
+  list?.lastElementChild?.scrollIntoView({ block: 'end' });
+</script>
+
+<style>
+  .dm-thread-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 24px;
+    padding: 18px 20px;
+    border: var(--line);
+    border-radius: 14px;
+    background: var(--card);
+  }
+  .dm-thread-title {
+    margin: 0 0 4px;
+    font-size: 22px;
+  }
+  .dm-thread-title a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .dm-thread-title a:hover {
+    color: var(--pink);
+  }
+  .dm-thread-meta {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .dm-messages {
+    display: grid;
+    gap: 12px;
+    margin: 20px 0;
+    max-height: min(60vh, 520px);
+    overflow-y: auto;
+    padding: 4px 2px;
+  }
+  .dm-bubble {
+    max-width: min(85%, 520px);
+    padding: 12px 14px;
+    border: var(--line);
+    border-radius: 14px 14px 14px 4px;
+    background: var(--card);
+  }
+  .dm-bubble--mine {
+    margin-left: auto;
+    border-radius: 14px 14px 4px 14px;
+    background: color-mix(in srgb, var(--pink) 8%, var(--card));
+    border-color: color-mix(in srgb, var(--pink) 35%, var(--hair));
+  }
+  .dm-bubble-meta {
+    margin-bottom: 6px;
+    color: var(--faint);
+    font-size: 11px;
+  }
+  .dm-bubble-body {
+    font-size: 15px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+  .dm-bubble-body :global(p) {
+    margin: 0;
+  }
+  .dm-compose {
+    display: grid;
+    gap: 10px;
+    padding: 16px;
+    border: var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    box-shadow: 4px 4px 0 var(--blue);
+  }
+  .dm-compose textarea {
+    width: 100%;
+    border: 2px solid var(--hair);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font: inherit;
+    resize: vertical;
+    min-height: 72px;
+    background: var(--paper);
+  }
+  .dm-compose .btn {
+    justify-self: end;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+</style>

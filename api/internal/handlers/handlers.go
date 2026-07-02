@@ -12,6 +12,7 @@ import (
 
 	"github.com/xuroi/xuroi/api/internal/access"
 	"github.com/xuroi/xuroi/api/internal/auth"
+	"github.com/xuroi/xuroi/api/internal/dm"
 	"github.com/xuroi/xuroi/api/internal/markdown"
 	"github.com/xuroi/xuroi/api/internal/media"
 	"github.com/xuroi/xuroi/api/internal/netutil"
@@ -30,11 +31,12 @@ type API struct {
 	media   *media.Store
 	limiter *ratelimit.Limiter
 	notify  *notify.Service
+	dm      *dm.Service
 	siteCfg site.Config
 }
 
 func New(pool *pgxpool.Pool, forum *service.Forum, reader *query.Reader, authSvc *auth.Service, mediaStore *media.Store, limiter *ratelimit.Limiter, notifySvc *notify.Service, siteCfg site.Config) *API {
-	return &API{pool: pool, forum: forum, reader: reader, auth: authSvc, media: mediaStore, limiter: limiter, notify: notifySvc, siteCfg: siteCfg}
+	return &API{pool: pool, forum: forum, reader: reader, auth: authSvc, media: mediaStore, limiter: limiter, notify: notifySvc, dm: dm.New(pool), siteCfg: siteCfg}
 }
 
 func (a *API) Routes() http.Handler {
@@ -85,6 +87,13 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/auth/me", a.me)
 	mux.HandleFunc("POST /v1/me/avatar", a.uploadAvatar)
 	mux.HandleFunc("DELETE /v1/me/avatar", a.deleteAvatar)
+	mux.HandleFunc("GET /v1/me/dm-privacy", a.getDMPrivacy)
+	mux.HandleFunc("PATCH /v1/me/dm-privacy", a.setDMPrivacy)
+	mux.HandleFunc("GET /v1/dm/conversations", a.listDMConversations)
+	mux.HandleFunc("POST /v1/dm/conversations", a.startDMConversation)
+	mux.HandleFunc("GET /v1/dm/conversations/{id}", a.getDMConversation)
+	mux.HandleFunc("POST /v1/dm/conversations/{id}/messages", a.sendDMMessage)
+	mux.HandleFunc("POST /v1/dm/conversations/{id}/read", a.markDMRead)
 	mux.HandleFunc("GET /v1/auth/ban-status", a.banStatus)
 	mux.HandleFunc("POST /v1/auth/passkey/signup/begin", a.passkeySignupBegin)
 	mux.HandleFunc("POST /v1/auth/passkey/signup/finish", a.passkeySignupFinish)

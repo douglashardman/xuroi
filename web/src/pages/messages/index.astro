@@ -1,0 +1,145 @@
+---
+export const prerender = false;
+
+import Avatar from '../../components/Avatar.astro';
+import Layout from '../../layouts/Layout.astro';
+import { getHome } from '../../lib/api';
+import { timeAgo } from '../../lib/api';
+import {
+  getDMConversations,
+  getMe,
+  sessionFromCookieHeader,
+} from '../../lib/server-api';
+import { PAV_CLASSES, accentIndex } from '../../lib/theme';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+
+if (!user) {
+  return Astro.redirect('/join');
+}
+
+const [home, conversations] = await Promise.all([
+  getHome(session),
+  getDMConversations(session!, { limit: 50 }),
+]);
+const navUser = { ...user, unread_dm: 0 };
+---
+<Layout title="Messages" site={home.site} user={navUser}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Messages
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Messages</h2>
+  </div>
+
+  {conversations.length === 0 ? (
+    <p class="mod-empty">No conversations yet. Visit a member's profile and tap Message to start one.</p>
+  ) : (
+    <div class="dm-inbox">
+      {conversations.map((c) => {
+        const avIdx = accentIndex(c.other.id);
+        return (
+          <a
+            href={`/messages/${c.id}`}
+            class:list={['dm-row', c.unread_count > 0 && 'dm-row--unread']}
+          >
+            <Avatar
+              name={c.other.display_name}
+              avatarUrl={c.other.avatar_url}
+              size="post"
+              accentClass={PAV_CLASSES[avIdx]}
+            />
+            <div class="dm-row-body">
+              <div class="dm-row-top">
+                <span class="dm-row-name">{c.other.display_name}</span>
+                <time class="dm-row-time" datetime={c.last_message_at}>{timeAgo(c.last_message_at)}</time>
+              </div>
+              <p class="dm-row-preview">{c.last_preview || 'No messages yet'}</p>
+            </div>
+            {c.unread_count > 0 && (
+              <span class="dm-row-badge">{c.unread_count > 9 ? '9+' : c.unread_count}</span>
+            )}
+          </a>
+        );
+      })}
+    </div>
+  )}
+</Layout>
+
+<style>
+  .dm-inbox {
+    display: grid;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .dm-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    border: var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.15s ease;
+  }
+  .dm-row:hover {
+    box-shadow: 4px 4px 0 var(--blue);
+  }
+  .dm-row--unread {
+    border-color: var(--pink);
+    box-shadow: 3px 3px 0 var(--pink);
+  }
+  .dm-row-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .dm-row-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .dm-row-name {
+    font-family: Poppins, sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .dm-row-time {
+    color: var(--faint);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .dm-row-preview {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dm-row--unread .dm-row-preview {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .dm-row-badge {
+    flex-shrink: 0;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--pink);
+    color: #fff;
+    font-family: Poppins, sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    display: grid;
+    place-items: center;
+  }
+</style>

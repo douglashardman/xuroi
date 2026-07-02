@@ -705,6 +705,7 @@ a.post-action {
   gap: 10px;
 }
 
+.nav-messages,
 .nav-bell {
   position: relative;
   display: inline-grid;
@@ -719,6 +720,7 @@ a.post-action {
   text-decoration: none;
 }
 
+.nav-messages:hover,
 .nav-bell:hover {
   transform: translate(-2px, -2px);
   box-shadow: 5px 5px 0 var(--ink);
@@ -897,12 +899,14 @@ a.post-action {
     flex-shrink: 0;
   }
 
+  .nav-messages,
   .nav-bell,
   .nav-account {
     min-width: 44px;
     min-height: 44px;
   }
 
+  .nav-messages,
   .nav-bell {
     width: 40px;
     height: 40px;

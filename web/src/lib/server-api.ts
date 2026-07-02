@@ -26,7 +26,38 @@ export interface Actor {
   active_warning?: ActiveWarning;
   entitlements?: string[];
   unread_notifications?: number;
+  unread_dm?: number;
+  dm_privacy?: 'everyone' | 'friends_only' | 'off';
   avatar_url?: string;
+}
+
+export interface DMParticipant {
+  id: string;
+  display_name: string;
+  avatar_url?: string;
+  url: string;
+}
+
+export interface DMConversationSummary {
+  id: string;
+  other: DMParticipant;
+  last_preview: string;
+  last_message_at: string;
+  unread_count: number;
+}
+
+export interface DMMessage {
+  id: string;
+  sender_id: string;
+  body_html: string;
+  is_mine: boolean;
+  created_at: string;
+}
+
+export interface DMConversationPage {
+  id: string;
+  other: DMParticipant;
+  messages: DMMessage[];
 }
 
 export interface Notification {
@@ -269,6 +300,37 @@ export async function getNotifications(
   data.notifications = data.notifications ?? [];
   data.unread_count = data.unread_count ?? 0;
   return data;
+}
+
+export async function getDMConversations(
+  sessionToken: string,
+  opts: { limit?: number } = {},
+): Promise<DMConversationSummary[]> {
+  const params = new URLSearchParams();
+  if (opts.limit) params.set('limit', String(opts.limit));
+  const q = params.toString();
+  const res = await backendFetch(q ? `/v1/dm/conversations?${q}` : '/v1/dm/conversations', {}, sessionToken);
+  if (!res.ok) throw new Error(`API dm conversations: ${res.status}`);
+  const data = (await res.json()) as { conversations: DMConversationSummary[] };
+  return data.conversations ?? [];
+}
+
+export async function getDMConversation(
+  sessionToken: string,
+  id: string,
+): Promise<DMConversationPage> {
+  const res = await backendFetch(`/v1/dm/conversations/${id}`, {}, sessionToken);
+  if (!res.ok) throw new Error(`API dm conversation: ${res.status}`);
+  const data = (await res.json()) as DMConversationPage;
+  data.messages = data.messages ?? [];
+  return data;
+}
+
+export async function getDMPrivacy(sessionToken: string): Promise<string> {
+  const res = await backendFetch('/v1/me/dm-privacy', {}, sessionToken);
+  if (!res.ok) throw new Error(`API dm privacy: ${res.status}`);
+  const data = (await res.json()) as { dm_privacy: string };
+  return data.dm_privacy;
 }
 
 export function sessionFromCookieHeader(cookieHeader: string | null): string | null {

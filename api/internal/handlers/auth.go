@@ -168,6 +168,12 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	if unread, err := a.reader.NotificationUnreadCount(r.Context(), enriched.ID); err == nil {
 		out["unread_notifications"] = unread
 	}
+	if privacy, err := a.dm.Privacy(r.Context(), enriched.ID); err == nil {
+		out["dm_privacy"] = privacy
+	}
+	if unreadDM, err := a.dm.UnreadConversationCount(r.Context(), enriched.ID); err == nil {
+		out["unread_dm"] = unreadDM
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
