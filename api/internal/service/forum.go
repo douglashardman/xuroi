@@ -16,6 +16,7 @@ import (
 	"github.com/xuroi/xuroi/api/internal/ids"
 	"github.com/xuroi/xuroi/api/internal/intelligence"
 	"github.com/xuroi/xuroi/api/internal/markdown"
+	"github.com/xuroi/xuroi/api/internal/models"
 	"github.com/xuroi/xuroi/api/internal/projections"
 	"github.com/xuroi/xuroi/api/internal/site"
 )
@@ -66,6 +67,7 @@ type CreateThreadInput struct {
 	BodyHTML     string
 	AuthorIP     string
 	ForcePending bool
+	SpamScore    int
 }
 
 type CreatePostInput struct {
@@ -77,6 +79,7 @@ type CreatePostInput struct {
 	QuoteMarkdown *string
 	AuthorIP      string
 	ForcePending  bool
+	SpamScore     int
 }
 
 func (f *Forum) EnsureSystemActor(ctx context.Context) error {
@@ -286,6 +289,7 @@ func (f *Forum) CreateThread(ctx context.Context, in CreateThreadInput) (events.
 		BodyHTML:     in.BodyHTML,
 		AuthorIP:     in.AuthorIP,
 		ForcePending: in.ForcePending,
+		SpamScore:    in.SpamScore,
 	}
 
 	return f.appendAndProject(ctx, events.AppendInput{
@@ -333,6 +337,7 @@ func (f *Forum) CreatePost(ctx context.Context, in CreatePostInput) (events.Even
 		QuoteMarkdown: quoteMD,
 		AuthorIP:      in.AuthorIP,
 		ForcePending:  in.ForcePending,
+		SpamScore:     in.SpamScore,
 	}
 
 	return f.appendAndProject(ctx, events.AppendInput{
@@ -1017,25 +1022,128 @@ func (f *Forum) StaffEditPost(ctx context.Context, in EditPostInput) (events.Eve
 	})
 }
 
-// DeleteThread soft-deletes a thread (staff action).
-func (f *Forum) DeleteThread(ctx context.Context, threadID, staffID string) (events.Event, error) {
-	var exists bool
+// MergeThreads moves all posts from source into target, adds a staff notice, and soft-deletes source.
+func (f *Forum) MergeThreads(ctx context.Context, sourceID, targetID, actorID string) (events.Event, error) {
+	if sourceID == targetID {
+		return events.Event{}, errors.New("cannot merge a thread into itself")
+	}
+
+	var sourceTitle, sourceSlug string
 	err := f.pool.QueryRow(ctx, `
-		SELECT EXISTS(SELECT 1 FROM threads WHERE id = $1 AND deleted_at IS NULL)
-	`, threadID).Scan(&exists)
+		SELECT title, slug FROM threads
+		WHERE id = $1 AND deleted_at IS NULL
+	`, sourceID).Scan(&sourceTitle, &sourceSlug)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return events.Event{}, fmt.Errorf("source thread not found")
+	}
 	if err != nil {
 		return events.Event{}, err
 	}
-	if !exists {
+
+	var targetExists bool
+	err = f.pool.QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM threads WHERE id = $1 AND deleted_at IS NULL)
+	`, targetID).Scan(&targetExists)
+	if err != nil {
+		return events.Event{}, err
+	}
+	if !targetExists {
+		return events.Event{}, fmt.Errorf("target thread not found")
+	}
+
+	rows, err := f.pool.Query(ctx, `
+		SELECT id FROM posts
+		WHERE thread_id = $1 AND deleted_at IS NULL
+		ORDER BY position ASC
+	`, sourceID)
+	if err != nil {
+		return events.Event{}, err
+	}
+	defer rows.Close()
+
+	moved := make([]string, 0)
+	for rows.Next() {
+		var postID string
+		if err := rows.Scan(&postID); err != nil {
+			return events.Event{}, err
+		}
+		moved = append(moved, postID)
+	}
+	if err := rows.Err(); err != nil {
+		return events.Event{}, err
+	}
+	if len(moved) == 0 {
+		return events.Event{}, errors.New("source thread has no posts to merge")
+	}
+
+	noticeID := ids.New("pst_")
+	sourceURL := models.ThreadURL(sourceSlug, sourceID)
+	noticeMD := fmt.Sprintf("**Thread merged** — [%s](%s) was combined into this thread by staff.", sourceTitle, sourceURL)
+	noticeHTML := markdown.RenderUGC(noticeMD, nil)
+
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamSite(),
+		Type:     events.TypeThreadMerged,
+		ActorID:  strPtr(actorID),
+		Payload: events.ThreadMerged{
+			SourceThreadID: sourceID,
+			TargetThreadID: targetID,
+			MovedPostIDs:   moved,
+			NoticePostID:   noticeID,
+			NoticeMarkdown: noticeMD,
+			NoticeHTML:     noticeHTML,
+			SourceTitle:    sourceTitle,
+			SourceSlug:     sourceSlug,
+		},
+	})
+}
+
+// DeleteThread soft-deletes a thread (staff action).
+func (f *Forum) DeleteThread(ctx context.Context, threadID, actorID string, byAuthor bool) (events.Event, error) {
+	var authorID string
+	var replyCount int
+	var createdAt time.Time
+	var isLocked bool
+	err := f.pool.QueryRow(ctx, `
+		SELECT t.author_id, t.reply_count, t.created_at, t.is_locked
+		FROM threads t
+		WHERE t.id = $1 AND t.deleted_at IS NULL
+	`, threadID).Scan(&authorID, &replyCount, &createdAt, &isLocked)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return events.Event{}, fmt.Errorf("thread not found")
 	}
+	if err != nil {
+		return events.Event{}, err
+	}
+
+	reason := "staff removal"
+	if byAuthor {
+		if authorID != actorID {
+			return events.Event{}, ErrForbiddenEdit
+		}
+		if isLocked {
+			return events.Event{}, ErrThreadLocked
+		}
+		if replyCount > 0 {
+			return events.Event{}, errors.New("cannot delete thread after replies")
+		}
+		window := f.postPolicy.ThreadDeleteWindowMinutes
+		if window <= 0 {
+			return events.Event{}, ErrEditDisabled
+		}
+		if time.Since(createdAt) > time.Duration(window)*time.Minute {
+			return events.Event{}, ErrEditWindowClosed
+		}
+		reason = "author removal"
+	}
+
 	return f.appendAndProject(ctx, events.AppendInput{
 		StreamID: events.StreamThread(threadID),
 		Type:     events.TypeThreadDeleted,
-		ActorID:  strPtr(staffID),
+		ActorID:  strPtr(actorID),
 		Payload: events.ThreadDeleted{
 			ThreadID: threadID,
-			Reason:   "staff removal",
+			Reason:   reason,
 		},
 	})
 }

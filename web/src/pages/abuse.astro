@@ -11,11 +11,15 @@ const home = await getHome(session);
 
 let abuseEmail = 'abuse@puttertalk.com';
 let abuseNote = '';
+let dmcaAgentName = '';
+let dmcaAgentNote = '';
 const statusRes = await backendFetch('/v1/site/status', {}, session);
 if (statusRes.ok) {
   const status = await statusRes.json();
   if (status.trust?.abuse_email) abuseEmail = status.trust.abuse_email;
   if (status.trust?.abuse_note) abuseNote = status.trust.abuse_note;
+  if (status.trust?.dmca_agent_name) dmcaAgentName = status.trust.dmca_agent_name;
+  if (status.trust?.dmca_agent_note) dmcaAgentNote = status.trust.dmca_agent_note;
 }
 ---
 <Layout title="Report abuse" description="How to report copyright, harassment, or other abuse on PutterTalk." site={home.site} user={null}>
@@ -28,6 +32,15 @@ if (statusRes.ok) {
     <p>Use this page for copyright (DMCA), harassment, illegal content, or other serious violations — not routine forum moderation.</p>
 
     {abuseNote && <p class="abuse-note">{abuseNote}</p>}
+
+    {(dmcaAgentName || dmcaAgentNote) && (
+      <>
+        <h2>DMCA / copyright</h2>
+        {dmcaAgentName && <p><strong>Designated agent:</strong> {dmcaAgentName}</p>}
+        {dmcaAgentNote && <p class="abuse-note">{dmcaAgentNote}</p>}
+        <p>Send takedown notices to <a href={`mailto:${abuseEmail}`}>{abuseEmail}</a> with the information below.</p>
+      </>
+    )}
 
     <h2>What to include</h2>
     <ul>

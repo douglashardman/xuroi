@@ -121,6 +121,11 @@ const wordFilter = (s.moderation?.word_filter ?? []).join('\n');
             <input type="checkbox" id="set-delete-enabled" checked={s.posts?.delete_enabled === true} />
             <span>Staff can delete replies (site-wide)</span>
           </label>
+          <label class="admin-settings-field">
+            <span>Author thread delete window (minutes)</span>
+            <input class="admin-settings-input" type="number" id="set-thread-delete-window" min="1" value={s.posts?.thread_delete_window_minutes ?? 30} />
+          </label>
+          <p class="admin-settings-hint admin-settings-field--wide">Authors may delete their own thread while it has zero replies, within this window.</p>
         </div>
       </section>
 
@@ -357,6 +362,14 @@ const wordFilter = (s.moderation?.word_filter ?? []).join('\n');
           <label class="admin-settings-field admin-settings-field--wide">
             <span>Abuse page note (optional)</span>
             <textarea class="admin-settings-input admin-settings-textarea" id="set-abuse-note" rows="2">{s.trust?.abuse_note ?? ''}</textarea>
+          </label>
+          <label class="admin-settings-field">
+            <span>DMCA designated agent (name)</span>
+            <input class="admin-settings-input" type="text" id="set-dmca-agent-name" value={s.trust?.dmca_agent_name ?? ''} placeholder="Legal contact or company name" />
+          </label>
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>DMCA takedown note (optional)</span>
+            <textarea class="admin-settings-input admin-settings-textarea" id="set-dmca-agent-note" rows="2" placeholder="Registered agent address or filing instructions">{s.trust?.dmca_agent_note ?? ''}</textarea>
           </label>
         </div>
       </section>

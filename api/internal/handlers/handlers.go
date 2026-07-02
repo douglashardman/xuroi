@@ -14,6 +14,7 @@ import (
 	"github.com/xuroi/xuroi/api/internal/auth"
 	"github.com/xuroi/xuroi/api/internal/dm"
 	"github.com/xuroi/xuroi/api/internal/friends"
+	"github.com/xuroi/xuroi/api/internal/httplog"
 	"github.com/xuroi/xuroi/api/internal/media"
 	"github.com/xuroi/xuroi/api/internal/netutil"
 	"github.com/xuroi/xuroi/api/internal/notify"
@@ -96,6 +97,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/mod/posts/{id}/restore", a.staffRestorePost)
 	mux.HandleFunc("POST /v1/mod/posts/{id}/edit", a.staffEditPost)
 	mux.HandleFunc("POST /v1/mod/threads/{id}/restore", a.staffRestoreThread)
+	mux.HandleFunc("POST /v1/mod/threads/{id}/merge", a.mergeThread)
 	mux.HandleFunc("GET /v1/mod/trash", a.listModTrash)
 	mux.HandleFunc("POST /v1/mod/threads/{id}/accepted-answer", a.setAcceptedAnswer)
 	mux.HandleFunc("DELETE /v1/mod/threads/{id}/accepted-answer", a.clearAcceptedAnswer)
@@ -173,7 +175,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/admin/email-bans/check", a.checkEmailBan)
 	mux.HandleFunc("POST /v1/media/upload", a.uploadMedia)
 	mux.HandleFunc("GET /v1/media/{name}", a.serveMedia)
-	return withCORS(a.withIPBanCheck(mux))
+	return httplog.Middleware(withCORS(a.withIPBanCheck(mux)))
 }
 
 func (a *API) health(w http.ResponseWriter, r *http.Request) {
@@ -349,6 +351,7 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 		BodyHTML:     req.BodyHTML,
 		AuthorIP:     netutil.ClientIP(r),
 		ForcePending: check.ForcePending,
+		SpamScore:    check.SpamScore,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -474,6 +477,7 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 		QuoteMarkdown: req.QuoteMarkdown,
 		AuthorIP:      netutil.ClientIP(r),
 		ForcePending:  check.ForcePending,
+		SpamScore:     check.SpamScore,
 	})
 	if errors.Is(err, service.ErrInvalidQuote) {
 		writeError(w, http.StatusBadRequest, "invalid quoted post")

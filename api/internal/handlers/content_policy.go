@@ -13,6 +13,7 @@ import (
 
 type contentCheckResult struct {
 	ForcePending bool
+	SpamScore    int
 }
 
 func (a *API) checkPostContent(ctx context.Context, authorID, markdown string, isStaff, isAdmin bool) (contentCheckResult, error) {
@@ -51,7 +52,7 @@ func (a *API) checkPostContent(ctx context.Context, authorID, markdown string, i
 		}
 		return contentCheckResult{}, errors.New(msg)
 	}
-	return contentCheckResult{ForcePending: result.Hold}, nil
+	return contentCheckResult{ForcePending: result.Hold, SpamScore: result.Score}, nil
 }
 
 func (a *API) checkDMSenderPolicy(ctx context.Context, authorID string, isStaff, isAdmin bool) error {

@@ -54,6 +54,8 @@ func (p *Projector) Apply(ctx context.Context, tx pgx.Tx, evt events.Event) erro
 		return p.applyThreadDeleted(ctx, tx, evt)
 	case events.TypeThreadMoved:
 		return p.applyThreadMoved(ctx, tx, evt)
+	case events.TypeThreadMerged:
+		return p.applyThreadMerged(ctx, tx, evt)
 	case events.TypePostReported:
 		return p.applyPostReported(ctx, tx, evt)
 	case events.TypeThreadReported:
@@ -163,10 +165,10 @@ func (p *Projector) applyThreadCreated(ctx context.Context, tx pgx.Tx, evt event
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, author_ip, is_op, moderation_status, created_at)
-		VALUES ($1, $2, $3, 1, $4, $5, NULLIF($6, ''), TRUE, $7, $8)
+		INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, author_ip, is_op, moderation_status, spam_score, created_at)
+		VALUES ($1, $2, $3, 1, $4, $5, NULLIF($6, ''), TRUE, $7, $8, $9)
 		ON CONFLICT (id) DO NOTHING
-	`, payload.PostID, payload.ThreadID, payload.AuthorID, payload.BodyMarkdown, payload.BodyHTML, payload.AuthorIP, modStatus, evt.CreatedAt)
+	`, payload.PostID, payload.ThreadID, payload.AuthorID, payload.BodyMarkdown, payload.BodyHTML, payload.AuthorIP, modStatus, payload.SpamScore, evt.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -215,10 +217,10 @@ func (p *Projector) applyPostCreated(ctx context.Context, tx pgx.Tx, evt events.
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, quoted_post_id, quote_markdown, author_ip, is_op, moderation_status, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), FALSE, $10, $11)
+		INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, quoted_post_id, quote_markdown, author_ip, is_op, moderation_status, spam_score, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), FALSE, $10, $11, $12)
 		ON CONFLICT (id) DO NOTHING
-	`, payload.PostID, payload.ThreadID, payload.AuthorID, position, payload.BodyMarkdown, payload.BodyHTML, payload.QuotedPostID, payload.QuoteMarkdown, payload.AuthorIP, modStatus, evt.CreatedAt)
+	`, payload.PostID, payload.ThreadID, payload.AuthorID, position, payload.BodyMarkdown, payload.BodyHTML, payload.QuotedPostID, payload.QuoteMarkdown, payload.AuthorIP, modStatus, payload.SpamScore, evt.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -570,6 +572,124 @@ func (p *Projector) applyThreadDeleted(ctx context.Context, tx pgx.Tx, evt event
 		return err
 	}
 	return search.RemoveThreadTx(ctx, tx, payload.ThreadID)
+}
+
+func (p *Projector) applyThreadMerged(ctx context.Context, tx pgx.Tx, evt events.Event) error {
+	var payload events.ThreadMerged
+	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshal thread.merged: %w", err)
+	}
+
+	var sourceCat, targetCat string
+	err := tx.QueryRow(ctx, `
+		SELECT category_id FROM threads WHERE id = $1
+	`, payload.SourceThreadID).Scan(&sourceCat)
+	if err != nil {
+		return fmt.Errorf("merge source category: %w", err)
+	}
+	err = tx.QueryRow(ctx, `
+		SELECT category_id FROM threads WHERE id = $1
+	`, payload.TargetThreadID).Scan(&targetCat)
+	if err != nil {
+		return fmt.Errorf("merge target category: %w", err)
+	}
+
+	var maxPos int
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(MAX(position), 0) FROM posts WHERE thread_id = $1 AND deleted_at IS NULL
+	`, payload.TargetThreadID).Scan(&maxPos)
+	if err != nil {
+		return fmt.Errorf("merge max position: %w", err)
+	}
+
+	pos := maxPos
+	for _, postID := range payload.MovedPostIDs {
+		pos++
+		_, err = tx.Exec(ctx, `
+			UPDATE posts
+			SET thread_id = $2, position = $3, is_op = FALSE
+			WHERE id = $1
+		`, postID, payload.TargetThreadID, pos)
+		if err != nil {
+			return fmt.Errorf("merge move post %s: %w", postID, err)
+		}
+	}
+
+	if payload.NoticePostID != "" {
+		pos++
+		_, err = tx.Exec(ctx, `
+			INSERT INTO posts (id, thread_id, author_id, position, body_markdown, body_html, is_op, moderation_status, created_at)
+			VALUES ($1, $2, (SELECT id FROM actors WHERE type = 'system' LIMIT 1), $3, $4, $5, FALSE, 'approved', $6)
+			ON CONFLICT (id) DO NOTHING
+		`, payload.NoticePostID, payload.TargetThreadID, pos, payload.NoticeMarkdown, payload.NoticeHTML, evt.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("merge notice post: %w", err)
+		}
+	}
+
+	movedCount := len(payload.MovedPostIDs)
+	noticeCount := 0
+	if payload.NoticePostID != "" {
+		noticeCount = 1
+	}
+	addReplies := movedCount + noticeCount
+
+	_, err = tx.Exec(ctx, `
+		UPDATE threads
+		SET reply_count = reply_count + $2, last_activity_at = $3
+		WHERE id = $1
+	`, payload.TargetThreadID, addReplies, evt.CreatedAt)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE threads
+		SET deleted_at = $2, merged_into_thread_id = $3
+		WHERE id = $1 AND deleted_at IS NULL
+	`, payload.SourceThreadID, evt.CreatedAt, payload.TargetThreadID)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE categories SET thread_count = GREATEST(0, thread_count - 1), post_count = GREATEST(0, post_count - $2)
+		WHERE id = $1
+	`, sourceCat, movedCount)
+	if err != nil {
+		return err
+	}
+	if sourceCat != targetCat {
+		_, err = tx.Exec(ctx, `
+			UPDATE categories SET post_count = post_count + $2 WHERE id = $1
+		`, targetCat, movedCount+noticeCount)
+		if err != nil {
+			return err
+		}
+	} else if noticeCount > 0 {
+		_, err = tx.Exec(ctx, `UPDATE categories SET post_count = post_count + $2 WHERE id = $1`, targetCat, noticeCount)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := search.RemoveThreadTx(ctx, tx, payload.SourceThreadID); err != nil {
+		return err
+	}
+	if err := search.EnqueueTx(ctx, tx, payload.TargetThreadID, "thread"); err != nil {
+		return err
+	}
+	for _, postID := range payload.MovedPostIDs {
+		if err := search.EnqueueTx(ctx, tx, postID, "post"); err != nil {
+			return err
+		}
+	}
+	if payload.NoticePostID != "" {
+		if err := search.EnqueueTx(ctx, tx, payload.NoticePostID, "post"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *Projector) applyThreadMoved(ctx context.Context, tx pgx.Tx, evt events.Event) error {

@@ -179,14 +179,32 @@ func (r *Reader) CategoryBySlug(ctx context.Context, slug string, page, perPage 
 }
 
 func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, viewer access.Viewer) (models.ThreadPageResponse, error) {
+	var mergedInto *string
+	_ = r.pool.QueryRow(ctx, `
+		SELECT merged_into_thread_id FROM threads WHERE id = $1 AND merged_into_thread_id IS NOT NULL
+	`, id).Scan(&mergedInto)
+	if mergedInto != nil && strings.TrimSpace(*mergedInto) != "" {
+		var targetSlug string
+		if err := r.pool.QueryRow(ctx, `
+			SELECT slug FROM threads WHERE id = $1 AND deleted_at IS NULL
+		`, *mergedInto).Scan(&targetSlug); err == nil {
+			redirect := models.ThreadURL(targetSlug, *mergedInto)
+			var resp models.ThreadPageResponse
+			resp.Site = r.site
+			resp.UI.RedirectURL = &redirect
+			return resp, nil
+		}
+	}
+
 	var thread models.ThreadDetail
 	var cat models.CategoryRef
 	var accessLevel string
 	var accessLevels []string
 	var acceptedAnswer *string
+	var authorID string
 	err := r.pool.QueryRow(ctx, `
 		SELECT t.id, t.title, COALESCE(t.title_prefix, ''), t.slug, t.reply_count, t.view_count, t.is_locked, COALESCE(t.lock_reason, ''), t.is_pinned,
-		       t.accepted_answer_post_id, t.created_at, t.last_activity_at,
+		       t.accepted_answer_post_id, t.created_at, t.last_activity_at, t.author_id,
 		       c.id, c.name, c.slug, c.access_level, c.access_levels
 		FROM threads t
 		JOIN categories c ON c.id = t.category_id
@@ -194,7 +212,7 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	`, id).Scan(
 		&thread.ID, &thread.Title, &thread.TitlePrefix, &thread.Slug, &thread.ReplyCount, &thread.ViewCount,
 		&thread.IsLocked, &thread.LockReason, &thread.IsPinned, &acceptedAnswer,
-		&thread.CreatedAt, &thread.LastActivityAt,
+		&thread.CreatedAt, &thread.LastActivityAt, &authorID,
 		&cat.ID, &cat.Name, &cat.Slug, &accessLevel, &accessLevels,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -222,6 +240,13 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	thread.AcceptedAnswerPostID = acceptedAnswer
 	cat.URL = models.CategoryURL(cat.Slug)
 	thread.Summary = r.threadSummary(ctx, id)
+
+	if viewer.ActorID != nil && *viewer.ActorID == authorID && thread.ReplyCount == 0 && !thread.IsLocked {
+		window := r.postPolicy.ThreadDeleteWindowMinutes
+		if window > 0 && time.Since(thread.CreatedAt) <= time.Duration(window)*time.Minute {
+			thread.CanDelete = true
+		}
+	}
 
 	var opStatus string
 	_ = r.pool.QueryRow(ctx, `

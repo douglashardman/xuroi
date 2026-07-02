@@ -91,6 +91,7 @@ export function buildSettingsPayload(baseAdmin: Record<string, unknown>, reasons
       edit_enabled: field<HTMLInputElement>('set-edit-enabled').checked,
       edit_window_minutes: Number(field<HTMLInputElement>('set-edit-window').value) || 30,
       delete_enabled: field<HTMLInputElement>('set-delete-enabled').checked,
+      thread_delete_window_minutes: Number(field<HTMLInputElement>('set-thread-delete-window').value) || 30,
     },
     guests: {
       read_only: field<HTMLInputElement>('set-guest-readonly').checked,
@@ -132,6 +133,8 @@ export function buildSettingsPayload(baseAdmin: Record<string, unknown>, reasons
     trust: {
       abuse_email: field<HTMLInputElement>('set-abuse-email').value.trim(),
       abuse_note: field<HTMLTextAreaElement>('set-abuse-note').value.trim(),
+      dmca_agent_name: field<HTMLInputElement>('set-dmca-agent-name').value.trim(),
+      dmca_agent_note: field<HTMLTextAreaElement>('set-dmca-agent-note').value.trim(),
     },
     reserved_display_names: splitLines(field<HTMLTextAreaElement>('set-reserved-names').value),
     registration: {

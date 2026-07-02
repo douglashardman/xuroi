@@ -29,6 +29,7 @@ var ModEventTypes = []string{
 	events.TypeThreadUnpinned,
 	events.TypeThreadDeleted,
 	events.TypeThreadMoved,
+	events.TypeThreadMerged,
 	events.TypeThreadRestored,
 	events.TypePostDeleted,
 	events.TypePostRestored,
@@ -115,6 +116,12 @@ func SummarizeModEvent(evtType string, payload json.RawMessage) string {
 		return "Thread restored"
 	case events.TypeThreadMoved:
 		return "Thread moved"
+	case events.TypeThreadMerged:
+		var p events.ThreadMerged
+		if json.Unmarshal(payload, &p) == nil {
+			return fmt.Sprintf("Thread merged into %s — %s", shortID(p.TargetThreadID), p.SourceTitle)
+		}
+		return "Thread merged"
 	case events.TypePostDeleted:
 		var p events.PostDeleted
 		if json.Unmarshal(payload, &p) == nil {

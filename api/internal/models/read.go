@@ -186,6 +186,7 @@ type ThreadDetail struct {
 	AcceptedAnswerPostID  *string   `json:"accepted_answer_post_id,omitempty"`
 	CreatedAt             time.Time `json:"created_at"`
 	LastActivityAt        time.Time `json:"last_activity_at"`
+	CanDelete             bool      `json:"can_delete,omitempty"`
 }
 
 type HomeResponse struct {
@@ -230,7 +231,8 @@ type ThreadPageResponse struct {
 		ShowModBar      bool   `json:"show_mod_bar"`
 		OpenReportCount int    `json:"open_report_count,omitempty"`
 		SummaryLabel    string `json:"summary_label,omitempty"`
-		NoIndex         bool   `json:"no_index,omitempty"`
+		NoIndex         bool    `json:"no_index,omitempty"`
+		RedirectURL     *string `json:"redirect_url,omitempty"`
 	} `json:"ui"`
 }
 

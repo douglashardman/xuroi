@@ -55,7 +55,7 @@ const items = data.items ?? [];
             <time datetime={item.created_at}>{formatDate(item.created_at)}</time>
             · <strong>{item.author_name}</strong>
             {item.is_op && ' · new thread'}
-            {item.spam_hold && ' · spam hold'}
+            {item.spam_hold && ` · spam hold${item.spam_score ? ` (${item.spam_score})` : ''}`}
             · {item.category_name}
           </div>
           <h3 class="mod-report-thread">

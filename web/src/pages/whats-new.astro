@@ -8,12 +8,18 @@ import { ACCENT_VARS, accentIndex } from '../lib/theme';
 
 const cookie = Astro.request.headers.get('cookie');
 const session = sessionFromCookieHeader(cookie);
-const unreadOnly = Astro.url.searchParams.get('unread') === '1';
-const [home, user, recent] = await Promise.all([
+let unreadOnly = Astro.url.searchParams.get('unread') === '1';
+const [home, user, recentPre] = await Promise.all([
   getHome(session),
   getMe(session),
-  getRecentThreads(30, session, unreadOnly),
+  getRecentThreads(30, session, false),
 ]);
+if (session && !Astro.url.searchParams.has('unread') && (user?.unread_threads ?? 0) > 0) {
+  unreadOnly = true;
+}
+const recent = unreadOnly && !Astro.url.searchParams.has('unread')
+  ? await getRecentThreads(30, session, true)
+  : recentPre;
 const threads = recent.threads ?? [];
 const unreadCount = user?.unread_threads ?? 0;
 ---

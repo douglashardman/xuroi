@@ -93,7 +93,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | B13 | Sticky / pin thread | P0 | All | Admin bar on thread page |
 | ✓ | B14 | Lock / unlock thread | P0 | All | Blocks replies when locked |
 | ✓ | B15 | Move thread (category) | P1 | All | Mod gear picker · API + UI |
-| — | B16 | Merge threads | P2 | All | |
+| ✓ | B16 | Merge threads | P2 | All | Mod gear · `POST /v1/mod/threads/{id}/merge` |
 | — | B17 | Split thread | P2 | [XF] | |
 | ✓ | B18 | Thread prefixes / labels | P2 | [XF] | FS/WTT/WTB/SOLD on classifieds new-thread |
 | — | B19 | Polls | P3 | All | |
@@ -198,7 +198,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | E6 | Ban user (temp / perm) | P0 | All | Admin UI; clears sessions |
 | partial | E7 | IP ban | P1 | All | Post IPs banned with account; cleared on restore |
 | ✓ | E8 | Email ban | P1 | All | Admin users “Ban email” · `POST /v1/admin/email-bans` |
-| — | E9 | Spam scoring (basic) | P1 | [XF] | Rate, links, new account |
+| ✓ | E9 | Spam scoring (basic) | P1 | [XF] | Score on hold · mod queue label |
 | — | E10 | Spam scoring (ML / Akismet) | P2 | [XF] | |
 | ✓ | E11 | Flood control / rate limits | P0 | All | Post + thread + login limits; in-memory v1 |
 | — | E12 | Duplicate post detection | P2 | — | |
@@ -252,7 +252,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | G6 | Alt-text (manual + auto) | P1 | [XU] | Manual alt field per upload |
 | — | G7 | File attachments (PDF, etc.) | P2 | All | |
 | — | G8 | Attachment quota per user | P2 | All | |
-| — | G9 | Attachment permissions | P1 | [XF] | |
+| ✓ | G9 | Attachment permissions | P1 | [XF] | `guests.can_attach` · new-member window |
 | ✓ | G10 | Inline image display | P0 | All | Inline in posts + lightbox viewer |
 | ✓ | G11 | Image lightbox | P1 | — | Click post image; prev/next + arrow keys |
 | — | G12 | Video embed (YouTube, etc.) | P2 | [XF] | oEmbed |
@@ -274,7 +274,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | H5 | Search filters (date, has image) | P2 | [XF] | |
 | ✓ | H6 | Search result highlighting | P1 | All | `ts_headline` excerpts with `<mark>` |
 | ✓ | H7 | Async search indexing | P0 | [XF] jobs | `search_index_queue` + `cmd/searchindex` |
-| — | H8 | Find new / unread | P1 | All | |
+| ✓ | H8 | Find new / unread | P1 | All | Nav What's New badge · default unread filter |
 | — | H9 | Trending threads | P2 | — | |
 | ✓ | H10 | Sitemap XML | P0 | [XF] | `/sitemap.xml` from API thread index |
 | ✓ | H11 | robots.txt | P0 | All | `/robots.txt`; disallows /admin, /mod |
@@ -300,7 +300,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | I8 | Transactional email templates | P1 | — | thread_reply, magic_link, password_reset, mention |
 | ✓ | I9 | Unsubscribe links | P1 | — | `/email/unsubscribe` + per-thread mutes |
 | — | I10 | Admin notices / announcements | P2 | [XF] | |
-| — | I11 | Email deliverability (SPF/DKIM docs) | P1 | — | Ops doc |
+| ✓ | I11 | Email deliverability (SPF/DKIM docs) | P1 | — | `docs/email-deliverability.md` |
 
 ---
 
@@ -392,7 +392,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | M9 | SSL / TLS | P0 | — | |
 | — | M10 | Monitoring (uptime, metrics) | P1 | — | |
 | — | M11 | Error tracking (Sentry) | P1 | — | |
-| — | M12 | Structured logging | P1 | — | |
+| ✓ | M12 | Structured logging | P1 | — | JSON access log middleware |
 | — | M13 | Load test to 10k concurrent read | P2 | — | Doug's historical scale |
 | — | M14 | Projection rebuild at 1M+ posts | P2 | — | Design now |
 | — | M15 | Multi-site / multi-tenant | P3 | — | Single site v1 |
@@ -412,7 +412,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | N2 | Privacy policy page | P0 | `/privacy` |
 | — | N3 | Cookie policy | P2 | |
 | ✓ | N4 | GDPR export + delete | P1 | | `GET /v1/me/export` · profile delete card |
-| — | N5 | DMCA agent / takedown | P1 | |
+| ✓ | N5 | DMCA agent / takedown | P1 | | Admin trust · `/abuse` DMCA section |
 | — | N6 | Age verification (if needed) | P4 | |
 | — | N7 | Content retention policy | P2 | |
 | — | N8 | Public mod transparency report | P4 | |

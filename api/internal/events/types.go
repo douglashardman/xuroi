@@ -23,6 +23,7 @@ const (
 	TypeThreadUnpinned      = "thread.unpinned"
 	TypeThreadDeleted       = "thread.deleted"
 	TypeThreadMoved         = "thread.moved"
+	TypeThreadMerged        = "thread.merged"
 	TypePostReported        = "post.reported"
 	TypeThreadReported      = "thread.reported"
 	TypePostModerated           = "post.moderated"
@@ -108,6 +109,7 @@ type ThreadCreated struct {
 	BodyHTML     string `json:"body_html"`
 	AuthorIP      string `json:"author_ip,omitempty"`
 	ForcePending  bool   `json:"force_pending,omitempty"`
+	SpamScore     int    `json:"spam_score,omitempty"`
 }
 
 type PostCreated struct {
@@ -120,12 +122,24 @@ type PostCreated struct {
 	QuoteMarkdown *string `json:"quote_markdown,omitempty"`
 	AuthorIP      string  `json:"author_ip,omitempty"`
 	ForcePending  bool    `json:"force_pending,omitempty"`
+	SpamScore     int     `json:"spam_score,omitempty"`
 }
 
 type ThreadMoved struct {
 	ThreadID     string `json:"thread_id"`
 	FromCategory string `json:"from_category_id"`
 	ToCategory   string `json:"to_category_id"`
+}
+
+type ThreadMerged struct {
+	SourceThreadID string   `json:"source_thread_id"`
+	TargetThreadID string   `json:"target_thread_id"`
+	MovedPostIDs   []string `json:"moved_post_ids"`
+	NoticePostID   string   `json:"notice_post_id"`
+	NoticeMarkdown string   `json:"notice_markdown"`
+	NoticeHTML     string   `json:"notice_html"`
+	SourceTitle    string   `json:"source_title"`
+	SourceSlug     string   `json:"source_slug"`
 }
 
 type PostReactionChanged struct {

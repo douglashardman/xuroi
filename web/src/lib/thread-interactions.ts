@@ -907,6 +907,31 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
     }
   });
 
+  document.getElementById('thread-author-delete')?.addEventListener('click', async () => {
+    const btn = document.getElementById('thread-author-delete') as HTMLButtonElement | null;
+    if (!btn) return;
+    const threadId = btn.dataset.threadId;
+    if (!threadId) return;
+    const ok = await confirm('Delete this thread? Only works before anyone replies.', {
+      title: 'Delete your thread?',
+      confirmLabel: 'Delete',
+      dangerous: true,
+    });
+    if (!ok) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/threads/${threadId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).error);
+      showToast('Thread deleted', 'warning');
+      window.setTimeout(() => {
+        window.location.href = '/community';
+      }, 600);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete thread', 'error');
+      btn.disabled = false;
+    }
+  });
+
   document.querySelector('[data-thread-delete]')?.addEventListener('click', async (e) => {
     closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;
@@ -928,6 +953,56 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
       }, 600);
     } catch {
       showToast('Could not delete thread', 'error');
+      btn.removeAttribute('disabled');
+    }
+  });
+
+  document.querySelector('[data-thread-merge]')?.addEventListener('click', async (e) => {
+    closeAllModPopovers();
+    const btn = e.currentTarget as HTMLButtonElement;
+    const threadId = threadIdFromModEl(btn);
+    if (!threadId) return;
+    const target = await promptDialog(
+      'Paste the target thread URL or ID (e.g. /t/slug--thr_abc or thr_abc):',
+      { title: 'Merge into thread', placeholder: '/t/...' },
+    );
+    if (target === null) return;
+    const trimmed = target.trim();
+    if (!trimmed) return;
+    let targetID = trimmed;
+    const sep = trimmed.lastIndexOf('--');
+    if (sep >= 0) {
+      targetID = trimmed.slice(sep + 2);
+    } else if (trimmed.includes('/t/')) {
+      const part = trimmed.split('/t/').pop() ?? '';
+      const idx = part.lastIndexOf('--');
+      targetID = idx >= 0 ? part.slice(idx + 2) : part;
+    }
+    const ok = await confirm(
+      'All posts from this thread will move into the target. This thread will be removed. Continue?',
+      { title: 'Merge threads?', confirmLabel: 'Merge', dangerous: true },
+    );
+    if (!ok) return;
+    btn.setAttribute('disabled', 'true');
+    try {
+      const res = await fetch(`/api/mod/threads/${threadId}/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_thread_id: targetID }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Merge failed');
+      showToast('Threads merged', 'success');
+      const dest = trimmed.startsWith('/t/')
+        ? trimmed.split('?')[0]
+        : trimmed.includes('/t/')
+          ? `/t/${trimmed.split('/t/').pop()!.split('?')[0]}`
+          : '/community';
+      window.setTimeout(() => {
+        window.location.href = dest;
+      }, 600);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Merge failed', 'error');
       btn.removeAttribute('disabled');
     }
   });

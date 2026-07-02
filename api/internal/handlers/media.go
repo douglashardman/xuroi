@@ -1,10 +1,15 @@
 package handlers
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/xuroi/xuroi/api/internal/auth"
 	"github.com/xuroi/xuroi/api/internal/media"
+	"github.com/xuroi/xuroi/api/internal/policy"
 	"github.com/xuroi/xuroi/api/internal/ratelimit"
 )
 
@@ -14,6 +19,10 @@ func (a *API) uploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.rateLimited(w, "media:actor:"+actor.ID, 12, ratelimit.PostActorWindow) {
+		return
+	}
+	if err := a.checkAttachmentPolicy(r.Context(), actor); err != nil {
+		writeError(w, http.StatusForbidden, err.Error())
 		return
 	}
 
@@ -45,6 +54,24 @@ func (a *API) uploadMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, result)
+}
+
+func (a *API) checkAttachmentPolicy(ctx context.Context, actor auth.Actor) error {
+	if policy.IsStaffOrAdmin(actor.IsModerator, actor.IsAdmin) {
+		return nil
+	}
+	if !a.siteCfg.Guests.CanAttach {
+		var createdAt time.Time
+		err := a.pool.QueryRow(ctx, `SELECT created_at FROM actors WHERE id = $1`, actor.ID).Scan(&createdAt)
+		if err != nil {
+			return err
+		}
+		nu := a.siteCfg.NewUsers.Normalized()
+		if time.Since(createdAt) < time.Duration(nu.RestrictLinksHours)*time.Hour {
+			return errors.New("new members cannot attach files yet")
+		}
+	}
+	return nil
 }
 
 func (a *API) serveMedia(w http.ResponseWriter, r *http.Request) {

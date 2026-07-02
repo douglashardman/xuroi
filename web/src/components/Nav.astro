@@ -21,6 +21,12 @@ const profileUrl = user ? userURL(user.display_name) : '';
     <div class="links">
       <a href="#" class={active === 'reviews' ? 'on' : undefined}>Reviews</a>
       <a href="/community" class={active === 'community' ? 'on' : undefined}>Community</a>
+      <a href={user && (user.unread_threads ?? 0) > 0 ? '/whats-new?unread=1' : '/whats-new'} class="nav-whats-new">
+        What's new
+        {user && (user.unread_threads ?? 0) > 0 && (
+          <span class="nav-bell-badge nav-whats-new-badge">{user.unread_threads! > 99 ? '99+' : user.unread_threads}</span>
+        )}
+      </a>
       <a href="/members">Members</a>
       <a href="#">Brands</a>
       <a href="/c/bst">Classifieds</a>

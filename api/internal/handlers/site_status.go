@@ -16,8 +16,10 @@ func (a *API) getSiteStatus(w http.ResponseWriter, r *http.Request) {
 		},
 		"classifieds": a.siteCfg.Classifieds.Normalized(),
 		"trust": map[string]any{
-			"abuse_email": a.siteCfg.Trust.Normalized().AbuseEmail,
-			"abuse_note":  a.siteCfg.Trust.Normalized().AbuseNote,
+			"abuse_email":     a.siteCfg.Trust.Normalized().AbuseEmail,
+			"abuse_note":      a.siteCfg.Trust.Normalized().AbuseNote,
+			"dmca_agent_name": a.siteCfg.Trust.Normalized().DMCAAgentName,
+			"dmca_agent_note": a.siteCfg.Trust.Normalized().DMCAAgentNote,
 		},
 	})
 }

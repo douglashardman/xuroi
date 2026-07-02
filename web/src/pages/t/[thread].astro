@@ -40,6 +40,10 @@ const [data, initialUser, reportReasons] = await Promise.all([
   getReportReasons(),
 ]);
 
+if (data.ui?.redirect_url) {
+  return Astro.redirect(data.ui.redirect_url);
+}
+
 if (session) {
   await Promise.all([markThreadRead(session, id), recordThreadView(session, id)]);
 }
@@ -129,6 +133,11 @@ const jsonLd = threadJsonLd(data, data.site.url);
           </button>
         )}
         {user && <ThreadReportBtn threadId={data.thread.id} />}
+        {data.thread.can_delete && (
+          <button type="button" class="btn btn--sm btn--ghost btn--danger" id="thread-author-delete" data-thread-id={data.thread.id}>
+            Delete thread
+          </button>
+        )}
         {(user?.is_admin || user?.is_moderator) && (
           <ThreadModGear
             threadId={data.thread.id}

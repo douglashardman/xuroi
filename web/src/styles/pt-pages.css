@@ -1456,9 +1456,17 @@ a.post-action {
   text-decoration: none;
 }
 
+.nav-whats-new {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .nav-search:hover,
 .nav-messages:hover,
-.nav-bell:hover {
+.nav-bell:hover,
+.nav-whats-new:hover {
   transform: translate(-2px, -2px);
   box-shadow: 5px 5px 0 var(--ink);
 }

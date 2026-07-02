@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — P1 Batch 4 shipped (12/13)  
+**Last updated:** July 2, 2026 — P1 Batch 5 shipped (11/12)  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** **P1 Batch 4** done — see `.grok/session/notes/2026-07-02-p1-batch-4-done.md` · Deferred: C6 2FA
+**Session status:** **P1 Batch 5** done — see `.grok/session/notes/2026-07-02-p1-batch-5-done.md` · Deferred: C6 2FA
 
 ---
 
@@ -38,6 +38,7 @@
 | Battle plan | `../NEXT-GEN-FORUM-BATTLE-PLAN.md` (local) |
 | Theme contract | `theme-contract/THEMING.md` |
 | Site config | `sites/puttertalk/site.json` |
+| Email ops | `docs/email-deliverability.md` |
 
 ---
 
@@ -45,7 +46,7 @@
 
 ```
 xuroi/                    ← git root on GitHub
-  api/                    Go API, auth, events, migrations (001–027)
+  api/                    Go API, auth, events, migrations (001–035)
   web/                    Astro SSR — production UI for launch
   worker/                 README only; jobs run via api/cmd/* for now
   theme-contract/         Schema, fixtures, THEMING.md
@@ -53,6 +54,7 @@ xuroi/                    ← git root on GitHub
   sites/puttertalk/       Categories, admin emails, feature flags
   infra/                  docker-compose, backup.sh, uploads
   docs/event-schema.md
+  docs/email-deliverability.md
 ```
 
 Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference only — not in git).
@@ -68,15 +70,19 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 - [x] Notify worker (`cmd/notify` — thread-reply email digests)
 - [x] **Search indexer** (`cmd/searchindex` — async FTS, migration 023)
 - [x] Backup script + launchd schedule (`infra/backup.sh`, `install-backup-schedule.sh`)
+- [x] **Structured JSON request logging** (M12)
 
 ### Forum content
 - [x] Categories, threads, posts, pagination, new thread + reply composers
 - [x] Nested category groups (7 sections, 22 forums incl. Supporter + Staff areas)
 - [x] Community index with latest activity per forum
 - [x] Quote post · reactions/likes · karma · edit own post (30 min) · revision overlay
-- [x] Pin/lock thread · soft-delete post · **staff thread delete** · **compact mod gear** on threads/posts (E5 partial)
+- [x] Pin/lock thread · soft-delete post · **staff thread delete** · **merge threads** (B16)
+- [x] **Author delete own thread** (zero replies · configurable window)
+- [x] **Compact mod gear** on threads/posts (E5 partial)
 - [x] Markdown → sanitized HTML · image upload (WebP, EXIF strip, thumbs) · lightbox gallery
 - [x] **Full-text search** — `/search` · `GET /v1/search`
+- [x] **What's New** — `/whats-new` · unread filter · nav badge (H8)
 
 ### Auth & members
 - [x] Registration · password login · magic link · email verification
@@ -86,6 +92,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 - [x] Display names case-insensitive · reserved names anti-impersonation (K19)
 - [x] Warning system (3 strikes → 7-day ban) · mod/admin ban tiers · perm_ban permission
 - [x] Avatar upload (C10) — square crop · WebP · profile hover
+- [x] **Sign out all other devices** (C8)
 
 ### Access control
 - [x] Per-forum `access_level` (public, members, staff, admin, supporters, sponsors)
@@ -95,20 +102,22 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 
 ### Moderation & admin
 - [x] Report post · **report thread (E3)** · mod queue `/mod/reports` · **configurable report reasons (E4)** in `site.json`
-- [x] **Post approval queue** `/mod/queue` — classifieds forums moderated (E2)
+- [x] **Post approval queue** `/mod/queue` — classifieds forums moderated (E2) · **spam hold + score (E9)**
 - [x] Admin panel `/admin` — overview, users, categories CRUD (section delete, multi-group access), ban/restore/warn, member groups editor
-- [x] **Site settings UI (K2)** — `/admin/settings` — posts, guests, email, spam, new members, report reasons, reserved names
+- [x] **Site settings UI (K2)** — `/admin/settings` — posts, guests, email, spam, new members, report reasons, reserved names, trust/DMCA
 - [x] Post author IP audit · email verification resend
 
 ### SEO, legal, marketing
 - [x] Sitemap · robots.txt · canonical · OG/Twitter · JSON-LD (DiscussionForumPosting + FAQPage)
 - [x] `/meta.json` per thread · Terms · Privacy · home hero (“we’re back”)
 - [x] **Powered by Xuroi** footer (engine-injected)
+- [x] `/abuse` · DMCA designated agent (N5)
 
 ### Email
 - [x] SES + log mailer · styled auth/notification templates · unsubscribe
 - [x] @mention emails (I2) — queued via `cmd/notify`
 - [x] **Notification preferences (I5)** — `/settings/email` · thread reply + @mention email toggles
+- [x] **Deliverability ops doc (I11)** — `docs/email-deliverability.md`
 
 ### Notifications (P1)
 - [x] @mentions in posts/threads (B23) — `@slug`, `@"Name"`, `@[Name]` → profile links
@@ -132,10 +141,10 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 | Mustache theme renderer (J2) | **Deferred** — Astro mockup theme is production UI for launch |
 | LLM thread summaries (A1) | Heuristic v1 live; LLM via env API key optional |
 | Passkeys (C3) | Built; blocked on Doug's local passkey provider |
+| TOTP 2FA (C6) | **Deferred** — next batch stretch |
 | Inline mod tools (E5) | Gear popover shipped; more inline actions TBD |
 | Redis cache / job workers (M3–M4) | In-memory limiter v1; Redis wired in compose, not used yet |
 | S3/CDN (G5, M5, M8) | Local uploads; Cloudflare at cutover |
-| Site settings UI (K2) | **Shipped** — `/admin/settings`; owner emails + env vars still file/env only |
 | Stripe/Patreon entitlements (L8) | Manual grants only; webhook stub |
 | A12 CDN read/write split | Architectural — at hosting cutover |
 
@@ -150,22 +159,21 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 
 ---
 
-## Shipped (P1 Batch 2 — 13 items)
+## Shipped (P1 Batch 5 — 11 items)
 
-- [x] **B12** — `/mod/trash` restore UI
-- [x] **K17** — Maintenance mode (admin settings · staff bypass)
-- [x] **C22/C23** — `/members` directory + search
-- [x] **A15** — Accepted answer (mod gear)
-- [x] **E8** — Email ban UI (admin users)
-- [x] **E19** — `/admin/log`
-- [x] **H12** — noindex pending threads
-- [x] **N4/C28** — Data export · account deletion
-- [x] **C31/C32** — Username + email blocklists (admin settings)
-- [x] **K8** — Backup trigger (admin panel)
+- [x] **P3** — WITB photo-first UX
+- [x] **C8** — Logout all devices
+- [x] **E12** — Duplicate post detection
+- [x] **B16** — Merge threads
+- [x] **E9** — Spam scoring verify
+- [x] **H8** — What's New / unread polish
+- [x] **N5** — DMCA takedown note
+- [x] **B10** — Author soft-delete thread
+- [x] **G9** — Guest attachment enforcement
+- [x] **I11** — Email deliverability doc
+- [x] **M12** — Structured request logging
 
-Migration **033** · `site.json` `maintenance` + `registration` sections
-
-**Rule:** any new configurable setting ships with an Admin section.
+Migration **035**
 
 ---
 
@@ -188,21 +196,11 @@ go run ./cmd/intelligence         # thread summaries
 
 ---
 
-## Open questions
-
-| # | Question |
-|---|---|
-| 1 | Hosting provider (Hetzner, Fly, bare VPS) |
-| 2 | Xuroi license model (post-PutterTalk) |
-| 3 | Closed beta before public launch? (recommended: yes) |
-
----
-
 ## For the next session
 
 1. Read `../.grok/session/CHANGELOG.md` first
 2. Read this file + **WISH-LIST.md** P1 section
-3. Default next work: **P1** — C6 TOTP 2FA (staff) · B16 merge threads · P3 WITB UX
+3. Default next work: **C6 TOTP 2FA** · remaining P1 · P0 ops (P7 DNS)
 4. **Admin rule:** every setting gets an Admin section at ship time
 5. End of session: update CHANGELOG + this file
 6. Execute yourself — run commands, don't just instruct Doug

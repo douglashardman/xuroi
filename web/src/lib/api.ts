@@ -87,6 +87,7 @@ export interface Post {
   reacted_by_me?: boolean;
   can_edit?: boolean;
   can_delete?: boolean;
+  can_delete_thread?: boolean;
   is_warned?: boolean;
   pending_moderation?: boolean;
   moderation_status?: string;
@@ -146,6 +147,7 @@ export interface ThreadPageResponse {
     email_watching?: boolean;
     created_at: string;
     last_activity_at: string;
+    can_delete?: boolean;
   };
   category: { id: string; name: string; slug: string; url: string };
   posts: Post[];
@@ -155,6 +157,7 @@ export interface ThreadPageResponse {
     open_report_count?: number;
     summary_label?: string;
     report_reasons?: ReportReason[];
+    redirect_url?: string;
   };
 }
 

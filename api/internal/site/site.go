@@ -18,6 +18,8 @@ type PostPolicy struct {
 	// DeleteEnabled: site owner toggle. When true, admins may soft-delete replies.
 	// When false, delete is hidden and blocked for everyone (members never can).
 	DeleteEnabled bool `json:"delete_enabled"`
+	// ThreadDeleteWindowMinutes: author may delete own thread when reply_count=0 within this window.
+	ThreadDeleteWindowMinutes int `json:"thread_delete_window_minutes"`
 }
 
 type AdminPolicy struct {
@@ -102,14 +104,18 @@ func (p ClassifiedsPolicy) Normalized() ClassifiedsPolicy {
 }
 
 type TrustPolicy struct {
-	AbuseEmail string `json:"abuse_email"`
-	AbuseNote  string `json:"abuse_note"`
+	AbuseEmail    string `json:"abuse_email"`
+	AbuseNote     string `json:"abuse_note"`
+	DMCAAgentName string `json:"dmca_agent_name"`
+	DMCAAgentNote string `json:"dmca_agent_note"`
 }
 
 func (p TrustPolicy) Normalized() TrustPolicy {
 	out := p
 	out.AbuseEmail = strings.TrimSpace(out.AbuseEmail)
 	out.AbuseNote = strings.TrimSpace(out.AbuseNote)
+	out.DMCAAgentName = strings.TrimSpace(out.DMCAAgentName)
+	out.DMCAAgentNote = strings.TrimSpace(out.DMCAAgentNote)
 	return out
 }
 
@@ -196,8 +202,9 @@ func Load() Config {
 		},
 		Posts: PostPolicy{
 			EditEnabled:       true,
-			EditWindowMinutes: 30,
-			DeleteEnabled:     false,
+			EditWindowMinutes:         30,
+			DeleteEnabled:             false,
+			ThreadDeleteWindowMinutes: 30,
 		},
 		Intelligence: IntelligencePolicy{
 			Enabled:      true,
@@ -263,6 +270,12 @@ func Load() Config {
 		cfg.Site.URL = v
 	}
 
+	if cfg.Posts.ThreadDeleteWindowMinutes <= 0 {
+		cfg.Posts.ThreadDeleteWindowMinutes = cfg.Posts.EditWindowMinutes
+		if cfg.Posts.ThreadDeleteWindowMinutes <= 0 {
+			cfg.Posts.ThreadDeleteWindowMinutes = 30
+		}
+	}
 	if cfg.Posts.EditEnabled && cfg.Posts.EditWindowMinutes <= 0 {
 		cfg.Posts.EditWindowMinutes = 30
 	}
