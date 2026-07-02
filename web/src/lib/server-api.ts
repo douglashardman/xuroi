@@ -388,11 +388,23 @@ export type ReportReason = {
   allow_detail?: boolean;
 };
 
+const DEFAULT_REPORT_REASONS: ReportReason[] = [
+  { id: 'spam', label: 'Spam or advertising' },
+  { id: 'harassment', label: 'Harassment or abuse' },
+  { id: 'off_topic', label: 'Off-topic' },
+  { id: 'inappropriate', label: 'Inappropriate content' },
+  { id: 'other', label: 'Other', allow_detail: true },
+];
+
 export async function getReportReasons(): Promise<ReportReason[]> {
-  const res = await backendFetch('/v1/moderation/report-reasons');
-  if (!res.ok) throw new Error(`API report reasons: ${res.status}`);
-  const data = (await res.json()) as { reasons?: ReportReason[] };
-  return data.reasons ?? [];
+  try {
+    const res = await backendFetch('/v1/moderation/report-reasons');
+    if (!res.ok) return DEFAULT_REPORT_REASONS;
+    const data = (await res.json()) as { reasons?: ReportReason[] };
+    return data.reasons?.length ? data.reasons : DEFAULT_REPORT_REASONS;
+  } catch {
+    return DEFAULT_REPORT_REASONS;
+  }
 }
 
 export function sessionFromCookieHeader(cookieHeader: string | null): string | null {
