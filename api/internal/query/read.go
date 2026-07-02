@@ -599,10 +599,16 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 	offset := (page - 1) * perPage
 	viewerActorID := viewer.ActorID
 	modFilter := `p.moderation_status = 'approved'`
+	args := []any{
+		threadID, perPage, offset, viewerActorID,
+		r.postPolicy.EditEnabled, r.postPolicy.EditWindowMinutes,
+		viewer.IsAdmin, r.postPolicy.DeleteEnabled,
+	}
 	if viewer.IsStaff {
 		modFilter = `p.moderation_status IN ('approved', 'pending')`
 	} else if viewerActorID != nil {
 		modFilter = `(p.moderation_status = 'approved' OR (p.moderation_status = 'pending' AND p.author_id = $9))`
+		args = append(args, *viewerActorID)
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.body_html, p.created_at, p.edited_at, p.is_op, p.reaction_count,
@@ -633,7 +639,7 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 		WHERE p.thread_id = $1 AND p.deleted_at IS NULL AND `+modFilter+`
 		ORDER BY p.position ASC
 		LIMIT $2 OFFSET $3
-	`, threadID, perPage, offset, viewerActorID, r.postPolicy.EditEnabled, r.postPolicy.EditWindowMinutes, viewer.IsAdmin, r.postPolicy.DeleteEnabled, viewerActorID)
+	`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list posts: %w", err)
 	}
