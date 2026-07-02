@@ -30,6 +30,10 @@ type Forum struct {
 	postPolicy  site.PostPolicy
 }
 
+func (f *Forum) SetPostPolicy(p site.PostPolicy) {
+	f.postPolicy = p
+}
+
 func NewForum(pool *pgxpool.Pool, systemActorID string, postPolicy site.PostPolicy) *Forum {
 	return &Forum{
 		pool:        pool,

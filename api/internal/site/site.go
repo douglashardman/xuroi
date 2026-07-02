@@ -239,12 +239,17 @@ func Save(cfg Config, path string) error {
 		return err
 	}
 	patch := map[string]any{
-		"name":    cfg.Site.Name,
-		"tagline": cfg.Site.Tagline,
-		"email":   cfg.Email,
-		"admin":   cfg.Admin,
-		"new_users": cfg.NewUsers,
-		"spam":      cfg.Spam,
+		"name":                   cfg.Site.Name,
+		"tagline":                cfg.Site.Tagline,
+		"posts":                  cfg.Posts,
+		"guests":                 cfg.Guests,
+		"intelligence":           cfg.Intelligence,
+		"email":                  cfg.Email,
+		"admin":                  cfg.Admin,
+		"moderation":             cfg.Moderation,
+		"new_users":              cfg.NewUsers,
+		"spam":                   cfg.Spam,
+		"reserved_display_names": cfg.ReservedDisplayNames,
 	}
 	for k, v := range patch {
 		b, err := json.Marshal(v)

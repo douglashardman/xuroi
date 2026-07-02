@@ -16,7 +16,9 @@ const home = await getHome();
 const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/admin/site-settings`, {
   headers: { 'X-Session-Token': session! },
 });
-const settings = res.ok ? await res.json() : {};
+const s = res.ok ? await res.json() : {};
+const reportReasons = s.moderation?.report_reasons ?? [];
+const reservedNames = (s.reserved_display_names ?? []).join('\n');
 ---
 <Layout title="Site settings" site={home.site} user={user} noIndex={true} skipBanCheck={true} adminPage={true}>
   <div class="crumb">
@@ -27,71 +29,177 @@ const settings = res.ok ? await res.json() : {};
 
   <div class="shead" style="margin-top:8px">
     <h2>Site settings</h2>
-    <span class="lab">Writes to site.json</span>
+    <span class="lab">All policy lives here — saved to site.json</span>
   </div>
 
-  <form id="settings-form" class="admin-settings-form" data-admin={JSON.stringify(settings.admin ?? {})}>
-    <label>
-      Site name
-      <input type="text" name="name" id="set-name" value={settings.name ?? ''} required />
-    </label>
-    <label>
-      Tagline
-      <input type="text" name="tagline" id="set-tagline" value={settings.tagline ?? ''} />
-    </label>
-    <label>
-      Moderator emails (comma-separated)
-      <input type="text" id="set-mod-emails" value={(settings.admin?.moderator_emails ?? []).join(', ')} />
-    </label>
-    <label>
-      New user link restriction (hours)
-      <input type="number" id="set-link-hours" min="0" value={settings.new_users?.restrict_links_hours ?? 24} />
-    </label>
-    <label>
-      New user DM restriction (hours)
-      <input type="number" id="set-dm-hours" min="0" value={settings.new_users?.restrict_dm_hours ?? 72} />
-    </label>
-    <label class="check-label">
-      <input type="checkbox" id="set-spam-enabled" checked={settings.spam?.enabled !== false} />
-      Enable spam scoring
-    </label>
+  <form id="settings-form" class="admin-settings-form" data-admin={JSON.stringify(s.admin ?? {})}>
+    <section class="settings-section">
+      <h3>General</h3>
+      <label>Site name <input type="text" id="set-name" value={s.name ?? ''} required /></label>
+      <label>Tagline <input type="text" id="set-tagline" value={s.tagline ?? ''} /></label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Staff access</h3>
+      <p class="settings-hint">Admin emails stay in site.json for safety — edit file directly to change owners.</p>
+      <label>Moderator emails <input type="text" id="set-mod-emails" value={(s.admin?.moderator_emails ?? []).join(', ')} placeholder="mod@example.com, other@example.com" /></label>
+      <label>Permanent-ban moderator emails <input type="text" id="set-perm-ban-emails" value={(s.admin?.perm_ban_moderator_emails ?? []).join(', ')} /></label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Posts</h3>
+      <label class="check-label"><input type="checkbox" id="set-edit-enabled" checked={s.posts?.edit_enabled !== false} /> Members can edit own posts</label>
+      <label>Edit window (minutes) <input type="number" id="set-edit-window" min="1" value={s.posts?.edit_window_minutes ?? 30} /></label>
+      <label class="check-label"><input type="checkbox" id="set-delete-enabled" checked={s.posts?.delete_enabled === true} /> Staff can delete replies (site-wide)</label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Guests</h3>
+      <label class="check-label"><input type="checkbox" id="set-guest-readonly" checked={s.guests?.read_only !== false} /> Guests read-only (cannot post)</label>
+      <label class="check-label"><input type="checkbox" id="set-guest-attach" checked={s.guests?.can_attach === true} /> Guests can attach files</label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Email</h3>
+      <label class="check-label"><input type="checkbox" id="set-email-enabled" checked={s.email?.enabled !== false} /> Email notifications enabled</label>
+      <label>From address <input type="email" id="set-email-from" value={s.email?.from_address ?? ''} /></label>
+      <label>From name <input type="text" id="set-email-from-name" value={s.email?.from_name ?? ''} /></label>
+      <label>Reply-to <input type="email" id="set-email-reply" value={s.email?.reply_to ?? ''} /></label>
+      <label>Thread reply digest delay (minutes) <input type="number" id="set-email-digest" min="1" value={s.email?.digest_delay_minutes ?? 5} /></label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Thread summaries</h3>
+      <label class="check-label"><input type="checkbox" id="set-intel-enabled" checked={s.intelligence?.enabled !== false} /> Intelligence summaries on threads</label>
+      <label>Summary label <input type="text" id="set-intel-label" value={s.intelligence?.summary_label ?? 'TL;DR'} /></label>
+    </section>
+
+    <section class="settings-section">
+      <h3>New members</h3>
+      <label>Link restriction (hours) <input type="number" id="set-link-hours" min="0" value={s.new_users?.restrict_links_hours ?? 24} /></label>
+      <label>DM restriction (hours) <input type="number" id="set-dm-hours" min="0" value={s.new_users?.restrict_dm_hours ?? 72} /></label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Spam filter</h3>
+      <label class="check-label"><input type="checkbox" id="set-spam-enabled" checked={s.spam?.enabled !== false} /> Enable spam scoring</label>
+      <label class="check-label"><input type="checkbox" id="set-spam-hold" checked={s.spam?.hold_for_moderation !== false} /> Hold suspicious posts for approval (vs block)</label>
+      <label>Score threshold <input type="number" id="set-spam-threshold" min="1" value={s.spam?.score_threshold ?? 6} /></label>
+      <label>Max links (new accounts) <input type="number" id="set-spam-max-links" min="0" value={s.spam?.max_links_new_user ?? 2} /></label>
+      <label>New account window (hours) <input type="number" id="set-spam-new-hours" min="1" value={s.spam?.new_account_hours ?? 48} /></label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Reserved display names</h3>
+      <p class="settings-hint">Blocked at registration (case-insensitive). One name per line. Built-in staff names are always reserved.</p>
+      <label>Reserved names <textarea id="set-reserved-names" rows="6" placeholder="admin&#10;moderator&#10;puttertalk">{reservedNames}</textarea></label>
+    </section>
+
+    <section class="settings-section">
+      <h3>Report reasons</h3>
+      <p class="settings-hint">Shown in the report picker. IDs must stay stable; edit labels only unless you know what you're doing.</p>
+      <div id="report-reasons" class="report-reasons">
+        {reportReasons.map((r: { id: string; label: string; allow_detail?: boolean }, i: number) => (
+          <div class="report-reason-row" data-index={i}>
+            <input type="text" class="rr-id" value={r.id} placeholder="id" />
+            <input type="text" class="rr-label" value={r.label} placeholder="Label" />
+            <label class="check-label rr-detail"><input type="checkbox" class="rr-allow-detail" checked={r.allow_detail === true} /> Detail</label>
+          </div>
+        ))}
+      </div>
+      <button type="button" class="btn btn--sm btn--ghost" id="add-report-reason">Add reason</button>
+    </section>
+
     <div class="admin-dialog-actions">
-      <button type="submit" class="btn btn--pink">Save settings</button>
+      <button type="submit" class="btn btn--pink">Save all settings</button>
     </div>
     <p class="form-error" id="set-error" hidden></p>
   </form>
 </Layout>
 
 <script>
+  import { showToast } from '../../lib/toast';
+
   const form = document.getElementById('settings-form') as HTMLFormElement;
   const errorEl = document.getElementById('set-error') as HTMLElement;
+  const reasonsRoot = document.getElementById('report-reasons')!;
+
+  function splitEmails(value: string) {
+    return value.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
+  function splitLines(value: string) {
+    return value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+  }
+
+  function collectReportReasons() {
+    return Array.from(reasonsRoot.querySelectorAll('.report-reason-row')).map((row) => ({
+      id: (row.querySelector('.rr-id') as HTMLInputElement).value.trim(),
+      label: (row.querySelector('.rr-label') as HTMLInputElement).value.trim(),
+      allow_detail: (row.querySelector('.rr-allow-detail') as HTMLInputElement).checked,
+    })).filter((r) => r.id && r.label);
+  }
+
+  function addReasonRow(id = '', label = '', allowDetail = false) {
+    const row = document.createElement('div');
+    row.className = 'report-reason-row';
+    row.innerHTML = `
+      <input type="text" class="rr-id" value="${id}" placeholder="id" />
+      <input type="text" class="rr-label" value="${label}" placeholder="Label" />
+      <label class="check-label rr-detail"><input type="checkbox" class="rr-allow-detail" ${allowDetail ? 'checked' : ''} /> Detail</label>
+    `;
+    reasonsRoot.appendChild(row);
+  }
+
+  document.getElementById('add-report-reason')?.addEventListener('click', () => addReasonRow());
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorEl.hidden = true;
-    const modEmails = (document.getElementById('set-mod-emails') as HTMLInputElement).value
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
     const baseAdmin = JSON.parse(form.getAttribute('data-admin') || '{}') as Record<string, unknown>;
     const payload = {
       name: (document.getElementById('set-name') as HTMLInputElement).value.trim(),
       tagline: (document.getElementById('set-tagline') as HTMLInputElement).value.trim(),
       admin: {
         ...baseAdmin,
-        moderator_emails: modEmails,
+        moderator_emails: splitEmails((document.getElementById('set-mod-emails') as HTMLInputElement).value),
+        perm_ban_moderator_emails: splitEmails((document.getElementById('set-perm-ban-emails') as HTMLInputElement).value),
+      },
+      posts: {
+        edit_enabled: (document.getElementById('set-edit-enabled') as HTMLInputElement).checked,
+        edit_window_minutes: Number((document.getElementById('set-edit-window') as HTMLInputElement).value) || 30,
+        delete_enabled: (document.getElementById('set-delete-enabled') as HTMLInputElement).checked,
+      },
+      guests: {
+        read_only: (document.getElementById('set-guest-readonly') as HTMLInputElement).checked,
+        can_attach: (document.getElementById('set-guest-attach') as HTMLInputElement).checked,
+      },
+      email: {
+        enabled: (document.getElementById('set-email-enabled') as HTMLInputElement).checked,
+        from_address: (document.getElementById('set-email-from') as HTMLInputElement).value.trim(),
+        from_name: (document.getElementById('set-email-from-name') as HTMLInputElement).value.trim(),
+        reply_to: (document.getElementById('set-email-reply') as HTMLInputElement).value.trim(),
+        digest_delay_minutes: Number((document.getElementById('set-email-digest') as HTMLInputElement).value) || 5,
+      },
+      intelligence: {
+        enabled: (document.getElementById('set-intel-enabled') as HTMLInputElement).checked,
+        summary_label: (document.getElementById('set-intel-label') as HTMLInputElement).value.trim() || 'TL;DR',
       },
       new_users: {
-        restrict_links_hours: Number((document.getElementById('set-link-hours') as HTMLInputElement).value) || 24,
-        restrict_dm_hours: Number((document.getElementById('set-dm-hours') as HTMLInputElement).value) || 72,
+        restrict_links_hours: Number((document.getElementById('set-link-hours') as HTMLInputElement).value) || 0,
+        restrict_dm_hours: Number((document.getElementById('set-dm-hours') as HTMLInputElement).value) || 0,
       },
       spam: {
         enabled: (document.getElementById('set-spam-enabled') as HTMLInputElement).checked,
-        hold_for_moderation: true,
-        score_threshold: 6,
-        max_links_new_user: 2,
-        new_account_hours: 48,
+        hold_for_moderation: (document.getElementById('set-spam-hold') as HTMLInputElement).checked,
+        score_threshold: Number((document.getElementById('set-spam-threshold') as HTMLInputElement).value) || 6,
+        max_links_new_user: Number((document.getElementById('set-spam-max-links') as HTMLInputElement).value) || 2,
+        new_account_hours: Number((document.getElementById('set-spam-new-hours') as HTMLInputElement).value) || 48,
       },
+      moderation: {
+        report_reasons: collectReportReasons(),
+      },
+      reserved_display_names: splitLines((document.getElementById('set-reserved-names') as HTMLTextAreaElement).value),
     };
     try {
       const res = await fetch('/api/admin/site-settings', {
@@ -101,8 +209,8 @@ const settings = res.ok ? await res.json() : {};
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Save failed');
-      alert('Settings saved. Restart API to pick up moderator email changes on existing sessions.');
-      location.reload();
+      showToast('Settings saved', 'success');
+      setTimeout(() => location.reload(), 600);
     } catch (err) {
       errorEl.textContent = err instanceof Error ? err.message : 'Save failed';
       errorEl.hidden = false;
@@ -113,13 +221,42 @@ const settings = res.ok ? await res.json() : {};
 <style>
   .admin-settings-form {
     display: grid;
-    gap: 14px;
-    max-width: 520px;
+    gap: 28px;
+    max-width: 640px;
     margin-top: 16px;
+  }
+  .settings-section {
+    display: grid;
+    gap: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .settings-section h3 {
+    margin: 0;
+    font-size: 1rem;
+  }
+  .settings-hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
   }
   .admin-settings-form label {
     display: grid;
     gap: 4px;
     font-size: 0.9rem;
   }
+  .check-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .check-label input { width: auto; }
+  .report-reasons { display: grid; gap: 8px; }
+  .report-reason-row {
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .rr-detail { font-size: 0.85rem; white-space: nowrap; }
 </style>

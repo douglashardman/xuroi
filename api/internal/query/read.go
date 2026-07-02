@@ -30,6 +30,14 @@ type Reader struct {
 	intelligence site.IntelligencePolicy
 }
 
+func (r *Reader) SetPostPolicy(p site.PostPolicy) {
+	r.postPolicy = p
+}
+
+func (r *Reader) SetIntelligence(p site.IntelligencePolicy) {
+	r.intelligence = p.Normalized()
+}
+
 func NewReader(pool *pgxpool.Pool, site models.Site, postPolicy site.PostPolicy, intelligence site.IntelligencePolicy) *Reader {
 	return &Reader{
 		pool:         pool,

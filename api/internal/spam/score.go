@@ -28,7 +28,6 @@ func (p Policy) Normalized() Policy {
 	if out.ScoreThreshold <= 0 {
 		out.ScoreThreshold = 6
 	}
-	out.HoldForModeration = true
 	return out
 }
 
