@@ -21,6 +21,7 @@ const (
 	TypeThreadUnpinned      = "thread.unpinned"
 	TypeThreadDeleted       = "thread.deleted"
 	TypePostReported        = "post.reported"
+	TypeThreadReported      = "thread.reported"
 	TypePostModerated       = "post.moderated"
 )
 
@@ -132,6 +133,13 @@ type PostDeleted struct {
 type PostReported struct {
 	ReportID   string `json:"report_id"`
 	PostID     string `json:"post_id"`
+	ThreadID   string `json:"thread_id"`
+	ReporterID string `json:"reporter_id"`
+	Reason     string `json:"reason"`
+}
+
+type ThreadReported struct {
+	ReportID   string `json:"report_id"`
 	ThreadID   string `json:"thread_id"`
 	ReporterID string `json:"reporter_id"`
 	Reason     string `json:"reason"`

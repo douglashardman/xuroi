@@ -135,7 +135,8 @@ func (r *Reader) AdminOverview(ctx context.Context) (AdminOverview, error) {
 		  (SELECT COUNT(*)::int FROM actors WHERE type = 'human'),
 		  (SELECT COUNT(*)::int FROM threads WHERE deleted_at IS NULL),
 		  (SELECT COUNT(*)::int FROM posts WHERE deleted_at IS NULL),
-		  (SELECT COUNT(*)::int FROM post_reports WHERE resolved_at IS NULL),
+		  (SELECT COUNT(*)::int FROM post_reports WHERE resolved_at IS NULL)
+		    + (SELECT COUNT(*)::int FROM thread_reports WHERE resolved_at IS NULL),
 		  (SELECT COUNT(*)::int FROM actors WHERE state = 'banned')
 	`).Scan(&out.Members, &out.Threads, &out.Posts, &out.OpenReports, &out.BannedUsers)
 	return out, err

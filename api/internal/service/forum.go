@@ -554,6 +554,50 @@ func (f *Forum) ReportPost(ctx context.Context, postID, reporterID, reason strin
 	})
 }
 
+func (f *Forum) ReportThread(ctx context.Context, threadID, reporterID, reason string) (events.Event, error) {
+	reason = strings.TrimSpace(reason)
+	if len(reason) > 500 {
+		reason = reason[:500]
+	}
+
+	var foundID string
+	err := f.pool.QueryRow(ctx, `
+		SELECT id FROM threads WHERE id = $1 AND deleted_at IS NULL
+	`, threadID).Scan(&foundID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return events.Event{}, fmt.Errorf("thread not found")
+	}
+	if err != nil {
+		return events.Event{}, err
+	}
+
+	var exists bool
+	err = f.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM thread_reports WHERE thread_id = $1 AND reporter_id = $2 AND resolved_at IS NULL
+		)
+	`, threadID, reporterID).Scan(&exists)
+	if err != nil {
+		return events.Event{}, err
+	}
+	if exists {
+		return events.Event{}, ErrAlreadyReported
+	}
+
+	reportID := ids.New("trr_")
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypeThreadReported,
+		ActorID:  strPtr(reporterID),
+		Payload: events.ThreadReported{
+			ReportID:   reportID,
+			ThreadID:   threadID,
+			ReporterID: reporterID,
+			Reason:     reason,
+		},
+	})
+}
+
 func (f *Forum) validateQuote(ctx context.Context, threadID, quotedPostID string, quoteMarkdown *string) error {
 	var quoteThread, bodyMD, bodyHTML string
 	err := f.pool.QueryRow(ctx, `

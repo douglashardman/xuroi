@@ -5,7 +5,7 @@ import {
   syncThreadPinLabel,
   syncThreadReportCount,
 } from './mod-gear';
-import { markPostReported } from './post-report';
+import { markPostReported, markReported } from './post-report';
 import { initLightbox } from './lightbox';
 import { findPostEditor } from './post-edit-form';
 import {
@@ -448,12 +448,15 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
         if (!res.ok) throw new Error(data.error || 'Failed');
         const items = (data.reports || []) as Array<{
           id: string;
+          kind?: string;
           reporter_name: string;
           reason: string;
           created_at: string;
-          post_author: string;
-          post_excerpt: string;
-          post_url: string;
+          post_author?: string;
+          post_excerpt?: string;
+          post_url?: string;
+          thread_url: string;
+          thread_title: string;
         }>;
         if (!items.length) {
           openPanel('Thread reports', '<p>No open reports on this thread.</p>');
@@ -463,11 +466,13 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
           .map(
             (r) => `
             <div class="mod-report-panel-item" data-report-id="${r.id}">
-              <div class="mod-report-panel-meta">${r.reporter_name} · ${new Date(r.created_at).toLocaleString()}</div>
-              <p class="mod-report-panel-excerpt"><a href="${r.post_url}"><strong>${r.post_author}</strong>: ${r.post_excerpt}</a></p>
+              <div class="mod-report-panel-meta">${r.reporter_name} · ${new Date(r.created_at).toLocaleString()}${r.kind === 'thread' ? ' · thread' : ''}</div>
+              ${r.kind === 'thread'
+                ? `<p class="mod-report-panel-excerpt"><a href="${r.thread_url}"><strong>Thread:</strong> ${r.thread_title}</a></p>`
+                : `<p class="mod-report-panel-excerpt"><a href="${r.post_url}"><strong>${r.post_author}</strong>: ${r.post_excerpt}</a></p>`}
               ${r.reason ? `<blockquote class="mod-report-panel-reason">${r.reason}</blockquote>` : ''}
               <div class="mod-report-panel-actions">
-                <a class="btn btn--sm" href="${r.post_url}">View post</a>
+                <a class="btn btn--sm" href="${r.kind === 'thread' ? r.thread_url : r.post_url}">${r.kind === 'thread' ? 'View thread' : 'View post'}</a>
                 <button type="button" class="btn btn--sm btn--ghost" data-dismiss-report="${r.id}">Dismiss</button>
               </div>
             </div>
@@ -600,6 +605,31 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
         if (panelBody) bindModPanelActions(panelBody, openPanel);
       } catch (err) {
         openPanel('Moderator tools', `<p>${err instanceof Error ? err.message : 'Failed'}</p>`);
+      }
+      return;
+    }
+
+    const threadReportBtn = target.closest('[data-thread-report]') as HTMLButtonElement | null;
+    if (threadReportBtn && !threadReportBtn.disabled) {
+      const threadId = threadReportBtn.getAttribute('data-thread-report');
+      if (!threadId) return;
+      const picked = await pickReportReason(openPanel, closePanel);
+      if (picked === null) return;
+      try {
+        const payload = picked.reason_id
+          ? { reason_id: picked.reason_id, detail: picked.detail }
+          : { reason: picked.detail };
+        const res = await fetch(`/api/threads/${threadId}/report`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Report failed');
+        markReported(threadReportBtn, true);
+        showToast('Thread flagged for moderators — thanks.', 'success');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Report failed', 'error');
       }
       return;
     }

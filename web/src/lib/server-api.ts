@@ -204,7 +204,8 @@ export async function getMe(sessionToken?: string | null): Promise<Actor | null>
 
 export interface PostReport {
   id: string;
-  post_id: string;
+  kind?: 'post' | 'thread';
+  post_id?: string;
   thread_id: string;
   thread_title: string;
   thread_url: string;

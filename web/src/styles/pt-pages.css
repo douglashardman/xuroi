@@ -180,6 +180,22 @@
   min-width: 0;
 }
 
+.tmeta-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.thread-report-btn {
+  opacity: 0.45;
+}
+
+.thead:hover .thread-report-btn,
+.thread-report-btn:focus-visible {
+  opacity: 1;
+}
+
 .mod-gear-wrap {
   position: relative;
   flex-shrink: 0;

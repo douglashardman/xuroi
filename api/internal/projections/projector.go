@@ -50,6 +50,8 @@ func (p *Projector) Apply(ctx context.Context, tx pgx.Tx, evt events.Event) erro
 		return p.applyThreadDeleted(ctx, tx, evt)
 	case events.TypePostReported:
 		return p.applyPostReported(ctx, tx, evt)
+	case events.TypeThreadReported:
+		return p.applyThreadReported(ctx, tx, evt)
 	case events.TypePostModerated:
 		return p.applyPostModerated(ctx, tx, evt)
 	default:
@@ -447,6 +449,19 @@ func (p *Projector) applyThreadPinned(ctx context.Context, tx pgx.Tx, evt events
 		return fmt.Errorf("unmarshal thread pin: %w", err)
 	}
 	_, err := tx.Exec(ctx, `UPDATE threads SET is_pinned = $2 WHERE id = $1`, payload.ThreadID, pinned)
+	return err
+}
+
+func (p *Projector) applyThreadReported(ctx context.Context, tx pgx.Tx, evt events.Event) error {
+	var payload events.ThreadReported
+	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshal thread.reported: %w", err)
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO thread_reports (id, thread_id, reporter_id, reason, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (thread_id, reporter_id) DO NOTHING
+	`, payload.ReportID, payload.ThreadID, payload.ReporterID, payload.Reason, evt.CreatedAt)
 	return err
 }
 

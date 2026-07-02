@@ -55,6 +55,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/threads/{id}", a.getThread)
 	mux.HandleFunc("DELETE /v1/threads/{id}", a.deleteThread)
 	mux.HandleFunc("POST /v1/threads/{id}/read", a.markThreadRead)
+	mux.HandleFunc("POST /v1/threads/{id}/report", a.reportThread)
 	mux.HandleFunc("GET /v1/notifications", a.listNotifications)
 	mux.HandleFunc("GET /v1/notifications/unread-count", a.notificationUnreadCount)
 	mux.HandleFunc("POST /v1/notifications/read-all", a.markAllNotificationsRead)

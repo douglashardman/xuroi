@@ -44,14 +44,22 @@ const [home, reports] = await Promise.all([
           <h3 class="mod-report-thread">
             <a href={rep.thread_url}>{rep.thread_title}</a>
           </h3>
-          <p class="mod-report-excerpt">
-            <a href={rep.post_url}><strong>{rep.post_author}</strong>: {rep.post_excerpt}</a>
-          </p>
+          {rep.kind === 'thread' ? (
+            <p class="mod-report-excerpt mod-report-excerpt--thread">
+              Thread report — no specific post
+            </p>
+          ) : (
+            <p class="mod-report-excerpt">
+              <a href={rep.post_url}><strong>{rep.post_author}</strong>: {rep.post_excerpt}</a>
+            </p>
+          )}
           {rep.reason && (
             <blockquote class="mod-report-reason">{rep.reason}</blockquote>
           )}
           <div class="mod-report-actions">
-            <a class="btn btn--sm" href={rep.post_url}>View post</a>
+            <a class="btn btn--sm" href={rep.kind === 'thread' ? rep.thread_url : rep.post_url}>
+              {rep.kind === 'thread' ? 'View thread' : 'View post'}
+            </a>
             <button type="button" class="btn btn--sm btn--ghost" data-dismiss={rep.id}>
               Dismiss
             </button>

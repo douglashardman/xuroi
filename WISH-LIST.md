@@ -38,8 +38,8 @@ Full pass against `PROJECT-STATE.md`, changelog, and codebase. **Status is alway
 
 | Status | ~Count | Highlights |
 |---|---|---|
-| **✓** | ~72 | Core forum (B1–B6, B7–B9, B13–B14, B24, B28), auth (C1–C5, C7, C9, C35–C36), media (G1, G3–G4, G10), SEO (H10–H11, H13, H15), admin (K1, K3–K5, K9, K19), platform (M1–M2, M6–M7), notifications (I1–I2, I4, I8–I9), avatars (C10), legal (N1–N2), PutterTalk seed (P1, P5) |
-| **partial** | ~25 | A1/A8/A10/A11, B10, B35/B38, C3 (passkeys parked), E1/E3/E7, F1/F2, G2, H16, I7, J1/J3/J7/J10, K2, L1, M3 |
+| **✓** | ~73 | Core forum (B1–B6, B7–B9, B13–B14, B24, B28), auth (C1–C5, C7, C9, C35–C36), media (G1, G3–G4, G10), SEO (H10–H11, H13, H15), admin (K1, K3–K5, K9, K19), platform (M1–M2, M6–M7), notifications (I1–I2, I4, I8–I9), avatars (C10), legal (N1–N2), moderation (E3, E4), PutterTalk seed (P1, P5) |
+| **partial** | ~25 | A1/A8/A10/A11, B10, B35/B38, C3 (passkeys parked), E1/E5/E7, F1/F2, G2, H16, I7, J1/J3/J7/J10, K2, L1, M3 |
 | **—** | ~176 | CDN/ops cutover (G5, M5, M8–M9, P7), group PM (D2) |
 | **P0 remaining** | ~12 | Mostly ops: H7 async search, A12 CDN split, G5 CDN, M5/M8/M9, P7 DNS, J2 Mustache renderer (deferred — Astro is launch UI), A10 validator CLI |
 
@@ -192,9 +192,9 @@ These are why we exist. Incumbents don't have them natively.
 |---|---|---|---|---|---|
 | partial | E1 | Moderator role | P0 | All | `moderator_emails` in site.json; admin superset |
 | ✓ | E2 | Mod queue (approve posts) | P0 | All | `/mod/queue` · classifieds `post_moderation` · approve/reject API |
-| partial | E3 | Report post / thread | P0 | All | Post report + `/mod/reports` live; thread report TBD |
+| ✓ | E3 | Report post / thread | P0 | All | Post + thread report · `thread_reports` (026) · flag in thread header · unified `/mod/reports` |
 | ✓ | E4 | Report reasons (configurable) | P1 | [PB] | `site.json` `moderation.report_reasons` · picker UI on report · `GET /v1/moderation/report-reasons` |
-| — | E5 | Inline mod tools | P1 | [XF] | |
+| partial | E5 | Inline mod tools | P1 | [XF] | Compact gear popover on thread (pin/lock/reports/queue/delete) + post (audit/warn/remove) |
 | ✓ | E6 | Ban user (temp / perm) | P0 | All | Admin UI; clears sessions |
 | partial | E7 | IP ban | P1 | All | Post IPs banned with account; cleared on restore |
 | — | E8 | Email ban | P1 | All | |
@@ -467,7 +467,7 @@ Peck: A5, A8–A9, G2–G5, H1–H2, H6, B35, P3
 Peck: A3, A13–A15, A14, B42, H9
 
 ### Phase 5: Community runs itself (weeks 21–24)
-Peck: A6–A7, C10, **D1+D7**, E3–E5, E9, I1–I2, I4–I5, K6, L1–L3, P6
+Peck: A6–A7, C10, **D1+D7**, **E3** ✓, E5 polish, E9, I1–I2, I4–I5, K6, L1–L3, P6
 
 ### Phase 6: PutterTalk live (weeks 25–28)
 Peck: Everything remaining P0, M10–M11, M20, N4–N5, P1–P2, P8, launch checklist

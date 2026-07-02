@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — I5 notification prefs + E4 report reasons  
+**Last updated:** July 2, 2026 — E3 thread report + E5 mod gear (partial)  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** P1 prefs + report reasons shipped · **Next:** thread report (E3), inline mod tools (E5)
+**Session status:** E3 thread report shipped · E5 mod gear popover (partial) · **Next:** E5 polish, spam scoring (E9)
 
 ---
 
@@ -45,7 +45,7 @@
 
 ```
 xuroi/                    ← git root on GitHub
-  api/                    Go API, auth, events, migrations (001–024)
+  api/                    Go API, auth, events, migrations (001–026)
   web/                    Astro SSR — production UI for launch
   worker/                 README only; jobs run via api/cmd/* for now
   theme-contract/         Schema, fixtures, THEMING.md
@@ -74,7 +74,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 - [x] Nested category groups (7 sections, 22 forums incl. Supporter + Staff areas)
 - [x] Community index with latest activity per forum
 - [x] Quote post · reactions/likes · karma · edit own post (30 min) · revision overlay
-- [x] Pin/lock thread · soft-delete post · **staff thread delete** · mod bar on threads
+- [x] Pin/lock thread · soft-delete post · **staff thread delete** · **compact mod gear** on threads/posts (E5 partial)
 - [x] Markdown → sanitized HTML · image upload (WebP, EXIF strip, thumbs) · lightbox gallery
 - [x] **Full-text search** — `/search` · `GET /v1/search`
 
@@ -94,7 +94,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 - [x] Session-aware API on community/category pages (staff rooms visible when signed in)
 
 ### Moderation & admin
-- [x] Report post · mod queue `/mod/reports` · **configurable report reasons (E4)** in `site.json`
+- [x] Report post · **report thread (E3)** · mod queue `/mod/reports` · **configurable report reasons (E4)** in `site.json`
 - [x] **Post approval queue** `/mod/queue` — classifieds forums moderated (E2)
 - [x] Admin panel `/admin` — overview, users, categories CRUD, ban/restore/warn
 - [x] Post author IP audit · email verification resend
@@ -131,7 +131,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 | Mustache theme renderer (J2) | **Deferred** — Astro mockup theme is production UI for launch |
 | LLM thread summaries (A1) | Heuristic v1 live; LLM via env API key optional |
 | Passkeys (C3) | Built; blocked on Doug's local passkey provider |
-| Thread report (E3) | Post reports yes; thread report TBD |
+| Inline mod tools (E5) | Gear popover shipped; more inline actions TBD |
 | Redis cache / job workers (M3–M4) | In-memory limiter v1; Redis wired in compose, not used yet |
 | S3/CDN (G5, M5, M8) | Local uploads; Cloudflare at cutover |
 | Site settings UI (K2) | `site.json` is source of truth; no admin editor yet |
@@ -151,9 +151,9 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 
 ## Next up (P1 — product)
 
-1. Thread report (E3)
-2. Inline mod tools (E5)
-3. Spam scoring basics (E9)
+1. Inline mod tools polish (E5)
+2. Spam scoring basics (E9)
+3. IP ban / email ban (E7/E8)
 
 ---
 
@@ -190,7 +190,7 @@ go run ./cmd/intelligence         # thread summaries
 
 1. Read `../.grok/session/CHANGELOG.md` first
 2. Read this file + **WISH-LIST.md** P1 section
-3. Default next work: **P1** — thread report (E3) + inline mod tools (E5)
+3. Default next work: **P1** — E5 mod gear polish + spam scoring (E9)
 4. End of session: update CHANGELOG + this file
 5. Execute yourself — run commands, don't just instruct Doug
 6. Backups are critical (2019 data loss)

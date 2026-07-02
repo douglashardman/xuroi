@@ -19,6 +19,7 @@ import Avatar from '../../components/Avatar.astro';
 import PostModGear from '../../components/PostModGear.astro';
 import PostReportBtn from '../../components/PostReportBtn.astro';
 import ThreadModGear from '../../components/ThreadModGear.astro';
+import ThreadReportBtn from '../../components/ThreadReportBtn.astro';
 import { ACCENT_CLASSES, PAV_CLASSES, accentIndex } from '../../lib/theme';
 
 const { thread: threadParam } = Astro.params;
@@ -95,14 +96,17 @@ const jsonLd = threadJsonLd(data, data.site.url);
         {data.thread.is_locked && ' · Locked'}
         {data.thread.is_pinned && ' · Pinned'}
       </div>
-      {(user?.is_admin || user?.is_moderator) && (
-        <ThreadModGear
-          threadId={data.thread.id}
-          pinned={data.thread.is_pinned}
-          locked={data.thread.is_locked}
-          reportCount={data.ui?.open_report_count ?? 0}
-        />
-      )}
+      <div class="tmeta-actions">
+        {user && <ThreadReportBtn threadId={data.thread.id} />}
+        {(user?.is_admin || user?.is_moderator) && (
+          <ThreadModGear
+            threadId={data.thread.id}
+            pinned={data.thread.is_pinned}
+            locked={data.thread.is_locked}
+            reportCount={data.ui?.open_report_count ?? 0}
+          />
+        )}
+      </div>
     </div>
   </div>
 
