@@ -11,8 +11,7 @@ CREATE TABLE email_bans (
 );
 
 CREATE UNIQUE INDEX email_bans_email_lower_uniq ON email_bans (lower(email));
-CREATE INDEX email_bans_active_idx ON email_bans (lower(email))
-    WHERE banned_until IS NULL OR banned_until > now();
+CREATE INDEX email_bans_email_idx ON email_bans (lower(email));
 
 ALTER TABLE email_mention_queue
     ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0,
