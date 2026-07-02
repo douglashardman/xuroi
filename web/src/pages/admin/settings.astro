@@ -1,0 +1,125 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { getHome } from '../../lib/api';
+import { getMe, sessionFromCookieHeader } from '../../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+if (!user?.is_admin) {
+  return Astro.redirect('/community');
+}
+
+const home = await getHome();
+const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/admin/site-settings`, {
+  headers: { 'X-Session-Token': session! },
+});
+const settings = res.ok ? await res.json() : {};
+---
+<Layout title="Site settings" site={home.site} user={user} noIndex={true} skipBanCheck={true} adminPage={true}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › <a href="/admin">Admin</a>
+    › Settings
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Site settings</h2>
+    <span class="lab">Writes to site.json</span>
+  </div>
+
+  <form id="settings-form" class="admin-settings-form" data-admin={JSON.stringify(settings.admin ?? {})}>
+    <label>
+      Site name
+      <input type="text" name="name" id="set-name" value={settings.name ?? ''} required />
+    </label>
+    <label>
+      Tagline
+      <input type="text" name="tagline" id="set-tagline" value={settings.tagline ?? ''} />
+    </label>
+    <label>
+      Moderator emails (comma-separated)
+      <input type="text" id="set-mod-emails" value={(settings.admin?.moderator_emails ?? []).join(', ')} />
+    </label>
+    <label>
+      New user link restriction (hours)
+      <input type="number" id="set-link-hours" min="0" value={settings.new_users?.restrict_links_hours ?? 24} />
+    </label>
+    <label>
+      New user DM restriction (hours)
+      <input type="number" id="set-dm-hours" min="0" value={settings.new_users?.restrict_dm_hours ?? 72} />
+    </label>
+    <label class="check-label">
+      <input type="checkbox" id="set-spam-enabled" checked={settings.spam?.enabled !== false} />
+      Enable spam scoring
+    </label>
+    <div class="admin-dialog-actions">
+      <button type="submit" class="btn btn--pink">Save settings</button>
+    </div>
+    <p class="form-error" id="set-error" hidden></p>
+  </form>
+</Layout>
+
+<script>
+  const form = document.getElementById('settings-form') as HTMLFormElement;
+  const errorEl = document.getElementById('set-error') as HTMLElement;
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.hidden = true;
+    const modEmails = (document.getElementById('set-mod-emails') as HTMLInputElement).value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const baseAdmin = JSON.parse(form.getAttribute('data-admin') || '{}') as Record<string, unknown>;
+    const payload = {
+      name: (document.getElementById('set-name') as HTMLInputElement).value.trim(),
+      tagline: (document.getElementById('set-tagline') as HTMLInputElement).value.trim(),
+      admin: {
+        ...baseAdmin,
+        moderator_emails: modEmails,
+      },
+      new_users: {
+        restrict_links_hours: Number((document.getElementById('set-link-hours') as HTMLInputElement).value) || 24,
+        restrict_dm_hours: Number((document.getElementById('set-dm-hours') as HTMLInputElement).value) || 72,
+      },
+      spam: {
+        enabled: (document.getElementById('set-spam-enabled') as HTMLInputElement).checked,
+        hold_for_moderation: true,
+        score_threshold: 6,
+        max_links_new_user: 2,
+        new_account_hours: 48,
+      },
+    };
+    try {
+      const res = await fetch('/api/admin/site-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      alert('Settings saved. Restart API to pick up moderator email changes on existing sessions.');
+      location.reload();
+    } catch (err) {
+      errorEl.textContent = err instanceof Error ? err.message : 'Save failed';
+      errorEl.hidden = false;
+    }
+  });
+</script>
+
+<style>
+  .admin-settings-form {
+    display: grid;
+    gap: 14px;
+    max-width: 520px;
+    margin-top: 16px;
+  }
+  .admin-settings-form label {
+    display: grid;
+    gap: 4px;
+    font-size: 0.9rem;
+  }
+</style>

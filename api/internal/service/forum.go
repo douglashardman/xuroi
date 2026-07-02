@@ -60,16 +60,18 @@ type CreateThreadInput struct {
 	BodyMarkdown string
 	BodyHTML     string
 	AuthorIP     string
+	ForcePending bool
 }
 
 type CreatePostInput struct {
-	ThreadID     string
-	AuthorID     string
-	BodyMarkdown string
-	BodyHTML     string
+	ThreadID      string
+	AuthorID      string
+	BodyMarkdown  string
+	BodyHTML      string
 	QuotedPostID  *string
 	QuoteMarkdown *string
 	AuthorIP      string
+	ForcePending  bool
 }
 
 func (f *Forum) EnsureSystemActor(ctx context.Context) error {
@@ -277,6 +279,7 @@ func (f *Forum) CreateThread(ctx context.Context, in CreateThreadInput) (events.
 		BodyMarkdown: in.BodyMarkdown,
 		BodyHTML:     in.BodyHTML,
 		AuthorIP:     in.AuthorIP,
+		ForcePending: in.ForcePending,
 	}
 
 	return f.appendAndProject(ctx, events.AppendInput{
@@ -323,6 +326,7 @@ func (f *Forum) CreatePost(ctx context.Context, in CreatePostInput) (events.Even
 		QuotedPostID:  in.QuotedPostID,
 		QuoteMarkdown: quoteMD,
 		AuthorIP:      in.AuthorIP,
+		ForcePending:  in.ForcePending,
 	}
 
 	return f.appendAndProject(ctx, events.AppendInput{
@@ -444,6 +448,43 @@ func (f *Forum) ModerateThread(ctx context.Context, threadID string, pin, lock *
 		}
 	}
 	return out, nil
+}
+
+func (f *Forum) MoveThread(ctx context.Context, threadID, toCategoryID, actorID string) (events.Event, error) {
+	var fromCategoryID string
+	err := f.pool.QueryRow(ctx, `
+		SELECT category_id FROM threads WHERE id = $1 AND deleted_at IS NULL
+	`, threadID).Scan(&fromCategoryID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return events.Event{}, fmt.Errorf("thread not found")
+	}
+	if err != nil {
+		return events.Event{}, err
+	}
+	if fromCategoryID == toCategoryID {
+		return events.Event{}, errors.New("thread already in that forum")
+	}
+	var parentID *string
+	err = f.pool.QueryRow(ctx, `SELECT parent_id FROM categories WHERE id = $1`, toCategoryID).Scan(&parentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return events.Event{}, errors.New("target forum not found")
+	}
+	if err != nil {
+		return events.Event{}, err
+	}
+	if parentID == nil {
+		return events.Event{}, errors.New("target must be a forum, not a section")
+	}
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamSite(),
+		Type:     events.TypeThreadMoved,
+		ActorID:  strPtr(actorID),
+		Payload: events.ThreadMoved{
+			ThreadID:     threadID,
+			FromCategory: fromCategoryID,
+			ToCategory:   toCategoryID,
+		},
+	})
 }
 
 func (f *Forum) DeletePost(ctx context.Context, postID, actorID string, isAdmin bool) (events.Event, error) {

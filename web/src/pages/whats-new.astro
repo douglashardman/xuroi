@@ -1,0 +1,50 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { formatDate, timeAgo } from '../lib/api';
+import { getHome, getMe, getRecentThreads, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const [home, user, recent] = await Promise.all([
+  getHome(session),
+  getMe(session),
+  getRecentThreads(session, 30),
+]);
+const threads = recent.threads ?? [];
+---
+<Layout title="What's new" description="Recent discussions across the community" site={home.site} user={user} navActive="community">
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › What's new
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>What's new</h2>
+    <span class="lab">{threads.length} recent threads</span>
+  </div>
+
+  {threads.length === 0 ? (
+    <p class="mod-empty">No recent activity yet.</p>
+  ) : (
+    <div class="wn-list">
+      {threads.map((t) => (
+        <article class="wn-item">
+          <h3><a href={t.url}>{t.title}</a></h3>
+          <p class="wn-meta">
+            <span>{t.category_name}</span>
+            · <time datetime={t.last_activity_at}>{timeAgo(t.last_activity_at)}</time>
+            · {t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
+          </p>
+        </article>
+      ))}
+    </div>
+  )}
+</Layout>
+
+<style>
+  .wn-list { display: grid; gap: 14px; margin-top: 16px; }
+  .wn-item h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .wn-meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
+</style>

@@ -188,20 +188,35 @@ func (a *API) deletePost(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) moderateThread(w http.ResponseWriter, r *http.Request) {
 	threadID := r.PathValue("id")
-	if _, ok := a.requireStaff(w, r); !ok {
+	actor, ok := a.requireStaff(w, r)
+	if !ok {
 		return
 	}
 
 	var req struct {
-		IsPinned *bool `json:"is_pinned"`
-		IsLocked *bool `json:"is_locked"`
+		IsPinned   *bool   `json:"is_pinned"`
+		IsLocked   *bool   `json:"is_locked"`
+		CategoryID *string `json:"category_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	if req.CategoryID != nil && strings.TrimSpace(*req.CategoryID) != "" {
+		evt, err := a.forum.MoveThread(r.Context(), threadID, strings.TrimSpace(*req.CategoryID), actor.ID)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				writeError(w, http.StatusNotFound, err.Error())
+				return
+			}
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"events": []any{evt}})
+		return
+	}
 	if req.IsPinned == nil && req.IsLocked == nil {
-		writeError(w, http.StatusBadRequest, "is_pinned or is_locked required")
+		writeError(w, http.StatusBadRequest, "is_pinned, is_locked, or category_id required")
 		return
 	}
 

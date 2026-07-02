@@ -208,6 +208,12 @@ func (s *Service) banUserInTx(ctx context.Context, tx pgx.Tx, actorID, bannedBy 
 			return err
 		}
 	}
+	var email string
+	if err := tx.QueryRow(ctx, `SELECT email FROM actor_emails WHERE actor_id = $1 LIMIT 1`, actorID).Scan(&email); err == nil {
+		if err := s.insertEmailBan(ctx, tx, email, actorID, bannedBy, until, reason); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -260,6 +266,9 @@ func (s *Service) ClearBan(ctx context.Context, actorID string) error {
 	}
 	_, err = tx.Exec(ctx, `DELETE FROM ip_bans WHERE actor_id = $1`, actorID)
 	if err != nil {
+		return err
+	}
+	if err := s.clearEmailBansForActor(ctx, tx, actorID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

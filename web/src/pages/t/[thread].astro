@@ -152,6 +152,12 @@ const jsonLd = threadJsonLd(data, data.site.url);
               {post.pending_moderation && (
                 <span class="post-pending-badge" title="Awaiting moderator approval">Pending approval</span>
               )}
+              {post.pending_moderation && (user?.is_admin || user?.is_moderator) && (
+                <span class="post-mod-inline">
+                  <button type="button" class="btn btn--sm" data-approve-post={post.id}>Approve</button>
+                  <button type="button" class="btn btn--sm btn--ghost btn--danger" data-reject-post={post.id}>Reject</button>
+                </span>
+              )}
               {post.edited_at && (post.can_edit || user?.is_admin) ? (
                 <button type="button" class="post-edited-stamp" data-history={post.id} title="View edit history">
                   Edited

@@ -74,6 +74,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/admin/reports", a.listReports)
 	mux.HandleFunc("POST /v1/admin/reports/{id}/dismiss", a.dismissReport)
 	mux.HandleFunc("GET /v1/mod/queue", a.listModQueue)
+	mux.HandleFunc("GET /v1/mod/log", a.listModLog)
 	mux.HandleFunc("POST /v1/mod/posts/{id}/approve", a.approvePost)
 	mux.HandleFunc("POST /v1/mod/posts/{id}/reject", a.rejectPost)
 	mux.HandleFunc("GET /v1/posts/{id}/revisions", a.getPostRevisions)
@@ -125,6 +126,8 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("DELETE /v1/admin/categories/{id}", a.deleteAdminCategory)
 	mux.HandleFunc("PUT /v1/admin/categories/reorder", a.reorderAdminCategories)
 	mux.HandleFunc("GET /v1/admin/access-levels", a.listAccessLevels)
+	mux.HandleFunc("GET /v1/admin/site-settings", a.getAdminSiteSettings)
+	mux.HandleFunc("PATCH /v1/admin/site-settings", a.patchAdminSiteSettings)
 	mux.HandleFunc("PUT /v1/admin/users/{id}/entitlements", a.setUserEntitlements)
 	mux.HandleFunc("GET /v1/admin/users", a.listAdminUsers)
 	mux.HandleFunc("GET /v1/admin/users/{id}", a.getAdminUser)
@@ -254,6 +257,16 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 	if a.rateLimited(w, "thread:actor:"+req.AuthorID, ratelimit.ThreadActorLimit, ratelimit.ThreadActorWindow) {
 		return
 	}
+	isStaff, isAdmin := false, false
+	if actor, aerr := a.actorFromRequest(r); aerr == nil {
+		isStaff = actor.IsModerator
+		isAdmin = actor.IsAdmin
+	}
+	check, err := a.checkPostContent(r.Context(), req.AuthorID, req.BodyMarkdown, isStaff, isAdmin)
+	if err != nil {
+		writeContentPolicyError(w, err)
+		return
+	}
 	var mentioned []string
 	req.BodyMarkdown, mentioned = a.processPostMentions(r, req.BodyMarkdown, req.AuthorID)
 	if req.BodyHTML == "" {
@@ -267,6 +280,7 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 		BodyMarkdown: req.BodyMarkdown,
 		BodyHTML:     req.BodyHTML,
 		AuthorIP:     netutil.ClientIP(r),
+		ForcePending: check.ForcePending,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -357,6 +371,16 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 	if a.rateLimited(w, "post:actor:"+req.AuthorID, ratelimit.PostActorLimit, ratelimit.PostActorWindow) {
 		return
 	}
+	isStaff, isAdmin := false, false
+	if actor, aerr := a.actorFromRequest(r); aerr == nil {
+		isStaff = actor.IsModerator
+		isAdmin = actor.IsAdmin
+	}
+	check, err := a.checkPostContent(r.Context(), req.AuthorID, req.BodyMarkdown, isStaff, isAdmin)
+	if err != nil {
+		writeContentPolicyError(w, err)
+		return
+	}
 	var mentioned []string
 	req.BodyMarkdown, mentioned = a.processPostMentions(r, req.BodyMarkdown, req.AuthorID)
 	if req.BodyHTML == "" {
@@ -371,6 +395,7 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 		QuotedPostID:  req.QuotedPostID,
 		QuoteMarkdown: req.QuoteMarkdown,
 		AuthorIP:      netutil.ClientIP(r),
+		ForcePending:  check.ForcePending,
 	})
 	if errors.Is(err, service.ErrInvalidQuote) {
 		writeError(w, http.StatusBadRequest, "invalid quoted post")

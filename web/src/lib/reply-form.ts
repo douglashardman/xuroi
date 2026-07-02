@@ -35,6 +35,7 @@ export function initReplyForm(box: HTMLElement) {
 
   bindRichTextToolbars(box);
 
+  const draftKey = `xuroi:draft:thread:${threadId}`;
   const btn = document.getElementById('reply-submit');
   const body = document.getElementById(bodyId);
   const status = document.getElementById('reply-status');
@@ -65,6 +66,24 @@ export function initReplyForm(box: HTMLElement) {
     box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     if (id && quoteExcerptEl) quoteExcerptEl.focus();
     else if (body instanceof HTMLElement) body.focus();
+  }
+
+  if (body instanceof HTMLElement) {
+    const saved = localStorage.getItem(draftKey);
+    if (saved && !hasEditorContent(body)) {
+      body.innerHTML = saved;
+    }
+    let draftTimer: ReturnType<typeof setTimeout> | undefined;
+    body.addEventListener('input', () => {
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(() => {
+        if (hasEditorContent(body)) {
+          localStorage.setItem(draftKey, body.innerHTML);
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      }, 400);
+    });
   }
 
   if (!isFull) {
@@ -128,6 +147,7 @@ export function initReplyForm(box: HTMLElement) {
         const article = insertThreadPost(post, { signedIn, isAdmin });
         bindNewPost(article);
         clearComposer(body, quoteBox, quoteIdInput, quoteAuthorEl, quoteExcerptEl);
+        localStorage.removeItem(draftKey);
         article.scrollIntoView({ behavior: 'smooth', block: 'end' });
         showToast('Posted', 'success');
       } else if (postId) {

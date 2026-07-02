@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/xuroi/xuroi/api/internal/models"
+	"github.com/xuroi/xuroi/api/internal/policy"
+	"github.com/xuroi/xuroi/api/internal/spam"
 )
 
 type PostPolicy struct {
@@ -114,14 +116,17 @@ func (p ModerationPolicy) FormatReportReason(reasonID, detail string) (string, e
 }
 
 type Config struct {
-	Site                  models.Site
-	Posts                 PostPolicy
-	Admin                 AdminPolicy
-	Guests                GuestPolicy
-	Intelligence          IntelligencePolicy
-	Email                 EmailPolicy
-	Moderation            ModerationPolicy
-	ReservedDisplayNames  []string
+	Site                 models.Site
+	Posts                PostPolicy
+	Admin                AdminPolicy
+	Guests               GuestPolicy
+	Intelligence         IntelligencePolicy
+	Email                EmailPolicy
+	Moderation           ModerationPolicy
+	NewUsers             policy.NewUserPolicy
+	Spam                 spam.Policy
+	ReservedDisplayNames []string
+	SiteJSONPath         string
 }
 
 type fileConfig struct {
@@ -133,7 +138,9 @@ type fileConfig struct {
 	Intelligence IntelligencePolicy `json:"intelligence"`
 	Email                 EmailPolicy      `json:"email"`
 	Moderation            ModerationPolicy `json:"moderation"`
-	ReservedDisplayNames  []string         `json:"reserved_display_names"`
+	ReservedDisplayNames  []string              `json:"reserved_display_names"`
+	NewUsers              policy.NewUserPolicy  `json:"new_users"`
+	Spam                  spam.Policy           `json:"spam"`
 	Features              struct {
 		ThreadIntelligence bool `json:"thread_intelligence"`
 	} `json:"features"`
@@ -164,6 +171,7 @@ func Load() Config {
 	if path == "" {
 		path = filepath.Join("..", "sites", "puttertalk", "site.json")
 	}
+	cfg.SiteJSONPath = path
 	if data, err := os.ReadFile(path); err == nil {
 		var f fileConfig
 		if err := json.Unmarshal(data, &f); err == nil {
@@ -187,6 +195,8 @@ func Load() Config {
 			}
 			cfg.Moderation = f.Moderation.Normalized()
 			cfg.ReservedDisplayNames = f.ReservedDisplayNames
+			cfg.NewUsers = f.NewUsers.Normalized()
+			cfg.Spam = f.Spam.Normalized()
 		}
 	}
 
@@ -210,5 +220,43 @@ func Load() Config {
 		cfg.Guests.ReadOnly = true
 	}
 	cfg.Moderation = cfg.Moderation.Normalized()
+	cfg.NewUsers = cfg.NewUsers.Normalized()
+	cfg.Spam = cfg.Spam.Normalized()
 	return cfg
+}
+
+// Save writes the editable subset back to site.json (admin settings).
+func Save(cfg Config, path string) error {
+	if path == "" {
+		path = cfg.SiteJSONPath
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	patch := map[string]any{
+		"name":    cfg.Site.Name,
+		"tagline": cfg.Site.Tagline,
+		"email":   cfg.Email,
+		"admin":   cfg.Admin,
+		"new_users": cfg.NewUsers,
+		"spam":      cfg.Spam,
+	}
+	for k, v := range patch {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		raw[k] = b
+	}
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	out = append(out, '\n')
+	return os.WriteFile(path, out, 0o644)
 }

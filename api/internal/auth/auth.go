@@ -79,6 +79,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Actor, string
 	if _, err := mail.ParseAddress(email); err != nil {
 		return Actor{}, "", ErrInvalidInput
 	}
+	if _, err := s.CheckEmailBanned(ctx, email); errors.Is(err, ErrBanned) {
+		return Actor{}, "", ErrBanned
+	}
 	passwordHash, err := hashPassword(in.Password)
 	if err != nil {
 		return Actor{}, "", err
@@ -134,6 +137,9 @@ func (s *Service) LoginWithPassword(ctx context.Context, email, password string)
 	email = normalizeEmail(email)
 	if email == "" || password == "" {
 		return Actor{}, "", ErrInvalidInput
+	}
+	if _, err := s.CheckEmailBanned(ctx, email); errors.Is(err, ErrBanned) {
+		return Actor{}, "", ErrBanned
 	}
 
 	var actor Actor

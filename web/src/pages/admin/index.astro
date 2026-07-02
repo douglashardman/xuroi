@@ -49,5 +49,10 @@ const [home, overview] = await Promise.all([getHome(), getAdminOverview(session!
       <p>{(home.groups ?? []).length} sections · {(home.categories ?? []).length} forums — manage groups and rooms.</p>
       <span class="go">Manage categories →</span>
     </a>
+    <a class="pillar c-blue" href="/admin/settings">
+      <h3>Settings</h3>
+      <p>Site name, tagline, moderator emails, spam and new-user rules.</p>
+      <span class="go">Site settings →</span>
+    </a>
   </div>
 </Layout>

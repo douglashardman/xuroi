@@ -133,9 +133,10 @@ func (s *Service) ProcessMentionQueue(ctx context.Context, limit int) (int, erro
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT q.id, q.actor_id, q.post_id
+		SELECT q.id, q.actor_id, q.post_id, q.attempts
 		FROM email_mention_queue q
 		WHERE q.scheduled_at <= now()
+		  AND (q.next_retry_at IS NULL OR q.next_retry_at <= now())
 		ORDER BY q.scheduled_at ASC
 		LIMIT $1
 	`, limit)
@@ -146,11 +147,12 @@ func (s *Service) ProcessMentionQueue(ctx context.Context, limit int) (int, erro
 
 	type item struct {
 		id, actorID, postID string
+		attempts            int
 	}
 	var items []item
 	for rows.Next() {
 		var it item
-		if err := rows.Scan(&it.id, &it.actorID, &it.postID); err != nil {
+		if err := rows.Scan(&it.id, &it.actorID, &it.postID, &it.attempts); err != nil {
 			return 0, err
 		}
 		items = append(items, it)
@@ -161,7 +163,7 @@ func (s *Service) ProcessMentionQueue(ctx context.Context, limit int) (int, erro
 
 	sent := 0
 	for _, it := range items {
-		ok, err := s.sendMentionEmail(ctx, it.id, it.actorID, it.postID)
+		ok, err := s.sendMentionEmail(ctx, it.id, it.actorID, it.postID, it.attempts)
 		if err != nil {
 			return sent, err
 		}
@@ -172,7 +174,7 @@ func (s *Service) ProcessMentionQueue(ctx context.Context, limit int) (int, erro
 	return sent, nil
 }
 
-func (s *Service) sendMentionEmail(ctx context.Context, queueID, actorID, postID string) (bool, error) {
+func (s *Service) sendMentionEmail(ctx context.Context, queueID, actorID, postID string, attempts int) (bool, error) {
 	var emailAddr, displayName string
 	err := s.pool.QueryRow(ctx, `
 		SELECT e.email, a.display_name
@@ -199,8 +201,6 @@ func (s *Service) sendMentionEmail(ctx context.Context, queueID, actorID, postID
 		_, _ = s.pool.Exec(ctx, `DELETE FROM email_mention_queue WHERE id = $1`, queueID)
 		return false, nil
 	}
-
-	_, _ = s.pool.Exec(ctx, `DELETE FROM email_mention_queue WHERE id = $1`, queueID)
 
 	excerpt := intelligence.TruncatePlain(intelligence.StripHTML(bodyHTML), 280)
 	if excerpt == "" {
@@ -240,7 +240,9 @@ func (s *Service) sendMentionEmail(ctx context.Context, queueID, actorID, postID
 		ReplyTo:     s.site.Email.ReplyTo,
 		MessageType: "mention",
 	}); err != nil {
-		return false, err
+		_ = s.scheduleMentionRetry(ctx, queueID, attempts+1, err)
+		return false, nil
 	}
+	_, _ = s.pool.Exec(ctx, `DELETE FROM email_mention_queue WHERE id = $1`, queueID)
 	return true, nil
 }

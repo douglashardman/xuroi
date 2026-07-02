@@ -48,6 +48,8 @@ func (p *Projector) Apply(ctx context.Context, tx pgx.Tx, evt events.Event) erro
 		return p.applyThreadPinned(ctx, tx, evt, false)
 	case events.TypeThreadDeleted:
 		return p.applyThreadDeleted(ctx, tx, evt)
+	case events.TypeThreadMoved:
+		return p.applyThreadMoved(ctx, tx, evt)
 	case events.TypePostReported:
 		return p.applyPostReported(ctx, tx, evt)
 	case events.TypeThreadReported:
@@ -144,7 +146,9 @@ func (p *Projector) applyThreadCreated(ctx context.Context, tx pgx.Tx, evt event
 	}
 
 	modStatus := "approved"
-	if moderated, err := p.categoryPostModeration(ctx, tx, payload.CategoryID); err != nil {
+	if payload.ForcePending {
+		modStatus = "pending"
+	} else if moderated, err := p.categoryPostModeration(ctx, tx, payload.CategoryID); err != nil {
 		return err
 	} else if moderated {
 		modStatus = "pending"
@@ -194,7 +198,9 @@ func (p *Projector) applyPostCreated(ctx context.Context, tx pgx.Tx, evt events.
 	if err := tx.QueryRow(ctx, `SELECT category_id FROM threads WHERE id = $1`, payload.ThreadID).Scan(&categoryID); err != nil {
 		return fmt.Errorf("thread category: %w", err)
 	}
-	if moderated, err := p.categoryPostModeration(ctx, tx, categoryID); err != nil {
+	if payload.ForcePending {
+		modStatus = "pending"
+	} else if moderated, err := p.categoryPostModeration(ctx, tx, categoryID); err != nil {
 		return err
 	} else if moderated {
 		modStatus = "pending"
@@ -441,6 +447,43 @@ func (p *Projector) applyThreadDeleted(ctx context.Context, tx pgx.Tx, evt event
 		return err
 	}
 	return search.RemoveThreadTx(ctx, tx, payload.ThreadID)
+}
+
+func (p *Projector) applyThreadMoved(ctx context.Context, tx pgx.Tx, evt events.Event) error {
+	var payload events.ThreadMoved
+	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshal thread.moved: %w", err)
+	}
+	_, err := tx.Exec(ctx, `UPDATE threads SET category_id = $2 WHERE id = $1 AND deleted_at IS NULL`, payload.ThreadID, payload.ToCategory)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `UPDATE categories SET thread_count = GREATEST(0, thread_count - 1) WHERE id = $1`, payload.FromCategory)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `UPDATE categories SET thread_count = thread_count + 1 WHERE id = $1`, payload.ToCategory)
+	if err != nil {
+		return err
+	}
+	if err := search.EnqueueTx(ctx, tx, payload.ThreadID, "thread"); err != nil {
+		return err
+	}
+	rows, err := tx.Query(ctx, `SELECT id FROM posts WHERE thread_id = $1 AND deleted_at IS NULL`, payload.ThreadID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var postID string
+		if err := rows.Scan(&postID); err != nil {
+			return err
+		}
+		if err := search.EnqueueTx(ctx, tx, postID, "post"); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
 }
 
 func (p *Projector) applyThreadPinned(ctx context.Context, tx pgx.Tx, evt events.Event, pinned bool) error {

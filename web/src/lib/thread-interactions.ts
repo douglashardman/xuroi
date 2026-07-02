@@ -386,6 +386,42 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
       return;
     }
 
+    const approveBtn = target.closest('[data-approve-post]') as HTMLButtonElement | null;
+    if (approveBtn) {
+      const postId = approveBtn.getAttribute('data-approve-post');
+      if (!postId) return;
+      approveBtn.setAttribute('disabled', 'true');
+      try {
+        const res = await fetch(`/api/mod/posts/${postId}/approve`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Approve failed');
+        showToast('Post approved', 'success');
+        window.location.reload();
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Approve failed', 'error');
+        approveBtn.removeAttribute('disabled');
+      }
+      return;
+    }
+
+    const rejectBtn = target.closest('[data-reject-post]') as HTMLButtonElement | null;
+    if (rejectBtn) {
+      const postId = rejectBtn.getAttribute('data-reject-post');
+      if (!postId) return;
+      rejectBtn.setAttribute('disabled', 'true');
+      try {
+        const res = await fetch(`/api/mod/posts/${postId}/reject`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Reject failed');
+        removePostArticle(postId);
+        showToast('Post rejected', 'success');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Reject failed', 'error');
+        rejectBtn.removeAttribute('disabled');
+      }
+      return;
+    }
+
     const deleteBtn = target.closest('[data-delete]') as HTMLButtonElement | null;
     if (deleteBtn) {
       const postId = deleteBtn.getAttribute('data-delete');

@@ -1,0 +1,63 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { formatDate, getHome } from '../../lib/api';
+import { getMe, sessionFromCookieHeader } from '../../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const user = await getMe(session);
+if (!user?.is_admin && !user?.is_moderator) {
+  return Astro.redirect('/community');
+}
+
+const home = await getHome();
+const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/mod/log?limit=100`, {
+  headers: { 'X-Session-Token': session! },
+});
+const data = res.ok ? await res.json() : { entries: [] };
+const entries = data.entries ?? [];
+---
+<Layout title="Mod log" site={home.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Mod tools
+    › Log
+  </div>
+
+  <div class="shead" style="margin-top:8px">
+    <h2>Moderation log</h2>
+    <span class="lab">{entries.length} events</span>
+  </div>
+
+  {entries.length === 0 ? (
+    <p class="mod-empty">No moderation events yet.</p>
+  ) : (
+    <div class="mod-log-list">
+      {entries.map((e: { id: string; type: string; actor_name: string; created_at: string; summary: string }) => (
+        <article class="mod-log-row">
+          <time datetime={e.created_at}>{formatDate(e.created_at)}</time>
+          <strong>{e.summary}</strong>
+          <span class="lab">by {e.actor_name}</span>
+          <span class="lab mod-log-type">{e.type}</span>
+        </article>
+      ))}
+    </div>
+  )}
+</Layout>
+
+<style>
+  .mod-log-list { display: grid; gap: 10px; margin-top: 16px; }
+  .mod-log-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: baseline;
+    padding: 12px 14px;
+    border: var(--line);
+    border-radius: 10px;
+    background: var(--card);
+  }
+  .mod-log-type { font-family: monospace; font-size: 0.8rem; }
+</style>

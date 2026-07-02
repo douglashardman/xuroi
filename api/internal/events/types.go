@@ -20,6 +20,7 @@ const (
 	TypeThreadPinned        = "thread.pinned"
 	TypeThreadUnpinned      = "thread.unpinned"
 	TypeThreadDeleted       = "thread.deleted"
+	TypeThreadMoved         = "thread.moved"
 	TypePostReported        = "post.reported"
 	TypeThreadReported      = "thread.reported"
 	TypePostModerated       = "post.moderated"
@@ -95,7 +96,8 @@ type ThreadCreated struct {
 	AuthorID     string `json:"author_id"`
 	BodyMarkdown string `json:"body_markdown"`
 	BodyHTML     string `json:"body_html"`
-	AuthorIP     string `json:"author_ip,omitempty"`
+	AuthorIP      string `json:"author_ip,omitempty"`
+	ForcePending  bool   `json:"force_pending,omitempty"`
 }
 
 type PostCreated struct {
@@ -107,6 +109,13 @@ type PostCreated struct {
 	QuotedPostID  *string `json:"quoted_post_id"`
 	QuoteMarkdown *string `json:"quote_markdown,omitempty"`
 	AuthorIP      string  `json:"author_ip,omitempty"`
+	ForcePending  bool    `json:"force_pending,omitempty"`
+}
+
+type ThreadMoved struct {
+	ThreadID     string `json:"thread_id"`
+	FromCategory string `json:"from_category_id"`
+	ToCategory   string `json:"to_category_id"`
 }
 
 type PostReactionChanged struct {
