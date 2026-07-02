@@ -4,7 +4,7 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import { timeAgo } from '../lib/api';
 import { getHome, getMe, sessionFromCookieHeader } from '../lib/server-api';
-import { ACCENT_VARS, formatCount, forumAccentIndex } from '../lib/theme';
+import { ACCENT_VARS, forumAccentIndex } from '../lib/theme';
 
 const cookie = Astro.request.headers.get('cookie');
 const session = sessionFromCookieHeader(cookie);
@@ -36,19 +36,21 @@ const sectionCount = groups.length;
                 <div class="fname">{forum.name}</div>
                 <div class="fdesc">{forum.description}</div>
               </div>
-              <div class="fstats">
-                <b>{forum.thread_count.toLocaleString()}</b> threads<br />
-                {formatCount(forum.post_count)} messages
-                {(forum.unread_count ?? 0) > 0 && (
-                  <><br /><span class="funread">{forum.unread_count} unread</span></>
+              <div class="fmeta">
+                {forum.latest && (
+                  <div class="flast">
+                    Latest: <b>{forum.latest.title}</b><br />
+                    by {forum.latest.author_name} · {timeAgo(forum.latest.last_activity_at)}
+                  </div>
                 )}
-              </div>
-              {forum.latest && (
-                <div class="flast">
-                  Latest: <b>{forum.latest.title}</b><br />
-                  by {forum.latest.author_name} · {timeAgo(forum.latest.last_activity_at)}
+                <div class="fstats">
+                  <b>{forum.thread_count.toLocaleString()}</b> threads<br />
+                  {forum.post_count.toLocaleString()} messages
+                  {(forum.unread_count ?? 0) > 0 && (
+                    <><br /><span class="funread">{forum.unread_count} unread</span></>
+                  )}
                 </div>
-              )}
+              </div>
             </a>
           ) : (
             <div class="frow frow--locked">
@@ -98,11 +100,40 @@ const sectionCount = groups.length;
     text-decoration: none;
     font-weight: 600;
   }
+  .fmeta {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .flast {
+    text-align: left;
+    min-width: 200px;
+    max-width: 280px;
+  }
+
+  .fstats {
+    font-family: Poppins, sans-serif;
+    font-size: 13px;
+    color: var(--faint);
+    text-align: right;
+    white-space: nowrap;
+    min-width: 120px;
+  }
+
+  .fstats b {
+    color: var(--ink);
+  }
+
   .funread {
     color: var(--pink);
     font-weight: 700;
   }
+
   @media (max-width: 820px) {
     .flock { display: none; }
+    .fmeta { display: none; }
   }
 </style>

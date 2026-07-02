@@ -117,6 +117,15 @@ func (r *Reader) CategoryBySlug(ctx context.Context, slug string, page, perPage 
 		return models.CategoryPageResponse{}, ErrForbidden
 	}
 
+	liveCounts, err := r.categoryLiveCounts(ctx, []string{cat.ID})
+	if err != nil {
+		return models.CategoryPageResponse{}, err
+	}
+	if counts, ok := liveCounts[cat.ID]; ok {
+		cat.ThreadCount = counts.Threads
+		cat.PostCount = counts.Posts
+	}
+
 	var total int
 	err = r.pool.QueryRow(ctx, `
 		SELECT count(*) FROM threads
@@ -494,6 +503,25 @@ func (r *Reader) listCategoryTree(ctx context.Context, viewer access.Viewer) ([]
 	}
 	if err := rows.Err(); err != nil {
 		return nil, nil, err
+	}
+
+	allIDs := make([]string, 0, len(byID))
+	for id := range byID {
+		allIDs = append(allIDs, id)
+	}
+	liveCounts, err := r.categoryLiveCounts(ctx, allIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+	for id, c := range byID {
+		if counts, ok := liveCounts[id]; ok {
+			c.ThreadCount = counts.Threads
+			c.PostCount = counts.Posts
+		} else {
+			c.ThreadCount = 0
+			c.PostCount = 0
+		}
+		byID[id] = c
 	}
 
 	children := make(map[string][]categoryRow)
