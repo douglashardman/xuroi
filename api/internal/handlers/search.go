@@ -8,7 +8,6 @@ import (
 )
 
 func (a *API) searchContent(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query().Get("q")
 	limit := 20
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -20,7 +19,12 @@ func (a *API) searchContent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp, err := search.Search(r.Context(), a.pool, q, limit, viewer)
+	resp, err := search.Search(r.Context(), a.pool, search.Options{
+		Query:        r.URL.Query().Get("q"),
+		Author:       r.URL.Query().Get("author"),
+		CategorySlug: r.URL.Query().Get("category"),
+		Limit:        limit,
+	}, viewer)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -226,6 +226,13 @@ func (s *Service) SetPassword(ctx context.Context, actorID, password string) err
 	return err
 }
 
+func (s *Service) TouchLastActive(ctx context.Context, actorID string) {
+	if actorID == "" {
+		return
+	}
+	_, _ = s.pool.Exec(ctx, `UPDATE actors SET last_active_at = now() WHERE id = $1`, actorID)
+}
+
 func (s *Service) Logout(ctx context.Context, token string) error {
 	hash := hashToken(token)
 	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE token_hash = $1`, hash)

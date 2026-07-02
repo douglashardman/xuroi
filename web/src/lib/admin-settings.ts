@@ -34,6 +34,50 @@ function field<T extends HTMLElement>(id: string): T {
   return el as T;
 }
 
+function applySettingsFromResponse(data: SiteSettings) {
+  if (typeof data.name === 'string') field<HTMLInputElement>('set-name').value = data.name;
+  if (typeof data.tagline === 'string') field<HTMLInputElement>('set-tagline').value = data.tagline;
+
+  const admin = data.admin;
+  if (admin && typeof admin === 'object') {
+    const base = document.getElementById('settings-admin-base');
+    if (base) base.textContent = JSON.stringify(admin);
+    if (Array.isArray(admin.moderator_emails)) {
+      field<HTMLInputElement>('set-mod-emails').value = admin.moderator_emails.join(', ');
+    }
+    if (Array.isArray(admin.perm_ban_moderator_emails)) {
+      field<HTMLInputElement>('set-perm-ban-emails').value = admin.perm_ban_moderator_emails.join(', ');
+    }
+  }
+
+  if (Array.isArray(data.reserved_display_names)) {
+    field<HTMLTextAreaElement>('set-reserved-names').value = data.reserved_display_names.join('\n');
+  }
+}
+
+function normalizeReservedNames(names: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of names) {
+    const name = raw.trim().toLowerCase();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  return out.sort();
+}
+
+function verifySavedPayload(sent: ReturnType<typeof buildSettingsPayload>, data: SiteSettings) {
+  if (!Array.isArray(data.reserved_display_names)) {
+    throw new Error('API did not return reserved names — restart the API (make dev) and try again.');
+  }
+  const sentNames = normalizeReservedNames(sent.reserved_display_names).join('\n');
+  const gotNames = normalizeReservedNames(data.reserved_display_names).join('\n');
+  if (sentNames !== gotNames) {
+    throw new Error('Reserved names did not persist — restart the API and try again.');
+  }
+}
+
 export function buildSettingsPayload(baseAdmin: Record<string, unknown>, reasonsRoot: HTMLElement) {
   return {
     name: field<HTMLInputElement>('set-name').value.trim(),
@@ -161,11 +205,12 @@ export function initAdminSettingsForm() {
       if (!res.ok) {
         throw new Error((data.error as string) || `Save failed (${res.status})`);
       }
-
-      if (data.admin && typeof data.admin === 'object') {
-        const base = document.getElementById('settings-admin-base');
-        if (base) base.textContent = JSON.stringify(data.admin);
+      if (!data.name || data.status === 'saved') {
+        throw new Error('API returned an old save response — restart the API (make dev) and try again.');
       }
+
+      verifySavedPayload(payload, data);
+      applySettingsFromResponse(data);
 
       dirty = false;
       if (dirtyEl) dirtyEl.hidden = true;

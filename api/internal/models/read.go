@@ -127,8 +127,9 @@ type UserProfile struct {
 	AvatarURL   string    `json:"avatar_url,omitempty"`
 	Bio         string    `json:"bio,omitempty"`
 	Karma       int       `json:"karma"`
-	PostCount   int       `json:"post_count"`
-	JoinedAt    time.Time `json:"joined_at"`
+	PostCount     int        `json:"post_count"`
+	JoinedAt      time.Time  `json:"joined_at"`
+	LastActiveAt  *time.Time `json:"last_active_at,omitempty"`
 }
 
 type QuotedPost struct {
@@ -172,6 +173,7 @@ type ThreadDetail struct {
 	ReplyCount     int       `json:"reply_count"`
 	ViewCount      int       `json:"view_count,omitempty"`
 	IsLocked       bool      `json:"is_locked"`
+	LockReason     string    `json:"lock_reason,omitempty"`
 	IsPinned       bool      `json:"is_pinned"`
 	EmailWatching  bool      `json:"email_watching,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`

@@ -404,7 +404,7 @@ func (f *Forum) EditPost(ctx context.Context, in EditPostInput) (events.Event, e
 	})
 }
 
-func (f *Forum) ModerateThread(ctx context.Context, threadID string, pin, lock *bool) ([]events.Event, error) {
+func (f *Forum) ModerateThread(ctx context.Context, threadID string, pin, lock *bool, lockReason string) ([]events.Event, error) {
 	var current struct {
 		pinned bool
 		locked bool
@@ -420,11 +420,11 @@ func (f *Forum) ModerateThread(ctx context.Context, threadID string, pin, lock *
 	}
 
 	var out []events.Event
-	emit := func(evtType string) error {
+	emit := func(evtType string, payload any) error {
 		evt, err := f.appendAndProject(ctx, events.AppendInput{
 			StreamID: events.StreamThread(threadID),
 			Type:     evtType,
-			Payload:  events.ThreadModeration{ThreadID: threadID},
+			Payload:  payload,
 		})
 		if err != nil {
 			return err
@@ -438,16 +438,19 @@ func (f *Forum) ModerateThread(ctx context.Context, threadID string, pin, lock *
 		if !*pin {
 			t = events.TypeThreadUnpinned
 		}
-		if err := emit(t); err != nil {
+		if err := emit(t, events.ThreadModeration{ThreadID: threadID}); err != nil {
 			return out, err
 		}
 	}
 	if lock != nil && *lock != current.locked {
 		t := events.TypeThreadLocked
+		payload := events.ThreadModeration{ThreadID: threadID}
 		if !*lock {
 			t = events.TypeThreadUnlocked
+		} else {
+			payload.LockReason = strings.TrimSpace(lockReason)
 		}
-		if err := emit(t); err != nil {
+		if err := emit(t, payload); err != nil {
 			return out, err
 		}
 	}
@@ -905,6 +908,110 @@ func (f *Forum) ModeratePost(ctx context.Context, postID, moderatorID, status st
 			ThreadID: threadID,
 			Status:   status,
 		},
+	})
+}
+
+func (f *Forum) StaffHardDeletePost(ctx context.Context, postID, staffID string) error {
+	var threadID string
+	err := f.pool.QueryRow(ctx, `
+		SELECT p.thread_id
+		FROM posts p
+		JOIN threads t ON t.id = p.thread_id
+		WHERE p.id = $1 AND p.deleted_at IS NULL AND t.deleted_at IS NULL
+	`, postID).Scan(&threadID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("post not found")
+	}
+	if err != nil {
+		return err
+	}
+	_, err = f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypePostDeleted,
+		ActorID:  strPtr(staffID),
+		Payload: events.PostDeleted{
+			PostID:   postID,
+			ThreadID: threadID,
+			Reason:   "permanent removal",
+			Hard:     true,
+		},
+	})
+	return err
+}
+
+func (f *Forum) RestorePost(ctx context.Context, postID, staffID string) (events.Event, error) {
+	var threadID string
+	err := f.pool.QueryRow(ctx, `
+		SELECT p.thread_id
+		FROM posts p
+		WHERE p.id = $1 AND p.deleted_at IS NOT NULL
+	`, postID).Scan(&threadID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return events.Event{}, fmt.Errorf("deleted post not found")
+	}
+	if err != nil {
+		return events.Event{}, err
+	}
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypePostRestored,
+		ActorID:  strPtr(staffID),
+		Payload: events.PostRestored{
+			PostID:   postID,
+			ThreadID: threadID,
+		},
+	})
+}
+
+func (f *Forum) RestoreThread(ctx context.Context, threadID, staffID string) (events.Event, error) {
+	var exists bool
+	err := f.pool.QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM threads WHERE id = $1 AND deleted_at IS NOT NULL)
+	`, threadID).Scan(&exists)
+	if err != nil {
+		return events.Event{}, err
+	}
+	if !exists {
+		return events.Event{}, fmt.Errorf("deleted thread not found")
+	}
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypeThreadRestored,
+		ActorID:  strPtr(staffID),
+		Payload:  events.ThreadRestored{ThreadID: threadID},
+	})
+}
+
+func (f *Forum) StaffEditPost(ctx context.Context, in EditPostInput) (events.Event, error) {
+	if strings.TrimSpace(in.BodyMarkdown) == "" {
+		return events.Event{}, fmt.Errorf("body required")
+	}
+	var threadID string
+	err := f.pool.QueryRow(ctx, `
+		SELECT p.thread_id
+		FROM posts p
+		JOIN threads t ON t.id = p.thread_id
+		WHERE p.id = $1 AND p.deleted_at IS NULL AND t.deleted_at IS NULL
+	`, in.PostID).Scan(&threadID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return events.Event{}, fmt.Errorf("post not found")
+	}
+	if err != nil {
+		return events.Event{}, err
+	}
+	reason := "moderator edit"
+	payload := events.PostEdited{
+		PostID:       in.PostID,
+		ThreadID:     threadID,
+		BodyMarkdown: in.BodyMarkdown,
+		BodyHTML:     in.BodyHTML,
+		EditReason:   &reason,
+	}
+	return f.appendAndProject(ctx, events.AppendInput{
+		StreamID: events.StreamThread(threadID),
+		Type:     events.TypePostEdited,
+		ActorID:  strPtr(in.EditorID),
+		Payload:  payload,
 	})
 }
 

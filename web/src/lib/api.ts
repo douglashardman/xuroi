@@ -137,6 +137,7 @@ export interface ThreadPageResponse {
     reply_count: number;
     view_count?: number;
     is_locked: boolean;
+    lock_reason?: string;
     is_pinned: boolean;
     email_watching?: boolean;
     created_at: string;
@@ -201,6 +202,16 @@ export function getCategory(slug: string, page = 1) {
 export function getThread(id: string, page = 1) {
   const q = page > 1 ? `?page=${page}` : '';
   return fetchJSON<ThreadPageResponse>(`/v1/threads/${id}${q}`);
+}
+
+export function formatLastSeen(iso: string) {
+  const then = new Date(iso).getTime();
+  const mins = Math.floor((Date.now() - then) / 60000);
+  if (mins < 2) return 'Online now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return formatDate(iso);
 }
 
 export function formatDate(iso: string) {

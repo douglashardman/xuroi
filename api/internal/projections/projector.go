@@ -38,6 +38,10 @@ func (p *Projector) Apply(ctx context.Context, tx pgx.Tx, evt events.Event) erro
 		return p.applyPostReactionRemoved(ctx, tx, evt)
 	case events.TypePostDeleted:
 		return p.applyPostDeleted(ctx, tx, evt)
+	case events.TypePostRestored:
+		return p.applyPostRestored(ctx, tx, evt)
+	case events.TypeThreadRestored:
+		return p.applyThreadRestored(ctx, tx, evt)
 	case events.TypeThreadLocked:
 		return p.applyThreadLocked(ctx, tx, evt, true)
 	case events.TypeThreadUnlocked:
@@ -378,10 +382,8 @@ func (p *Projector) applyPostDeleted(ctx context.Context, tx pgx.Tx, evt events.
 		return fmt.Errorf("post deleted lookup: %w", err)
 	}
 
-	_, err = tx.Exec(ctx, `
-		UPDATE posts SET deleted_at = $2, deleted_by = NULLIF($3, '')
-		WHERE id = $1
-	`, payload.PostID, evt.CreatedAt, deleterID)
+	var categoryID string
+	err = tx.QueryRow(ctx, `SELECT category_id FROM threads WHERE id = $1`, payload.ThreadID).Scan(&categoryID)
 	if err != nil {
 		return err
 	}
@@ -396,19 +398,124 @@ func (p *Projector) applyPostDeleted(ctx context.Context, tx pgx.Tx, evt events.
 		}
 	}
 
-	var categoryID string
-	err = tx.QueryRow(ctx, `SELECT category_id FROM threads WHERE id = $1`, payload.ThreadID).Scan(&categoryID)
-	if err != nil {
-		return err
-	}
-
 	_, err = tx.Exec(ctx, `
 		UPDATE categories SET post_count = GREATEST(0, post_count - 1) WHERE id = $1
 	`, categoryID)
 	if err != nil {
 		return err
 	}
+
+	if payload.Hard {
+		_, _ = tx.Exec(ctx, `DELETE FROM post_reports WHERE post_id = $1`, payload.PostID)
+		_, err = tx.Exec(ctx, `DELETE FROM posts WHERE id = $1`, payload.PostID)
+		if err != nil {
+			return err
+		}
+		_, _ = tx.Exec(ctx, `DELETE FROM search_documents WHERE entity_id = $1`, payload.PostID)
+		return search.EnqueueTx(ctx, tx, payload.ThreadID, "thread")
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE posts SET deleted_at = $2, deleted_by = NULLIF($3, '')
+		WHERE id = $1
+	`, payload.PostID, evt.CreatedAt, deleterID)
+	if err != nil {
+		return err
+	}
 	_, _ = tx.Exec(ctx, `DELETE FROM search_documents WHERE entity_id = $1`, payload.PostID)
+	return search.EnqueueTx(ctx, tx, payload.ThreadID, "thread")
+}
+
+func (p *Projector) applyPostRestored(ctx context.Context, tx pgx.Tx, evt events.Event) error {
+	var payload events.PostRestored
+	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshal post.restored: %w", err)
+	}
+
+	var isOP bool
+	err := tx.QueryRow(ctx, `
+		SELECT is_op FROM posts WHERE id = $1 AND deleted_at IS NOT NULL
+	`, payload.PostID).Scan(&isOP)
+	if err != nil {
+		return fmt.Errorf("post restored lookup: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE posts SET deleted_at = NULL, deleted_by = NULL
+		WHERE id = $1
+	`, payload.PostID)
+	if err != nil {
+		return err
+	}
+
+	if !isOP {
+		_, err = tx.Exec(ctx, `
+			UPDATE threads SET reply_count = reply_count + 1
+			WHERE id = $1
+		`, payload.ThreadID)
+		if err != nil {
+			return err
+		}
+	}
+
+	var categoryID string
+	err = tx.QueryRow(ctx, `SELECT category_id FROM threads WHERE id = $1`, payload.ThreadID).Scan(&categoryID)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE categories SET post_count = post_count + 1 WHERE id = $1
+	`, categoryID)
+	if err != nil {
+		return err
+	}
+	if err := search.EnqueueTx(ctx, tx, payload.PostID, "post"); err != nil {
+		return err
+	}
+	return search.EnqueueTx(ctx, tx, payload.ThreadID, "thread")
+}
+
+func (p *Projector) applyThreadRestored(ctx context.Context, tx pgx.Tx, evt events.Event) error {
+	var payload events.ThreadRestored
+	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
+		return fmt.Errorf("unmarshal thread.restored: %w", err)
+	}
+
+	var categoryID string
+	err := tx.QueryRow(ctx, `
+		SELECT category_id FROM threads WHERE id = $1 AND deleted_at IS NOT NULL
+	`, payload.ThreadID).Scan(&categoryID)
+	if err != nil {
+		return fmt.Errorf("thread restored lookup: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE threads SET deleted_at = NULL WHERE id = $1
+	`, payload.ThreadID)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+		UPDATE categories SET thread_count = thread_count + 1 WHERE id = $1
+	`, categoryID)
+	if err != nil {
+		return err
+	}
+
+	rows, err := tx.Query(ctx, `SELECT id FROM posts WHERE thread_id = $1 AND deleted_at IS NULL`, payload.ThreadID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var postID string
+		if err := rows.Scan(&postID); err != nil {
+			return err
+		}
+		if err := search.EnqueueTx(ctx, tx, postID, "post"); err != nil {
+			return err
+		}
+	}
 	return search.EnqueueTx(ctx, tx, payload.ThreadID, "thread")
 }
 
@@ -417,7 +524,19 @@ func (p *Projector) applyThreadLocked(ctx context.Context, tx pgx.Tx, evt events
 	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
 		return fmt.Errorf("unmarshal thread lock: %w", err)
 	}
-	_, err := tx.Exec(ctx, `UPDATE threads SET is_locked = $2 WHERE id = $1`, payload.ThreadID, locked)
+	if locked {
+		_, err := tx.Exec(ctx, `
+			UPDATE threads
+			SET is_locked = TRUE, lock_reason = $2, locked_at = $3
+			WHERE id = $1
+		`, payload.ThreadID, payload.LockReason, evt.CreatedAt)
+		return err
+	}
+	_, err := tx.Exec(ctx, `
+		UPDATE threads
+		SET is_locked = FALSE, lock_reason = '', locked_at = NULL
+		WHERE id = $1
+	`, payload.ThreadID)
 	return err
 }
 

@@ -242,11 +242,13 @@ const sections = [
           <h3>Reserved display names</h3>
           <p>Blocked at registration (case-insensitive). Built-in staff names are always reserved.</p>
         </header>
-        <label class="admin-settings-field admin-settings-field--wide">
-          <span>Reserved names</span>
-          <textarea class="admin-settings-input admin-settings-textarea" id="set-reserved-names" rows="6" placeholder="admin&#10;moderator&#10;puttertalk">{reservedNames}</textarea>
-          <span class="admin-settings-hint">One name per line.</span>
-        </label>
+        <div class="admin-settings-grid">
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>Reserved names</span>
+            <textarea class="admin-settings-input admin-settings-textarea" id="set-reserved-names" rows="6" placeholder="admin&#10;moderator&#10;puttertalk">{reservedNames}</textarea>
+            <span class="admin-settings-hint">One name per line.</span>
+          </label>
+        </div>
       </section>
 
       <section class="admin-settings-card" id="settings-reports">

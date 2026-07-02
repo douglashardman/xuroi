@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — Full admin settings UI + anti-spam batch  
+**Last updated:** July 2, 2026 — Mod tools + search batch (12 items)  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** Unread/engagement batch shipped (11 items) · **Next:** full test & debug pass with Doug
+**Session status:** Mod/search/engagement batch shipped (12 items) · **Next:** Doug test pass · more P1 pecking
 
 ---
 
@@ -152,9 +152,9 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 
 ## Next up (P1 — product)
 
-1. **Full test & debug** — Doug walkthrough of all shipped features
-2. Inline mod tools polish (E5)
-3. Hard delete / restore (B11/B12) if needed post-test
+1. **Full test & debug** — Doug walkthrough (mod purge/edit, lock reason, search filters, RSS, drafts)
+2. Restore deleted UI (B12 API shipped; mod UI TBD)
+3. Next P1 batch from wish list (C6 2FA, K17 maintenance, H8, etc.)
 
 **Rule:** any new configurable setting ships with an Admin section.
 

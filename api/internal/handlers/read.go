@@ -73,6 +73,9 @@ func (a *API) getUserProfile(w http.ResponseWriter, r *http.Request) {
 	if profile.Bio != "" {
 		out["bio"] = profile.Bio
 	}
+	if profile.LastActiveAt != nil {
+		out["last_active_at"] = profile.LastActiveAt
+	}
 	if viewer, err := a.actorFromRequest(r); err == nil && viewer.ID != profile.ID {
 		if rel, rerr := a.friends.Relationship(r.Context(), viewer.ID, profile.ID); rerr == nil {
 			out["friendship"] = rel

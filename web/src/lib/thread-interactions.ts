@@ -598,6 +598,68 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
       return;
     }
 
+    const purgeBtn = target.closest('[data-purge]') as HTMLButtonElement | null;
+    if (purgeBtn && isStaffViewer()) {
+      closeAllModPopovers();
+      const postId = purgeBtn.getAttribute('data-purge');
+      if (!postId) return;
+      if (!(await confirm('Permanently delete this post? This cannot be undone.'))) return;
+      purgeBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/mod/posts/${postId}/purge`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Delete failed');
+        removePostArticle(postId);
+        showToast('Post permanently deleted', 'warning');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Delete failed', 'error');
+        purgeBtn.disabled = false;
+      }
+      return;
+    }
+
+    const staffEditBtn = target.closest('[data-staff-edit]') as HTMLButtonElement | null;
+    if (staffEditBtn && isStaffViewer()) {
+      closeAllModPopovers();
+      const postId = staffEditBtn.getAttribute('data-staff-edit');
+      if (!postId) return;
+      const article = document.querySelector(`[data-post-id="${postId}"]`);
+      const bodyEl = article?.querySelector('[data-post-body]') as HTMLElement | null;
+      const current = bodyEl?.innerText?.trim() ?? '';
+      openPanel('Edit post (moderator)', `
+        <label class="mod-field">
+          <span>New content (markdown)</span>
+          <textarea id="staff-edit-body" rows="8" style="width:100%">${current.replace(/</g, '&lt;')}</textarea>
+        </label>
+        <button type="button" class="btn btn--pink" id="staff-edit-save" data-post-id="${postId}">Save edit</button>
+      `);
+      document.getElementById('staff-edit-save')?.addEventListener('click', async () => {
+        const textarea = document.getElementById('staff-edit-body') as HTMLTextAreaElement | null;
+        const markdown = textarea?.value.trim() ?? '';
+        if (!markdown) {
+          showToast('Content required', 'error');
+          return;
+        }
+        try {
+          const res = await fetch(`/api/mod/posts/${postId}/edit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ body_markdown: markdown }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Edit failed');
+          if (bodyEl && data.post?.body_html) {
+            bodyEl.innerHTML = data.post.body_html;
+          }
+          closePanel();
+          showToast('Post updated', 'success');
+        } catch (err) {
+          showToast(err instanceof Error ? err.message : 'Edit failed', 'error');
+        }
+      });
+      return;
+    }
+
     const removeBtn = target.closest('[data-remove]') as HTMLButtonElement | null;
     if (removeBtn && isStaffViewer()) {
       closeAllModPopovers();
@@ -910,17 +972,32 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
     const threadId = bar?.getAttribute('data-thread-id');
     const locked = btn.getAttribute('data-locked') === '1';
     if (!threadId) return;
+    let lockReason = '';
+    if (!locked) {
+      lockReason = window.prompt('Lock reason (shown to members):', 'Discussion closed by staff')?.trim() ?? '';
+      if (!lockReason) return;
+    }
     btn.setAttribute('disabled', 'true');
     try {
       const res = await fetch(`/api/threads/${threadId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_locked: !locked }),
+        body: JSON.stringify({ is_locked: !locked, lock_reason: lockReason }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       const nowLocked = !locked;
       syncThreadLockLabel(nowLocked);
       setThreadLocked(nowLocked);
+      const reasonEl = document.getElementById('thread-lock-reason');
+      if (reasonEl) {
+        if (nowLocked && lockReason) {
+          reasonEl.textContent = ` — ${lockReason}`;
+          reasonEl.hidden = false;
+        } else {
+          reasonEl.textContent = '';
+          reasonEl.hidden = true;
+        }
+      }
       showToast(nowLocked ? 'Thread locked' : 'Thread unlocked', 'success');
     } catch {
       showToast('Could not update lock', 'error');

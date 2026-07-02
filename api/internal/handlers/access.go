@@ -18,6 +18,7 @@ func (a *API) enrichActorFull(w http.ResponseWriter, r *http.Request, actor auth
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return auth.Actor{}, false
 	}
+	go a.auth.TouchLastActive(context.Background(), enriched.ID)
 	return enriched, true
 }
 

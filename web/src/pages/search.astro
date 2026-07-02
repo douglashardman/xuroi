@@ -6,9 +6,11 @@ import { getHome } from '../lib/api';
 import { getMe, sessionFromCookieHeader } from '../lib/server-api';
 
 const q = Astro.url.searchParams.get('q')?.trim() ?? '';
+const author = Astro.url.searchParams.get('author')?.trim() ?? '';
+const category = Astro.url.searchParams.get('category')?.trim() ?? '';
 const cookie = Astro.request.headers.get('cookie');
 const session = sessionFromCookieHeader(cookie);
-const [home, user] = await Promise.all([getHome(), getMe(session)]);
+const [home, user] = await Promise.all([getHome(session), getMe(session)]);
 
 let results: Array<{
   thread_title: string;
@@ -19,7 +21,10 @@ let results: Array<{
 }> = [];
 
 if (q.length >= 2) {
-  const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/search?q=${encodeURIComponent(q)}&limit=25`, {
+  const params = new URLSearchParams({ q, limit: '25' });
+  if (author) params.set('author', author);
+  if (category) params.set('category', category);
+  const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/search?${params}`, {
     headers: session ? { 'X-Session-Token': session } : {},
   });
   if (res.ok) {
@@ -33,12 +38,14 @@ if (q.length >= 2) {
 
   <form class="search-form" method="get" action="/search">
     <input type="search" name="q" value={q} placeholder="Search threads and posts…" minlength="2" required />
+    <input type="text" name="author" value={author} placeholder="Author (optional)" />
+    <input type="text" name="category" value={category} placeholder="Forum slug (optional)" />
     <button type="submit" class="btn btn--pink">Search</button>
   </form>
 
   {q.length >= 2 ? (
     results.length === 0 ? (
-      <p class="mod-empty">No results for “{q}”. Try different words.</p>
+      <p class="mod-empty">No results for “{q}”. Try different words or filters.</p>
     ) : (
       <div class="search-results">
         <p class="search-meta">{results.length} result{results.length === 1 ? '' : 's'} for “{q}”</p>
@@ -46,7 +53,7 @@ if (q.length >= 2) {
           <article class="search-hit">
             <h3><a href={r.thread_url}>{r.thread_title}</a></h3>
             <p class="search-hit-meta">{r.category_name} · {r.author_name}</p>
-            <p class="search-hit-excerpt">{r.excerpt}</p>
+            <p class="search-hit-excerpt" set:html={r.excerpt} />
           </article>
         ))}
       </div>
@@ -58,13 +65,18 @@ if (q.length >= 2) {
 
 <style>
   .search-form {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 160px 160px auto;
     gap: 10px;
     margin: 16px 0 24px;
-    max-width: 560px;
+    max-width: 900px;
   }
-  .search-form input[type='search'] {
-    flex: 1;
+  @media (max-width: 720px) {
+    .search-form { grid-template-columns: 1fr 1fr; }
+    .search-form input[type='search'] { grid-column: 1 / -1; }
+    .search-form button { grid-column: 1 / -1; }
+  }
+  .search-form input {
     padding: 10px 14px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -79,4 +91,10 @@ if (q.length >= 2) {
   .search-hit h3 { margin: 0 0 4px; font-size: 1.05rem; }
   .search-hit-meta { margin: 0; font-size: 0.85rem; color: var(--muted); }
   .search-hit-excerpt { margin: 6px 0 0; color: var(--ink); line-height: 1.45; }
+  .search-hit-excerpt :global(mark) {
+    background: color-mix(in srgb, var(--pink) 28%, transparent);
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 3px;
+  }
 </style>

@@ -400,6 +400,7 @@
 .admin-settings-textarea {
   resize: vertical;
   min-height: 120px;
+  padding: 12px 14px;
   line-height: 1.5;
 }
 
@@ -435,7 +436,7 @@
 .admin-settings-reasons {
   display: grid;
   gap: 10px;
-  padding: 0 20px 12px;
+  padding: 18px 20px 20px;
 }
 
 .report-reason-row {

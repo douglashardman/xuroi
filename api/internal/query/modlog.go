@@ -28,7 +28,10 @@ var modEventTypes = []string{
 	events.TypeThreadUnpinned,
 	events.TypeThreadDeleted,
 	events.TypeThreadMoved,
+	events.TypeThreadRestored,
 	events.TypePostDeleted,
+	events.TypePostRestored,
+	events.TypePostEdited,
 }
 
 func (r *Reader) ModLog(ctx context.Context, limit int) ([]ModLogEntry, error) {
@@ -66,12 +69,28 @@ func (r *Reader) ModLog(ctx context.Context, limit int) ([]ModLogEntry, error) {
 func summarizeModEvent(evtType string, payload json.RawMessage) string {
 	switch evtType {
 	case events.TypePostModerated:
+		var p events.PostModerated
+		if json.Unmarshal(payload, &p) == nil {
+			return fmt.Sprintf("Post %s → %s", shortID(p.PostID), p.Status)
+		}
 		return "Post moderation action"
 	case events.TypePostReported:
+		var p events.PostReported
+		if json.Unmarshal(payload, &p) == nil {
+			return fmt.Sprintf("Post reported — %s", p.Reason)
+		}
 		return "Post reported"
 	case events.TypeThreadReported:
+		var p events.ThreadReported
+		if json.Unmarshal(payload, &p) == nil {
+			return fmt.Sprintf("Thread reported — %s", p.Reason)
+		}
 		return "Thread reported"
 	case events.TypeThreadLocked:
+		var p events.ThreadModeration
+		if json.Unmarshal(payload, &p) == nil && p.LockReason != "" {
+			return fmt.Sprintf("Thread locked — %s", p.LockReason)
+		}
 		return "Thread locked"
 	case events.TypeThreadUnlocked:
 		return "Thread unlocked"
@@ -80,12 +99,48 @@ func summarizeModEvent(evtType string, payload json.RawMessage) string {
 	case events.TypeThreadUnpinned:
 		return "Thread unpinned"
 	case events.TypeThreadDeleted:
+		var p events.ThreadDeleted
+		if json.Unmarshal(payload, &p) == nil {
+			return fmt.Sprintf("Thread deleted (%s)", shortID(p.ThreadID))
+		}
 		return "Thread deleted"
+	case events.TypeThreadRestored:
+		var p events.ThreadRestored
+		if json.Unmarshal(payload, &p) == nil {
+			return fmt.Sprintf("Thread restored (%s)", shortID(p.ThreadID))
+		}
+		return "Thread restored"
 	case events.TypeThreadMoved:
 		return "Thread moved"
 	case events.TypePostDeleted:
+		var p events.PostDeleted
+		if json.Unmarshal(payload, &p) == nil {
+			if p.Hard {
+				return fmt.Sprintf("Post permanently deleted (%s)", shortID(p.PostID))
+			}
+			return fmt.Sprintf("Post removed (%s)", shortID(p.PostID))
+		}
 		return "Post removed"
+	case events.TypePostRestored:
+		var p events.PostRestored
+		if json.Unmarshal(payload, &p) == nil {
+			return fmt.Sprintf("Post restored (%s)", shortID(p.PostID))
+		}
+		return "Post restored"
+	case events.TypePostEdited:
+		var p events.PostEdited
+		if json.Unmarshal(payload, &p) == nil && p.EditReason != nil && *p.EditReason != "" {
+			return fmt.Sprintf("Post edited — %s", *p.EditReason)
+		}
+		return "Post edited"
 	default:
 		return evtType
 	}
+}
+
+func shortID(id string) string {
+	if len(id) <= 10 {
+		return id
+	}
+	return id[len(id)-8:]
 }

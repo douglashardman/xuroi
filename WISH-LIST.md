@@ -88,8 +88,8 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | B8 | Edit own post | P0 | All | `site.json` `posts.edit_*`; PutterTalk 30 min |
 | ✓ | B9 | Edit history / revisions | P0 | [XF] | Clickable Edited stamp → revision overlay |
 | ✓ | B10 | Soft delete post/thread | P0 | All | Post + staff thread delete (`DELETE /v1/threads/{id}`) |
-| — | B11 | Hard delete (mod) | P1 | All | |
-| — | B12 | Restore deleted (mod) | P1 | [XF] | |
+| ✓ | B11 | Hard delete (mod) | P1 | All | Mod gear · `POST /v1/mod/posts/{id}/purge` |
+| ✓ | B12 | Restore deleted (mod) | P1 | [XF] | `POST /v1/mod/posts/{id}/restore` · thread restore API |
 | ✓ | B13 | Sticky / pin thread | P0 | All | Admin bar on thread page |
 | ✓ | B14 | Lock / unlock thread | P0 | All | Blocks replies when locked |
 | ✓ | B15 | Move thread (category) | P1 | All | Mod gear picker · API + UI |
@@ -98,7 +98,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | B18 | Thread prefixes / labels | P2 | [XF] | "FS", "WTT", "[SOLD]" for BST |
 | — | B19 | Polls | P3 | All | |
 | — | B20 | Thread types (question, article, suggestion) | P2 | [XF] | Question → solution flow |
-| — | B21 | Drafts (save post before submit) | P1 | All | |
+| ✓ | B21 | Drafts (save post before submit) | P1 | All | Reply + new-thread composers · localStorage |
 | ✓ | B22 | Post preview | P1 | All | Reply composer Preview toggle |
 | ✓ | B23 | @mentions | P1 | [XF][SMF] | `@slug`, `@"Name"`, `@[Name]` → profile links + notify |
 | ✓ | B24 | Markdown authoring → sanitized HTML | P0 | | goldmark + bluemonday UGC |
@@ -111,7 +111,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | B31 | Thread tags (freeform) | P2 | [XF] | |
 | — | B32 | Read time / word count on threads | P3 | — | Nice for SEO pages |
 | — | B33 | Print-friendly thread view | P4 | [SMF] | |
-| — | B34 | RSS/Atom feeds per category | P2 | All | |
+| ✓ | B34 | RSS/Atom feeds per category | P2 | All | `/c/{slug}/feed.xml` · `GET /v1/categories/{slug}/feed` |
 | ✓ | B35 | Activity feed / recent posts | P1 | All | `/whats-new` · home recent · per-forum latest |
 | ✓ | B36 | "What's new" / unread tracking | P1 | All | Unread filter on `/whats-new` · community unread counts |
 | ✓ | B37 | Mark forum read | P1 | All | `POST /v1/categories/{slug}/read` · button on forum page |
@@ -152,7 +152,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | C18 | Display name vs username | P3 | — | Display name is primary; slug from name; case-insensitive unique |
 | — | C19 | User groups / roles beyond 5 | P2 | All | v1: Guest/Member/Mod/Admin/Agent |
 | — | C20 | Ranks (post count titles) | P3 | [PB] | "200+ posts" |
-| — | C21 | Online now / last seen | P1 | All | Privacy-aware |
+| ✓ | C21 | Online now / last seen | P1 | All | `last_active_at` on profile · session touch |
 | — | C22 | Member list | P2 | All | |
 | — | C23 | User search | P2 | All | |
 | — | C24 | Ignore / block user | P2 | [PB] | |
@@ -194,7 +194,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | E2 | Mod queue (approve posts) | P0 | All | `/mod/queue` · classifieds `post_moderation` · approve/reject API |
 | ✓ | E3 | Report post / thread | P0 | All | Post + thread report · `thread_reports` (026) · flag in thread header · unified `/mod/reports` |
 | ✓ | E4 | Report reasons (configurable) | P1 | [PB] | `site.json` `moderation.report_reasons` · picker UI on report · `GET /v1/moderation/report-reasons` |
-| partial | E5 | Inline mod tools | P1 | [XF] | Compact gear popover on thread (pin/lock/reports/queue/delete) + post (audit/warn/remove) |
+| ✓ | E5 | Inline mod tools | P1 | [XF] | Gear: pin/lock/move/reports/delete · post audit/warn/remove/purge/mod-edit |
 | ✓ | E6 | Ban user (temp / perm) | P0 | All | Admin UI; clears sessions |
 | partial | E7 | IP ban | P1 | All | Post IPs banned with account; cleared on restore |
 | — | E8 | Email ban | P1 | All | |
@@ -207,7 +207,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | E15 | Force nofollow on user links | P1 | [XF] | `seo.nofollow_user_links` in Admin settings |
 | ✓ | E16 | Warn user | P2 | [XF] | 8h red border overlay; 3 strikes → 7-day auto-ban |
 | — | E17 | Warning points / expiry | P3 | [XF] | |
-| — | E18 | Mod log (audit trail) | P1 | All | Event log helps |
+| ✓ | E18 | Mod log (audit trail) | P1 | All | `/mod/log` · richer event summaries |
 | — | E19 | Admin log | P1 | [XF] | |
 | ✓ | E20 | View IPs (mod) | P1 | All | Admin post audit (`author_ip`) |
 | — | E21 | Thread reply ban | P2 | [XF] | |
@@ -216,8 +216,8 @@ These are why we exist. Incumbents don't have them natively.
 | — | E24 | DMCA / abuse contact flow | P1 | — | Legal |
 | — | E25 | Cookie consent | P2 | [XF] | If EU traffic |
 | — | E26 | Moderated categories (pre-approval) | P2 | All | BST candidate |
-| — | E27 | Edit post by mod | P1 | All | With "edited by mod" |
-| — | E28 | Lock reason visible | P1 | — | |
+| ✓ | E27 | Edit post by mod | P1 | All | Mod gear · `POST /v1/mod/posts/{id}/edit` · revision tagged |
+| ✓ | E28 | Lock reason visible | P1 | — | Prompt on lock · shown on thread meta |
 | — | E29 | Appeal flow | P4 | — | |
 
 ---
@@ -269,10 +269,10 @@ These are why we exist. Incumbents don't have them natively.
 |---|---|---|---|---|---|
 | ✓ | H1 | Full-text search (posts + threads) | P1 | All | Postgres FTS · `/v1/search` · `/search` |
 | — | H2 | Semantic / vector search | P1 | [XU] | pgvector |
-| — | H3 | Search by author | P1 | All | |
-| — | H4 | Search in category | P1 | All | |
+| ✓ | H3 | Search by author | P1 | All | `?author=` on `/search` |
+| ✓ | H4 | Search in category | P1 | All | `?category=` forum slug filter |
 | — | H5 | Search filters (date, has image) | P2 | [XF] | |
-| — | H6 | Search result highlighting | P1 | All | |
+| ✓ | H6 | Search result highlighting | P1 | All | `ts_headline` excerpts with `<mark>` |
 | ✓ | H7 | Async search indexing | P0 | [XF] jobs | `search_index_queue` + `cmd/searchindex` |
 | — | H8 | Find new / unread | P1 | All | |
 | — | H9 | Trending threads | P2 | — | |

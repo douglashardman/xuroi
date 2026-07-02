@@ -13,6 +13,8 @@ const (
 	TypePostCreated     = "post.created"
 	TypePostEdited      = "post.edited"
 	TypePostDeleted         = "post.deleted"
+	TypePostRestored        = "post.restored"
+	TypeThreadRestored      = "thread.restored"
 	TypePostReactionAdded   = "post.reaction_added"
 	TypePostReactionRemoved = "post.reaction_removed"
 	TypeThreadLocked        = "thread.locked"
@@ -126,6 +128,16 @@ type PostReactionChanged struct {
 }
 
 type ThreadModeration struct {
+	ThreadID   string `json:"thread_id"`
+	LockReason string `json:"lock_reason,omitempty"`
+}
+
+type PostRestored struct {
+	PostID   string `json:"post_id"`
+	ThreadID string `json:"thread_id"`
+}
+
+type ThreadRestored struct {
 	ThreadID string `json:"thread_id"`
 }
 

@@ -3,7 +3,7 @@ export const prerender = false;
 
 import ProfileAvatar from '../../components/ProfileAvatar.astro';
 import Layout from '../../layouts/Layout.astro';
-import { formatDate, getHome } from '../../lib/api';
+import { formatDate, formatLastSeen, getHome } from '../../lib/api';
 import { getMe, getUserProfile, sessionFromCookieHeader } from '../../lib/server-api';
 import { PAV_CLASSES, accentIndex, userURL } from '../../lib/theme';
 
@@ -35,6 +35,7 @@ const avIdx = accentIndex(profile.id);
       <div class="profile-karma">{profile.karma.toLocaleString()} karma</div>
       <div class="profile-meta">
         {profile.post_count.toLocaleString()} posts · joined {formatDate(profile.joined_at)}
+        {profile.last_active_at && ` · last seen ${formatLastSeen(profile.last_active_at)}`}
       </div>
       {profile.bio && !isOwnProfile && (
         <p class="profile-bio">{profile.bio}</p>

@@ -172,7 +172,7 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	var accessLevel string
 	var accessLevels []string
 	err := r.pool.QueryRow(ctx, `
-		SELECT t.id, t.title, t.slug, t.reply_count, t.view_count, t.is_locked, t.is_pinned,
+		SELECT t.id, t.title, t.slug, t.reply_count, t.view_count, t.is_locked, COALESCE(t.lock_reason, ''), t.is_pinned,
 		       t.created_at, t.last_activity_at,
 		       c.id, c.name, c.slug, c.access_level, c.access_levels
 		FROM threads t
@@ -180,7 +180,7 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 		WHERE t.id = $1 AND t.deleted_at IS NULL
 	`, id).Scan(
 		&thread.ID, &thread.Title, &thread.Slug, &thread.ReplyCount, &thread.ViewCount,
-		&thread.IsLocked, &thread.IsPinned, &thread.CreatedAt, &thread.LastActivityAt,
+		&thread.IsLocked, &thread.LockReason, &thread.IsPinned, &thread.CreatedAt, &thread.LastActivityAt,
 		&cat.ID, &cat.Name, &cat.Slug, &accessLevel, &accessLevels,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -321,6 +321,7 @@ func (r *Reader) ThreadMeta(ctx context.Context, id string) (models.ThreadMeta, 
 func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserProfile, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT a.id, a.display_name, a.karma, a.created_at, COALESCE(a.avatar_url, ''), COALESCE(a.bio, ''),
+		       a.last_active_at,
 		       (SELECT count(*) FROM posts p WHERE p.author_id = a.id AND p.deleted_at IS NULL)
 		FROM actors a
 		WHERE a.type = 'human'
@@ -333,7 +334,7 @@ func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserPr
 	want := strings.ToLower(nameSlug)
 	for rows.Next() {
 		var profile models.UserProfile
-		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.Bio, &profile.PostCount); err != nil {
+		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.Bio, &profile.LastActiveAt, &profile.PostCount); err != nil {
 			return models.UserProfile{}, fmt.Errorf("scan actor: %w", err)
 		}
 		if slug.FromDisplayName(profile.DisplayName) == want {

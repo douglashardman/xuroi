@@ -194,9 +194,10 @@ func (a *API) moderateThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		IsPinned   *bool   `json:"is_pinned"`
-		IsLocked   *bool   `json:"is_locked"`
-		CategoryID *string `json:"category_id"`
+		IsPinned    *bool   `json:"is_pinned"`
+		IsLocked    *bool   `json:"is_locked"`
+		LockReason  string  `json:"lock_reason"`
+		CategoryID  *string `json:"category_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -220,7 +221,7 @@ func (a *API) moderateThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, err := a.forum.ModerateThread(r.Context(), threadID, req.IsPinned, req.IsLocked)
+	events, err := a.forum.ModerateThread(r.Context(), threadID, req.IsPinned, req.IsLocked, req.LockReason)
 	if err != nil {
 		if err.Error() == "thread not found" {
 			writeError(w, http.StatusNotFound, "thread not found")

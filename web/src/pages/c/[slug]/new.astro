@@ -49,6 +49,35 @@ if (!user) {
   import { bindRichTextToolbars, hasEditorContent, prepareEditorMarkdown } from '../../../lib/rich-text-editor.ts';
   bindRichTextToolbars();
 
+  const form = document.getElementById('new-thread-form') as HTMLFormElement | null;
+  const categoryId = (form?.querySelector('[name="category_id"]') as HTMLInputElement | null)?.value ?? '';
+  const titleInput = form?.querySelector('[name="title"]') as HTMLInputElement | null;
+  const editor = document.getElementById('thread-body') as HTMLElement | null;
+  const draftKey = `xuroi:draft:new-thread:${categoryId}`;
+
+  if (titleInput && editor) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(draftKey) ?? 'null') as { title?: string; body?: string } | null;
+      if (saved?.title && !titleInput.value) titleInput.value = saved.title;
+      if (saved?.body && !hasEditorContent(editor)) editor.innerHTML = saved.body;
+    } catch { /* ignore */ }
+    let draftTimer: ReturnType<typeof setTimeout> | undefined;
+    const saveDraft = () => {
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(() => {
+        const title = titleInput.value.trim();
+        const body = editor.innerHTML;
+        if (title || hasEditorContent(editor)) {
+          localStorage.setItem(draftKey, JSON.stringify({ title, body }));
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      }, 400);
+    };
+    titleInput.addEventListener('input', saveDraft);
+    editor.addEventListener('input', saveDraft);
+  }
+
   document.getElementById('new-thread-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -85,6 +114,7 @@ if (!user) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not create thread');
       if (data.thread_url) {
+        localStorage.removeItem(draftKey);
         window.location.href = data.thread_url;
         return;
       }

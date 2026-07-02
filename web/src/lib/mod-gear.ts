@@ -20,8 +20,14 @@ export function postModGearHTML(postId: string, warned: boolean): string {
         <button type="button" class="mod-popover-item" data-warn="${postId}"${warnDisabled}>
           <span class="mod-popover-label">${warnLabel}</span>
         </button>
+        <button type="button" class="mod-popover-item" data-staff-edit="${postId}">
+          <span class="mod-popover-label">Edit post (mod)</span>
+        </button>
         <button type="button" class="mod-popover-item mod-popover-item--danger" data-remove="${postId}">
           <span class="mod-popover-label">Remove post</span>
+        </button>
+        <button type="button" class="mod-popover-item mod-popover-item--danger" data-purge="${postId}">
+          <span class="mod-popover-label">Delete permanently</span>
         </button>
       </div>
     </div>

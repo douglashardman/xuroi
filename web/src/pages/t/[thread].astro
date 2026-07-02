@@ -108,6 +108,9 @@ const jsonLd = threadJsonLd(data, data.site.url);
         · started {formatDate(data.thread.created_at)}
         · last activity {formatDate(data.thread.last_activity_at)}
         {data.thread.is_locked && ' · Locked'}
+        <span id="thread-lock-reason" class="thread-lock-reason" hidden={!data.thread.lock_reason}>
+          {data.thread.lock_reason ? ` — ${data.thread.lock_reason}` : ''}
+        </span>
         {data.thread.is_pinned && ' · Pinned'}
         {(data.thread.view_count ?? 0) > 0 && ` · ${data.thread.view_count!.toLocaleString()} views`}
       </div>

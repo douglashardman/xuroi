@@ -33,6 +33,7 @@ const threads = data.threads ?? [];
     <h2>{data.category.name}</h2>
     <span class="lab">
       {data.category.thread_count} threads
+      · <a href={`/c/${slug}/feed.xml`}>RSS</a>
       {(data.category.unread_count ?? 0) > 0 && (
         <> · <span class="unread-lab">{data.category.unread_count} unread</span></>
       )}
