@@ -321,7 +321,11 @@ func (r *Reader) ThreadMeta(ctx context.Context, id string) (models.ThreadMeta, 
 func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserProfile, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT a.id, a.display_name, a.karma, a.created_at, COALESCE(a.avatar_url, ''), COALESCE(a.bio, ''),
-		       a.last_active_at, a.hide_online_status,
+		       COALESCE(a.last_active_at, (
+		         SELECT MAX(p.created_at) FROM posts p
+		         WHERE p.author_id = a.id AND p.deleted_at IS NULL
+		       )) AS last_active_at,
+		       a.hide_online_status,
 		       (SELECT count(*) FROM posts p WHERE p.author_id = a.id AND p.deleted_at IS NULL)
 		FROM actors a
 		WHERE a.type = 'human'

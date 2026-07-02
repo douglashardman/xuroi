@@ -74,6 +74,9 @@ func (a *API) getUserProfile(w http.ResponseWriter, r *http.Request) {
 		out["bio"] = profile.Bio
 	}
 	viewer, viewerErr := a.actorFromRequest(r)
+	if viewerErr == nil {
+		a.auth.TouchLastActive(r.Context(), viewer.ID)
+	}
 	showPresence := profile.LastActiveAt != nil
 	if showPresence && viewerErr == nil {
 		enriched, err := a.auth.EnrichActor(r.Context(), viewer, a.siteCfg.Admin.Emails, a.siteCfg.Admin.ModeratorEmails, a.siteCfg.Admin.PermBanModeratorEmails)

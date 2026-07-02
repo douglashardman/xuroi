@@ -23,7 +23,7 @@ type OnlineMembersResponse struct {
 	Members []OnlineMember `json:"members"`
 }
 
-func (r *Reader) OnlineMembers(ctx context.Context, staffView bool) (OnlineMembersResponse, error) {
+func (r *Reader) OnlineMembers(ctx context.Context, staffView bool, viewerID string) (OnlineMembersResponse, error) {
 	cutoff := time.Now().Add(-onlineWindow)
 	rows, err := r.pool.Query(ctx, `
 		SELECT a.id, a.display_name, COALESCE(a.avatar_url, ''), a.last_active_at, a.hide_online_status
@@ -48,7 +48,8 @@ func (r *Reader) OnlineMembers(ctx context.Context, staffView bool) (OnlineMembe
 			return OnlineMembersResponse{}, err
 		}
 		m.URL = models.UserURL(m.DisplayName)
-		if !hidden || staffView {
+		include := !hidden || staffView || (viewerID != "" && m.ID == viewerID)
+		if include {
 			visibleCount++
 			members = append(members, m)
 		}

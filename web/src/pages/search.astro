@@ -12,6 +12,8 @@ const cookie = Astro.request.headers.get('cookie');
 const session = sessionFromCookieHeader(cookie);
 const [home, user] = await Promise.all([getHome(session), getMe(session)]);
 
+const runSearch = q.length >= 2 || author.length > 0;
+
 let results: Array<{
   thread_title: string;
   thread_url: string;
@@ -20,8 +22,9 @@ let results: Array<{
   excerpt: string;
 }> = [];
 
-if (q.length >= 2) {
-  const params = new URLSearchParams({ q, limit: '25' });
+if (runSearch) {
+  const params = new URLSearchParams({ limit: '25' });
+  if (q) params.set('q', q);
   if (author) params.set('author', author);
   if (category) params.set('category', category);
   const res = await fetch(`${import.meta.env.PUBLIC_API_URL ?? 'http://localhost:8080'}/v1/search?${params}`, {
@@ -32,23 +35,36 @@ if (q.length >= 2) {
     results = data.results ?? [];
   }
 }
+
+const pageTitle = q
+  ? `Search: ${q}`
+  : author
+    ? `Posts by ${author}`
+    : 'Search';
 ---
-<Layout title={q ? `Search: ${q}` : 'Search'} site={home.site} user={user}>
+<Layout title={pageTitle} site={home.site} user={user}>
   <div class="crumb"><a href="/community">Community</a> › Search</div>
 
   <form class="search-form" method="get" action="/search">
-    <input type="search" name="q" value={q} placeholder="Search threads and posts…" minlength="2" required />
+    <input type="search" name="q" value={q} placeholder="Search threads and posts…" />
     <input type="text" name="author" value={author} placeholder="Author (optional)" />
     <input type="text" name="category" value={category} placeholder="Forum slug (optional)" />
     <button type="submit" class="btn btn--pink">Search</button>
   </form>
 
-  {q.length >= 2 ? (
+  {runSearch ? (
     results.length === 0 ? (
-      <p class="mod-empty">No results for “{q}”. Try different words or filters.</p>
+      <p class="mod-empty">
+        {author && !q
+          ? `No posts found for “${author}”.`
+          : `No results for “${q}”. Try different words or filters.`}
+      </p>
     ) : (
       <div class="search-results">
-        <p class="search-meta">{results.length} result{results.length === 1 ? '' : 's'} for “{q}”</p>
+        <p class="search-meta">
+          {results.length} result{results.length === 1 ? '' : 's'}
+          {author && !q ? ` by “${author}”` : q ? ` for “${q}”` : ''}
+        </p>
         {results.map((r) => (
           <article class="search-hit">
             <h3><a href={r.thread_url}>{r.thread_title}</a></h3>
@@ -59,7 +75,7 @@ if (q.length >= 2) {
       </div>
     )
   ) : (
-    <p class="mod-empty">Search the community — putter models, brands, techniques, BST listings.</p>
+    <p class="mod-empty">Search the community — putter models, brands, techniques, BST listings. Or open a profile and click Posts to see everything by that member.</p>
   )}
 </Layout>
 

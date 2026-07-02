@@ -65,10 +65,10 @@ const avIdx = accentIndex(profile.id);
         <span class="profile-stat-label">Karma</span>
         <span class="profile-stat-value">{profile.karma.toLocaleString()}</span>
       </article>
-      <article class="profile-stat-card">
+      <a class="profile-stat-card profile-stat-card--link" href={`/search?author=${encodeURIComponent(name!)}`}>
         <span class="profile-stat-label">Posts</span>
         <span class="profile-stat-value">{profile.post_count.toLocaleString()}</span>
-      </article>
+      </a>
       <article class="profile-stat-card">
         <span class="profile-stat-label">Joined</span>
         <span class="profile-stat-value profile-stat-value--sm">{formatDate(profile.joined_at)}</span>
@@ -252,6 +252,23 @@ const avIdx = accentIndex(profile.id);
 
   .profile-stat-card--karma {
     box-shadow: 3px 3px 0 var(--pink);
+  }
+
+  .profile-stat-card--link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .profile-stat-card--link:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 var(--hair);
+  }
+
+  .profile-stat-card--link:focus-visible {
+    outline: 2px solid var(--pink);
+    outline-offset: 2px;
   }
 
   .profile-stat-label {

@@ -7,13 +7,16 @@ import (
 
 func (a *API) listOnlineMembers(w http.ResponseWriter, r *http.Request) {
 	staffView := false
+	var viewerID string
 	if actor, err := a.actorFromRequest(r); err == nil {
+		viewerID = actor.ID
+		a.auth.TouchLastActive(r.Context(), actor.ID)
 		enriched, err := a.auth.EnrichActor(r.Context(), actor, a.siteCfg.Admin.Emails, a.siteCfg.Admin.ModeratorEmails, a.siteCfg.Admin.PermBanModeratorEmails)
 		if err == nil && (enriched.IsAdmin || enriched.IsModerator) {
 			staffView = true
 		}
 	}
-	resp, err := a.reader.OnlineMembers(r.Context(), staffView)
+	resp, err := a.reader.OnlineMembers(r.Context(), staffView, viewerID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
