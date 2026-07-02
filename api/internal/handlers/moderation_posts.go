@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/xuroi/xuroi/api/internal/markdown"
 	"github.com/xuroi/xuroi/api/internal/service"
 )
 
@@ -78,7 +77,7 @@ func (a *API) staffEditPost(w http.ResponseWriter, r *http.Request) {
 	}
 	req.BodyMarkdown = strings.TrimSpace(req.BodyMarkdown)
 	if req.BodyHTML == "" {
-		req.BodyHTML = markdown.ToHTML(req.BodyMarkdown)
+		req.BodyHTML = a.renderPostHTML(req.BodyMarkdown)
 	}
 	evt, err := a.forum.StaffEditPost(r.Context(), service.EditPostInput{
 		PostID:       postID,

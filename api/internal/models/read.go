@@ -48,8 +48,9 @@ type CategorySummary struct {
 	LockedLabel string  `json:"locked_label,omitempty"`
 	ThreadCount int     `json:"thread_count"`
 	PostCount   int     `json:"post_count"`
-	UnreadCount int     `json:"unread_count,omitempty"`
-	Latest      *CategoryLatestThread `json:"latest,omitempty"`
+	UnreadCount       int     `json:"unread_count,omitempty"`
+	EmailWatching     bool    `json:"email_watching,omitempty"`
+	Latest            *CategoryLatestThread `json:"latest,omitempty"`
 }
 
 type CategoryGroup struct {
@@ -64,6 +65,8 @@ type CategoryGroup struct {
 type ThreadSummary struct {
 	ID             string    `json:"id"`
 	Title          string    `json:"title"`
+	TitlePrefix    string    `json:"title_prefix,omitempty"`
+	DisplayTitle   string    `json:"display_title"`
 	Slug           string    `json:"slug"`
 	URL            string    `json:"url"`
 	AuthorName     string    `json:"author_name"`
@@ -169,6 +172,8 @@ type CategoryRef struct {
 type ThreadDetail struct {
 	ID             string    `json:"id"`
 	Title          string    `json:"title"`
+	TitlePrefix    string    `json:"title_prefix,omitempty"`
+	DisplayTitle   string    `json:"display_title"`
 	Slug           string    `json:"slug"`
 	URL            string    `json:"url"`
 	Summary        *string   `json:"summary,omitempty"`

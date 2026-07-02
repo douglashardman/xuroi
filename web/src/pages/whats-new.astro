@@ -2,8 +2,9 @@
 export const prerender = false;
 
 import Layout from '../layouts/Layout.astro';
-import { formatDate, timeAgo } from '../lib/api';
+import { timeAgo } from '../lib/api';
 import { getHome, getMe, getRecentThreads, sessionFromCookieHeader } from '../lib/server-api';
+import { ACCENT_VARS, accentIndex } from '../lib/theme';
 
 const cookie = Astro.request.headers.get('cookie');
 const session = sessionFromCookieHeader(cookie);
@@ -14,6 +15,7 @@ const [home, user, recent] = await Promise.all([
   getRecentThreads(30, session, unreadOnly),
 ]);
 const threads = recent.threads ?? [];
+const unreadCount = user?.unread_threads ?? 0;
 ---
 <Layout title="What's new" description="Recent discussions across the community" site={home.site} user={user} navActive="community">
   <div class="crumb">
@@ -21,54 +23,86 @@ const threads = recent.threads ?? [];
     › What's new
   </div>
 
-  <div class="shead" style="margin-top:8px">
-    <h2>What's new</h2>
-    <span class="lab">{threads.length} {unreadOnly ? 'unread' : 'recent'} threads</span>
-    {user && (
-      <div class="wn-filters">
-        <a class:list={['btn', 'btn--sm', !unreadOnly && 'btn--pink']} href="/whats-new">All recent</a>
-        <a class:list={['btn', 'btn--sm', unreadOnly && 'btn--pink']} href="/whats-new?unread=1">Unread only</a>
+  <div class="wn-page">
+    <header class="wn-hero">
+      <div class="wn-hero-body">
+        <p class="ey lab">Activity feed</p>
+        <h1>What's new</h1>
+        <p class="wn-lead">
+          {unreadOnly
+            ? 'Threads with posts you have not read yet — newest activity first.'
+            : 'The latest discussions across every forum you can see — updated as members post.'}
+        </p>
+      </div>
+      {user ? (
+        <div class="wn-tabs" role="tablist" aria-label="Filter threads">
+          <a class:list={['wn-tab', !unreadOnly && 'is-active']} href="/whats-new" role="tab" aria-selected={!unreadOnly}>
+            All recent
+          </a>
+          <a
+            class:list={['wn-tab', unreadOnly && 'is-active']}
+            href="/whats-new?unread=1"
+            role="tab"
+            aria-selected={unreadOnly}
+          >
+            Unread only
+            {unreadCount > 0 && <span class="wn-tab-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+          </a>
+        </div>
+      ) : (
+        <a class="btn btn--sm btn--pink" href="/join">Sign in to track unread</a>
+      )}
+    </header>
+
+    <div class="wn-summary">
+      <span class="wn-count">
+        <strong>{threads.length}</strong>
+        {unreadOnly ? 'unread' : 'recent'} {threads.length === 1 ? 'thread' : 'threads'}
+      </span>
+      <a class="wn-back" href="/community">Browse forums →</a>
+    </div>
+
+    {threads.length === 0 ? (
+      <div class="empty-state wn-empty">
+        {unreadOnly ? (
+          <>
+            <strong>You're caught up.</strong>
+            <p>No unread threads right now — nice work.</p>
+            <a class="btn btn--sm" href="/whats-new">Show all recent</a>
+          </>
+        ) : (
+          <>
+            <strong>Nothing here yet.</strong>
+            <p>The Community just reopened — be among the first to post.</p>
+            <a class="btn btn--sm btn--pink" href="/community">Go to forums</a>
+          </>
+        )}
+      </div>
+    ) : (
+      <div class="threads wn-threads">
+        {threads.map((t) => {
+          const accent = ACCENT_VARS[accentIndex(t.id)];
+          return (
+            <a class:list={['thr', 'wn-row', t.is_unread && 'wn-row--unread']} href={t.url}>
+              <span class="dot" style={`background:${accent}`} aria-hidden="true"></span>
+              <div class="wn-main">
+                <div class="t">{t.title}</div>
+                <div class="wn-meta">
+                  <span class="wn-cat">{t.category_name}</span>
+                  <span class="wn-sep" aria-hidden="true">·</span>
+                  <time datetime={t.last_activity_at}>{timeAgo(t.last_activity_at)}</time>
+                </div>
+              </div>
+              <div class="wn-side">
+                {t.is_unread && <span class="wn-new">New</span>}
+                <span class="rep">
+                  {t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
+                </span>
+              </div>
+            </a>
+          );
+        })}
       </div>
     )}
   </div>
-
-  {threads.length === 0 ? (
-    <p class="mod-empty">{unreadOnly ? 'You are caught up — no unread threads.' : 'No recent activity yet.'}</p>
-  ) : (
-    <div class="wn-list">
-      {threads.map((t) => (
-        <article class:list={['wn-item', t.is_unread && 'wn-item--unread']}>
-          <h3>
-            {t.is_unread && <span class="unread-pill">New</span>}
-            <a href={t.url}>{t.title}</a>
-          </h3>
-          <p class="wn-meta">
-            <span>{t.category_name}</span>
-            · <time datetime={t.last_activity_at}>{timeAgo(t.last_activity_at)}</time>
-            · {t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
-          </p>
-        </article>
-      ))}
-    </div>
-  )}
 </Layout>
-
-<style>
-  .wn-filters { display: flex; gap: 8px; }
-  .wn-list { display: grid; gap: 14px; margin-top: 16px; }
-  .wn-item h3 { margin: 0 0 4px; font-size: 1.05rem; }
-  .wn-item--unread h3 a { font-weight: 800; }
-  .wn-meta { margin: 0; color: var(--muted); font-size: 0.9rem; }
-  .unread-pill {
-    display: inline-block;
-    margin-right: 6px;
-    padding: 1px 6px;
-    border-radius: 4px;
-    background: var(--pink);
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    vertical-align: middle;
-  }
-</style>

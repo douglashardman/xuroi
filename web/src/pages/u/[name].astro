@@ -45,11 +45,20 @@ const avIdx = accentIndex(profile.id);
               ) : (
                 <button type="button" class="btn btn--sm" id="profile-friend-btn" data-recipient-id={profile.id}>Add friend</button>
               )}
-              {(profile.can_message !== false) && (
+              {(profile.can_message !== false) && !profile.blocks_me && (
                 <button type="button" class="btn btn--sm btn--pink profile-message-btn" id="profile-message-btn" data-recipient-id={profile.id}>
                   Message
                 </button>
               )}
+              <button
+                type="button"
+                class="btn btn--sm btn--ghost"
+                id="profile-block-btn"
+                data-actor-id={profile.id}
+                data-blocked={profile.blocked_by_me ? '1' : '0'}
+              >
+                {profile.blocked_by_me ? 'Unblock' : 'Block'}
+              </button>
             </div>
           )}
         </div>
@@ -103,6 +112,32 @@ const avIdx = accentIndex(profile.id);
             <p class="profile-card-desc">Thread reply and @mention emails.</p>
           </header>
           <a class="profile-card-link btn btn--sm" href="/settings/email">Manage preferences</a>
+        </article>
+
+        <article class="profile-card profile-card--ink">
+          <header class="profile-card-head">
+            <h2>Timezone</h2>
+            <p class="profile-card-desc">Timestamps across the site use your local zone.</p>
+          </header>
+          <form id="timezone-form" class="profile-option-form">
+            <label>
+              Your timezone
+              <select name="timezone" id="profile-timezone">
+                <option value="">Browser default</option>
+                <option value="America/New_York">Eastern (US)</option>
+                <option value="America/Chicago">Central (US)</option>
+                <option value="America/Denver">Mountain (US)</option>
+                <option value="America/Los_Angeles">Pacific (US)</option>
+                <option value="America/Phoenix">Arizona</option>
+                <option value="Europe/London">London</option>
+                <option value="Europe/Paris">Paris</option>
+                <option value="Asia/Tokyo">Tokyo</option>
+                <option value="Australia/Sydney">Sydney</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </label>
+            <button type="submit" class="btn btn--sm">Save timezone</button>
+          </form>
         </article>
 
         <article class="profile-card profile-card--yellow">
@@ -225,8 +260,11 @@ const avIdx = accentIndex(profile.id);
 
   .profile-identity h1 {
     margin: 0;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
     font-size: 26px;
     line-height: 1.15;
+    letter-spacing: -0.02em;
   }
 
   .profile-bio {

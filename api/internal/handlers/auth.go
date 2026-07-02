@@ -66,7 +66,7 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, token)
+	setSessionCookie(w, token, auth.SessionDays)
 	enriched, ok := a.enrichActor(w, r, actor)
 	if !ok {
 		return
@@ -82,8 +82,9 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email      string `json:"email"`
+		Password   string `json:"password"`
+		RememberMe bool   `json:"remember_me"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -99,7 +100,7 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	var token string
 	var err error
 	if strings.TrimSpace(req.Password) != "" {
-		actor, token, err = a.auth.LoginWithPassword(r.Context(), req.Email, req.Password)
+		actor, token, err = a.auth.LoginWithPassword(r.Context(), req.Email, req.Password, req.RememberMe)
 	} else {
 		actor, token, err = a.auth.LoginLegacy(r.Context(), req.Email)
 	}
@@ -133,7 +134,11 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, token)
+	sessionDays := auth.SessionDays
+	if req.RememberMe {
+		sessionDays = auth.RememberSessionDays
+	}
+	setSessionCookie(w, token, sessionDays)
 	enriched, ok := a.enrichActor(w, r, actor)
 	if !ok {
 		return
@@ -189,6 +194,9 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	if pendingFriends, err := a.friends.PendingIncomingCount(r.Context(), enriched.ID); err == nil {
 		out["pending_friend_requests"] = pendingFriends
 	}
+	if tz, err := a.reader.ActorTimezone(r.Context(), enriched.ID); err == nil && tz != "" {
+		out["timezone"] = tz
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -239,15 +247,18 @@ func (a *API) actorFromRequest(r *http.Request) (auth.Actor, error) {
 	return a.auth.ActorFromToken(r.Context(), c.Value)
 }
 
-func setSessionCookie(w http.ResponseWriter, token string) {
+func setSessionCookie(w http.ResponseWriter, token string, days int) {
+	if days < 1 {
+		days = auth.SessionDays
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   auth.SessionDays * 24 * 60 * 60,
-		Expires:  time.Now().Add(auth.SessionDays * 24 * time.Hour),
+		MaxAge:   days * 24 * 60 * 60,
+		Expires:  time.Now().Add(time.Duration(days) * 24 * time.Hour),
 	})
 }
 

@@ -88,7 +88,7 @@ func (a *API) passwordResetConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, sessionToken)
+	setSessionCookie(w, sessionToken, auth.SessionDays)
 	enriched, ok := a.enrichActor(w, r, actor)
 	if !ok {
 		return
@@ -170,7 +170,7 @@ func (a *API) magicLinkConsume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, sessionToken)
+	setSessionCookie(w, sessionToken, auth.SessionDays)
 	enriched, ok := a.enrichActor(w, r, actor)
 	if !ok {
 		return

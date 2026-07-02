@@ -47,22 +47,24 @@ const {
 const path = Astro.url.pathname;
 const session = sessionFromCookieHeader(Astro.request.headers.get('cookie'));
 const bypassMaintenance = path.startsWith('/maintenance') || path.startsWith('/admin') || path.startsWith('/api') || adminPage;
-if (!bypassMaintenance) {
-  const statusRes = await backendFetch('/v1/site/status', {}, session);
-  if (statusRes.ok) {
-    const statusData = await statusRes.json();
-    if (statusData.maintenance?.enabled) {
-      let staffBypass = false;
-      if (session) {
-        const meRes = await backendFetch('/v1/auth/me', {}, session);
-        if (meRes.ok) {
-          const me = await meRes.json();
-          staffBypass = !!(me.is_admin || me.is_moderator);
-        }
+let siteNotice: { enabled?: boolean; message?: string } | null = null;
+const statusRes = await backendFetch('/v1/site/status', {}, session);
+if (statusRes.ok) {
+  const statusData = await statusRes.json();
+  if (statusData.notice?.enabled && statusData.notice.message) {
+    siteNotice = statusData.notice;
+  }
+  if (!bypassMaintenance && statusData.maintenance?.enabled) {
+    let staffBypass = false;
+    if (session) {
+      const meRes = await backendFetch('/v1/auth/me', {}, session);
+      if (meRes.ok) {
+        const me = await meRes.json();
+        staffBypass = !!(me.is_admin || me.is_moderator);
       }
-      if (!staffBypass) {
-        return Astro.redirect('/maintenance');
-      }
+    }
+    if (!staffBypass) {
+      return Astro.redirect('/maintenance');
     }
   }
 }
@@ -96,7 +98,7 @@ if (!skipBanCheck && !path.startsWith('/banned')) {
 }
 ---
 <!doctype html>
-<html lang="en">
+<html lang="en" data-user-timezone={user?.timezone ?? ''}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -147,6 +149,11 @@ if (!skipBanCheck && !path.startsWith('/banned')) {
   <body>
     {activeWarning && <WarningOverlay warning={activeWarning} />}
     <Nav active={navActive} user={user} />
+    {siteNotice && (
+      <div class="site-notice" role="status">
+        <div class="wrap site-notice-inner">{siteNotice.message}</div>
+      </div>
+    )}
     {shell === 'marketing' ? <slot /> : (
       <main class:list={['wrap', adminPage && 'admin-page']}>
         <slot />

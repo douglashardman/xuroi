@@ -58,6 +58,10 @@ const data = await getHome();
           Password
           <input type="password" name="password" id="login-password" autocomplete="current-password" />
         </label>
+        <label class="admin-settings-check join-remember">
+          <input type="checkbox" name="remember_me" id="login-remember" />
+          <span>Remember me for 90 days</span>
+        </label>
         <button type="submit" class="btn btn--pink">Sign in</button>
         <button type="button" class="btn btn--ghost" id="login-passkey">Sign in with passkey</button>
         <button type="button" class="btn btn--ghost" id="login-magic-link">Email me a sign-in link</button>
@@ -96,7 +100,10 @@ const data = await getHome();
       e.preventDefault();
       errorEl.hidden = true;
       const fd = new FormData(form);
-      const body = Object.fromEntries(fd.entries()) as Record<string, string>;
+      const body = Object.fromEntries(fd.entries()) as Record<string, string | boolean>;
+      if (form.id === 'login-form') {
+        body.remember_me = !!(form.querySelector('#login-remember') as HTMLInputElement)?.checked;
+      }
       if (opts.isRegister && registerNameInput?.classList.contains('field--error')) {
         const msg = 'That display name is already taken';
         errorEl.textContent = msg;

@@ -94,6 +94,32 @@ export function initVisitorProfileActions() {
         showToast(err instanceof Error ? err.message : 'Message failed', 'error');
         messageBtn.disabled = false;
       }
+      return;
+    }
+
+    const blockBtn = target.closest('#profile-block-btn') as HTMLButtonElement | null;
+    if (blockBtn) {
+      e.preventDefault();
+      const actorId = blockBtn.dataset.actorId;
+      if (!actorId || blockBtn.disabled) return;
+      const blocked = blockBtn.dataset.blocked === '1';
+      if (!blocked) {
+        const ok = await confirm('Block this member? Their posts will be hidden and they cannot message you.');
+        if (!ok) return;
+      }
+      blockBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/actors/${actorId}/block`, { method: blocked ? 'DELETE' : 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not update block');
+        blockBtn.dataset.blocked = blocked ? '0' : '1';
+        blockBtn.textContent = blocked ? 'Block' : 'Unblock';
+        showToast(blocked ? 'Member unblocked' : 'Member blocked', 'success');
+        setTimeout(() => window.location.reload(), 600);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Block failed', 'error');
+        blockBtn.disabled = false;
+      }
     }
   });
 }
@@ -199,6 +225,28 @@ export function initOwnProfileActions() {
       return;
     }
     showToast('Online visibility updated', 'success');
+  });
+
+  const tzSelect = document.getElementById('profile-timezone') as HTMLSelectElement | null;
+  const savedTz = document.documentElement.dataset.userTimezone;
+  if (tzSelect && savedTz) tzSelect.value = savedTz;
+
+  document.getElementById('timezone-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const timezone = (new FormData(form).get('timezone') as string) ?? '';
+    const res = await fetch('/api/me/timezone', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timezone }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Could not save timezone', 'error');
+      return;
+    }
+    document.documentElement.dataset.userTimezone = timezone;
+    showToast('Timezone saved', 'success');
   });
 
   document.getElementById('dm-privacy-form')?.addEventListener('submit', async (e) => {

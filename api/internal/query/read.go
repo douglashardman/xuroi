@@ -145,6 +145,9 @@ func (r *Reader) CategoryBySlug(ctx context.Context, slug string, page, perPage 
 			return models.CategoryPageResponse{}, err
 		}
 		cat.UnreadCount = counts[cat.ID]
+		if watching, err := r.CategoryEmailWatching(ctx, *viewer.ActorID, cat.ID); err == nil {
+			cat.EmailWatching = watching
+		}
 	}
 
 	pagination := paginate(page, perPage, total, func(p int) string {
@@ -182,14 +185,14 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	var accessLevels []string
 	var acceptedAnswer *string
 	err := r.pool.QueryRow(ctx, `
-		SELECT t.id, t.title, t.slug, t.reply_count, t.view_count, t.is_locked, COALESCE(t.lock_reason, ''), t.is_pinned,
+		SELECT t.id, t.title, COALESCE(t.title_prefix, ''), t.slug, t.reply_count, t.view_count, t.is_locked, COALESCE(t.lock_reason, ''), t.is_pinned,
 		       t.accepted_answer_post_id, t.created_at, t.last_activity_at,
 		       c.id, c.name, c.slug, c.access_level, c.access_levels
 		FROM threads t
 		JOIN categories c ON c.id = t.category_id
 		WHERE t.id = $1 AND t.deleted_at IS NULL
 	`, id).Scan(
-		&thread.ID, &thread.Title, &thread.Slug, &thread.ReplyCount, &thread.ViewCount,
+		&thread.ID, &thread.Title, &thread.TitlePrefix, &thread.Slug, &thread.ReplyCount, &thread.ViewCount,
 		&thread.IsLocked, &thread.LockReason, &thread.IsPinned, &acceptedAnswer,
 		&thread.CreatedAt, &thread.LastActivityAt,
 		&cat.ID, &cat.Name, &cat.Slug, &accessLevel, &accessLevels,
@@ -215,6 +218,7 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 		return models.ThreadPageResponse{}, ErrNotFound
 	}
 	thread.URL = models.ThreadURL(thread.Slug, thread.ID)
+	thread.DisplayTitle = models.ThreadDisplayTitle(thread.TitlePrefix, thread.Title)
 	thread.AcceptedAnswerPostID = acceptedAnswer
 	cat.URL = models.CategoryURL(cat.Slug)
 	thread.Summary = r.threadSummary(ctx, id)
@@ -632,6 +636,15 @@ func (r *Reader) CategoryAccessLevel(ctx context.Context, categoryID string) (st
 	return level, err
 }
 
+func (r *Reader) CategorySlug(ctx context.Context, categoryID string) (string, error) {
+	var slug string
+	err := r.pool.QueryRow(ctx, `SELECT slug FROM categories WHERE id = $1`, categoryID).Scan(&slug)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return slug, err
+}
+
 func applyCategoryAccess(cat models.CategorySummary, level string, levels []string, listPublic bool, viewer access.Viewer) models.CategorySummary {
 	cat.AccessLevels = access.NormalizeLevels(levels)
 	if len(cat.AccessLevels) == 0 {
@@ -700,7 +713,7 @@ func (r *Reader) listThreadsInCategory(ctx context.Context, categoryID string, p
 		opFilter = `(op.moderation_status = 'approved' OR (op.moderation_status = 'pending' AND op.author_id = $4))`
 	}
 	querySQL := `
-		SELECT t.id, t.title, t.slug, t.reply_count, t.view_count, t.last_activity_at,
+		SELECT t.id, t.title, COALESCE(t.title_prefix, ''), t.slug, t.reply_count, t.view_count, t.last_activity_at,
 		       t.is_pinned, t.is_locked, a.display_name
 		FROM threads t
 		JOIN actors a ON a.id = t.author_id
@@ -725,11 +738,12 @@ func (r *Reader) listThreadsInCategory(ctx context.Context, categoryID string, p
 	for rows.Next() {
 		var t models.ThreadSummary
 		if err := rows.Scan(
-			&t.ID, &t.Title, &t.Slug, &t.ReplyCount, &t.ViewCount, &t.LastActivityAt,
+			&t.ID, &t.Title, &t.TitlePrefix, &t.Slug, &t.ReplyCount, &t.ViewCount, &t.LastActivityAt,
 			&t.IsPinned, &t.IsLocked, &t.AuthorName,
 		); err != nil {
 			return nil, fmt.Errorf("scan thread: %w", err)
 		}
+		t.DisplayTitle = models.ThreadDisplayTitle(t.TitlePrefix, t.Title)
 		t.URL = models.ThreadURL(t.Slug, t.ID)
 		t.HasSummary = r.threadSummary(ctx, t.ID) != nil
 		out = append(out, t)
@@ -793,6 +807,10 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 		LEFT JOIN posts qp ON qp.id = p.quoted_post_id
 		LEFT JOIN actors qa ON qa.id = qp.author_id
 		WHERE p.thread_id = $1 AND p.deleted_at IS NULL AND `+modFilter+`
+		  AND ($4::text IS NULL OR NOT EXISTS (
+		    SELECT 1 FROM actor_blocks b
+		    WHERE b.blocker_id = $4 AND b.blocked_id = p.author_id
+		  ))
 		ORDER BY p.position ASC
 		LIMIT $2 OFFSET $3
 	`, args...)

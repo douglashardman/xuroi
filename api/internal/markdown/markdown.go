@@ -28,20 +28,30 @@ var (
 func init() {
 	policy.AllowRelativeURLs(true)
 	policy.AllowURLSchemes("http", "https")
+	policy.AllowElements("details", "summary")
+	policy.AllowAttrs("class").Matching(regexp.MustCompile(`^spoiler$`)).OnElements("details")
 }
 
 // ToHTML renders markdown to sanitized HTML safe for public display.
 func ToHTML(source string) string {
+	return RenderUGC(source, nil)
+}
+
+// RenderUGC renders member markdown with optional word-filter list.
+func RenderUGC(source string, wordFilter []string) string {
 	source = strings.TrimSpace(source)
 	if source == "" {
 		return ""
 	}
+	source = expandSpoilers(source)
 
 	var buf bytes.Buffer
 	if err := md.Convert([]byte(source), &buf); err != nil {
-		return policy.Sanitize("<p>" + escapeFallback(source) + "</p>")
+		html := policy.Sanitize("<p>" + escapeFallback(source) + "</p>")
+		return ApplyWordFilter(html, wordFilter)
 	}
-	return EnrichMediaImages(policy.Sanitize(buf.String()))
+	html := EnrichMediaImages(policy.Sanitize(buf.String()))
+	return ApplyWordFilter(html, wordFilter)
 }
 
 // EnrichMediaImages rewrites inline post images to thumbnails with a full-res lightbox source.

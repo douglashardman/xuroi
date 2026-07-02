@@ -91,7 +91,7 @@ func (a *API) passkeySignupFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, token)
+	setSessionCookie(w, token, auth.SessionDays)
 	enriched, ok := a.enrichActor(w, r, actor)
 	if !ok {
 		return
@@ -205,7 +205,7 @@ func (a *API) passkeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, token)
+	setSessionCookie(w, token, auth.SessionDays)
 	enriched, ok := a.enrichActor(w, r, actor)
 	if !ok {
 		return

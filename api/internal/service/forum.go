@@ -60,6 +60,7 @@ type CreateCategoryInput struct {
 type CreateThreadInput struct {
 	CategoryID   string
 	Title        string
+	TitlePrefix  string
 	AuthorID     string
 	BodyMarkdown string
 	BodyHTML     string
@@ -278,6 +279,7 @@ func (f *Forum) CreateThread(ctx context.Context, in CreateThreadInput) (events.
 		PostID:       postID,
 		CategoryID:   in.CategoryID,
 		Title:        in.Title,
+		TitlePrefix:  in.TitlePrefix,
 		Slug:         slug,
 		AuthorID:     in.AuthorID,
 		BodyMarkdown: in.BodyMarkdown,

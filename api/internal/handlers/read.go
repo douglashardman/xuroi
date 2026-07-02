@@ -105,6 +105,9 @@ func (a *API) getUserProfile(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		blockedByMe, blocksMe := a.profileBlockFlags(r.Context(), viewer, profile.ID)
+		out["blocked_by_me"] = blockedByMe
+		out["blocks_me"] = blocksMe
 		if err := a.dm.CanMessage(r.Context(), viewer.ID, profile.ID, true); err == nil {
 			out["can_message"] = true
 		} else {

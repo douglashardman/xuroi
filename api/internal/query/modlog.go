@@ -18,7 +18,8 @@ type ModLogEntry struct {
 	Payload   json.RawMessage `json:"payload,omitempty"`
 }
 
-var modEventTypes = []string{
+// ModEventTypes is the moderation audit trail (also included in admin log).
+var ModEventTypes = []string{
 	events.TypePostModerated,
 	events.TypePostReported,
 	events.TypeThreadReported,
@@ -50,7 +51,7 @@ func (r *Reader) ModLog(ctx context.Context, limit int) ([]ModLogEntry, error) {
 		WHERE e.type = ANY($1)
 		ORDER BY e.created_at DESC
 		LIMIT $2
-	`, modEventTypes, limit)
+	`, ModEventTypes, limit)
 	if err != nil {
 		return nil, fmt.Errorf("mod log: %w", err)
 	}
@@ -62,13 +63,13 @@ func (r *Reader) ModLog(ctx context.Context, limit int) ([]ModLogEntry, error) {
 		if err := rows.Scan(&entry.ID, &entry.Type, &entry.CreatedAt, &entry.Payload, &entry.ActorName); err != nil {
 			return nil, err
 		}
-		entry.Summary = summarizeModEvent(entry.Type, entry.Payload)
+		entry.Summary = SummarizeModEvent(entry.Type, entry.Payload)
 		out = append(out, entry)
 	}
 	return out, rows.Err()
 }
 
-func summarizeModEvent(evtType string, payload json.RawMessage) string {
+func SummarizeModEvent(evtType string, payload json.RawMessage) string {
 	switch evtType {
 	case events.TypePostModerated:
 		var p events.PostModerated
@@ -117,10 +118,14 @@ func summarizeModEvent(evtType string, payload json.RawMessage) string {
 	case events.TypePostDeleted:
 		var p events.PostDeleted
 		if json.Unmarshal(payload, &p) == nil {
+			label := "Post removed"
 			if p.Hard {
-				return fmt.Sprintf("Post permanently deleted (%s)", shortID(p.PostID))
+				label = "Post permanently deleted"
 			}
-			return fmt.Sprintf("Post removed (%s)", shortID(p.PostID))
+			if p.Reason != "" {
+				return fmt.Sprintf("%s — %s (%s)", label, p.Reason, shortID(p.PostID))
+			}
+			return fmt.Sprintf("%s (%s)", label, shortID(p.PostID))
 		}
 		return "Post removed"
 	case events.TypePostRestored:

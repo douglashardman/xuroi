@@ -10,6 +10,7 @@ import (
 
 	"github.com/xuroi/xuroi/api/internal/auth"
 	"github.com/xuroi/xuroi/api/internal/dm"
+	"github.com/xuroi/xuroi/api/internal/policy"
 	"github.com/xuroi/xuroi/api/internal/ratelimit"
 )
 
@@ -83,6 +84,10 @@ func (a *API) startDMConversation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "recipient_id or recipient_slug required")
 		return
 	}
+	if err := a.checkDMSenderPolicy(r.Context(), actor.ID, actor.IsModerator, actor.IsAdmin); err != nil {
+		writeContentPolicyError(w, err)
+		return
+	}
 	convID, err := a.dm.GetOrCreateConversation(r.Context(), actor.ID, recipientID)
 	if mapDMError(w, err) {
 		return
@@ -108,6 +113,10 @@ func (a *API) sendDMMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.rateLimited(w, "dm:actor:"+actor.ID, 30, ratelimit.PostActorWindow) {
+		return
+	}
+	if err := a.checkDMSenderPolicy(r.Context(), actor.ID, actor.IsModerator, actor.IsAdmin); err != nil {
+		writeContentPolicyError(w, err)
 		return
 	}
 	msg, err := a.dm.SendMessage(r.Context(), actor.ID, convID, req.BodyMarkdown)
@@ -216,6 +225,8 @@ func mapDMError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, dm.ErrSenderDMOff):
 		writeError(w, http.StatusForbidden, err.Error())
 	case errors.Is(err, dm.ErrNotParticipant):
+		writeError(w, http.StatusForbidden, err.Error())
+	case errors.Is(err, policy.ErrDMRestricted):
 		writeError(w, http.StatusForbidden, err.Error())
 	case err.Error() == "member not found":
 		writeError(w, http.StatusNotFound, err.Error())

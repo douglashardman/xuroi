@@ -17,6 +17,7 @@ type ModQueueItem struct {
 	AuthorName   string    `json:"author_name"`
 	Excerpt      string    `json:"excerpt"`
 	IsOP         bool      `json:"is_op"`
+	SpamHold     bool      `json:"spam_hold"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -24,7 +25,7 @@ func (r *Reader) ListModQueue(ctx context.Context) ([]ModQueueItem, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.thread_id, t.title, t.slug, c.name, a.display_name,
 		       LEFT(REGEXP_REPLACE(p.body_html, '<[^>]+>', ' ', 'g'), 280),
-		       p.is_op, p.created_at
+		       p.is_op, NOT c.post_moderation, p.created_at
 		FROM posts p
 		JOIN threads t ON t.id = p.thread_id
 		JOIN categories c ON c.id = t.category_id
@@ -44,7 +45,7 @@ func (r *Reader) ListModQueue(ctx context.Context) ([]ModQueueItem, error) {
 		var slug string
 		if err := rows.Scan(
 			&item.PostID, &item.ThreadID, &item.ThreadTitle, &slug, &item.CategoryName,
-			&item.AuthorName, &item.Excerpt, &item.IsOP, &item.CreatedAt,
+			&item.AuthorName, &item.Excerpt, &item.IsOP, &item.SpamHold, &item.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

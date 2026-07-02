@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/xuroi/xuroi/api/internal/intelligence"
+	"github.com/xuroi/xuroi/api/internal/models"
 )
 
 type Service struct {
@@ -103,31 +104,33 @@ func (s *Service) indexThread(ctx context.Context, threadID string) error {
 }
 
 func (s *Service) indexPost(ctx context.Context, postID string) error {
-	var threadID, categoryID, threadSlug, threadTitle, accessLevel, authorName, bodyHTML string
+	var threadID, categoryID, threadSlug, threadTitle, titlePrefix, accessLevel, authorName, bodyHTML string
 	var moderationStatus string
 	var deleted bool
+	var isOP bool
 	err := s.pool.QueryRow(ctx, `
-		SELECT p.thread_id, c.id, t.slug, t.title, c.access_level, a.display_name,
-		       p.body_html, p.moderation_status, (p.deleted_at IS NOT NULL OR t.deleted_at IS NOT NULL)
+		SELECT p.thread_id, c.id, t.slug, t.title, COALESCE(t.title_prefix, ''), c.access_level, a.display_name,
+		       p.body_html, p.moderation_status, p.is_op, (p.deleted_at IS NOT NULL OR t.deleted_at IS NOT NULL)
 		FROM posts p
 		JOIN threads t ON t.id = p.thread_id
 		JOIN categories c ON c.id = t.category_id
 		JOIN actors a ON a.id = p.author_id
 		WHERE p.id = $1
 	`, postID).Scan(
-		&threadID, &categoryID, &threadSlug, &threadTitle, &accessLevel, &authorName,
-		&bodyHTML, &moderationStatus, &deleted,
+		&threadID, &categoryID, &threadSlug, &threadTitle, &titlePrefix, &accessLevel, &authorName,
+		&bodyHTML, &moderationStatus, &isOP, &deleted,
 	)
 	if err != nil {
 		_, _ = s.pool.Exec(ctx, `DELETE FROM search_documents WHERE entity_id = $1`, postID)
 		return nil
 	}
-	if deleted || moderationStatus != "approved" {
+	if deleted || moderationStatus != "approved" || isOP {
 		_, err = s.pool.Exec(ctx, `DELETE FROM search_documents WHERE entity_id = $1`, postID)
 		return err
 	}
 	body := intelligence.StripHTML(bodyHTML)
-	return s.upsert(ctx, postID, "post", threadID, categoryID, threadTitle, body, authorName, threadSlug, threadTitle, accessLevel)
+	displayTitle := models.ThreadDisplayTitle(titlePrefix, threadTitle)
+	return s.upsert(ctx, postID, "post", threadID, categoryID, displayTitle, body, authorName, threadSlug, displayTitle, accessLevel)
 }
 
 func (s *Service) upsert(ctx context.Context, entityID, docType, threadID, categoryID, title, body, authorName, threadSlug, threadTitle, accessLevel string) error {

@@ -31,7 +31,10 @@ const entries = data.entries ?? [];
     <span class="lab">{entries.length} events</span>
   </div>
 
-  <p class="mod-hint">Category changes, settings saves, bans, backups, and email blocks.</p>
+  <p class="mod-hint">
+    Staff audit trail — moderation (post/thread actions), category changes, settings, bans, backups, and email blocks.
+    Moderators also see a subset at <a href="/mod/log">Mod log</a>.
+  </p>
 
   {entries.length === 0 ? (
     <p class="mod-empty">No admin events yet.</p>

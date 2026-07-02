@@ -101,6 +101,7 @@ type ThreadCreated struct {
 	PostID       string `json:"post_id"`
 	CategoryID   string `json:"category_id"`
 	Title        string `json:"title"`
+	TitlePrefix  string `json:"title_prefix,omitempty"`
 	Slug         string `json:"slug"`
 	AuthorID     string `json:"author_id"`
 	BodyMarkdown string `json:"body_markdown"`

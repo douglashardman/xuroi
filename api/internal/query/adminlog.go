@@ -18,7 +18,7 @@ type AdminLogEntry struct {
 	Payload   json.RawMessage `json:"payload,omitempty"`
 }
 
-var adminEventTypes = []string{
+var adminOnlyEventTypes = []string{
 	events.TypeCategoryCreated,
 	events.TypeCategoryUpdated,
 	events.TypeCategoryDeleted,
@@ -27,6 +27,13 @@ var adminEventTypes = []string{
 	events.TypeAdminUserUnbanned,
 	events.TypeAdminBackupTriggered,
 	events.TypeAdminEmailBanned,
+}
+
+func adminEventTypes() []string {
+	out := make([]string, 0, len(adminOnlyEventTypes)+len(ModEventTypes))
+	out = append(out, adminOnlyEventTypes...)
+	out = append(out, ModEventTypes...)
+	return out
 }
 
 func (r *Reader) AdminLog(ctx context.Context, limit int) ([]AdminLogEntry, error) {
@@ -43,7 +50,7 @@ func (r *Reader) AdminLog(ctx context.Context, limit int) ([]AdminLogEntry, erro
 		WHERE e.type = ANY($1)
 		ORDER BY e.created_at DESC
 		LIMIT $2
-	`, adminEventTypes, limit)
+	`, adminEventTypes(), limit)
 	if err != nil {
 		return nil, fmt.Errorf("admin log: %w", err)
 	}
@@ -100,6 +107,6 @@ func summarizeAdminEvent(evtType string, payload json.RawMessage) string {
 		}
 		return "Email banned"
 	default:
-		return evtType
+		return SummarizeModEvent(evtType, payload)
 	}
 }

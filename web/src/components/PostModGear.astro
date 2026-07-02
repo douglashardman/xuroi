@@ -9,7 +9,7 @@ interface Props {
 
 const { postId, threadId, warned, isOP = false, isAccepted = false } = Astro.props;
 ---
-<div class="mod-gear-wrap mod-gear-wrap--post">
+<div class="mod-gear-wrap mod-gear-wrap--post" data-thread-id={threadId}>
   <button
     type="button"
     class="mod-gear-btn mod-gear-btn--post"

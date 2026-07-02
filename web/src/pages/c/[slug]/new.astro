@@ -16,6 +16,10 @@ const [data, user] = await Promise.all([
 if (!user) {
   return Astro.redirect(`/join?next=/c/${slug}/new`);
 }
+
+const classifiedsSlugs = new Set(['free-classifieds', 'wanted-trade', 'ebay-items']);
+const isClassifieds = classifiedsSlugs.has(slug!);
+const prefixes = ['FS', 'WTT', 'WTB', 'SOLD'];
 ---
 <Layout title={`New thread · ${data.category.name}`} site={data.site} user={user}>
   <div class="crumb">
@@ -29,9 +33,18 @@ if (!user) {
     <p>Posting in <strong>{data.category.name}</strong>. Select text and use the toolbar to format.</p>
     <form id="new-thread-form" class="compose-form">
       <input type="hidden" name="category_id" value={data.category.id} />
+      {isClassifieds && (
+        <label>
+          Listing type
+          <select name="title_prefix" required>
+            <option value="">Choose…</option>
+            {prefixes.map((p) => <option value={p}>{p}</option>)}
+          </select>
+        </label>
+      )}
       <label>
         Title
-        <input type="text" name="title" required minlength="4" maxlength="200" placeholder="Odyssey vs Scotty on fast greens?" />
+        <input type="text" name="title" required minlength="4" maxlength="200" placeholder={isClassifieds ? 'Scotty Cameron Newport 2 — excellent condition' : 'Odyssey vs Scotty on fast greens?'} />
       </label>
       <RichTextEditor
         id="thread-body"

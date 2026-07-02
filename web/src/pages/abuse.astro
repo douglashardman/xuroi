@@ -1,0 +1,58 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import { getHome } from '../lib/api';
+import { backendFetch, sessionFromCookieHeader } from '../lib/server-api';
+
+const cookie = Astro.request.headers.get('cookie');
+const session = sessionFromCookieHeader(cookie);
+const home = await getHome(session);
+
+let abuseEmail = 'abuse@puttertalk.com';
+let abuseNote = '';
+const statusRes = await backendFetch('/v1/site/status', {}, session);
+if (statusRes.ok) {
+  const status = await statusRes.json();
+  if (status.trust?.abuse_email) abuseEmail = status.trust.abuse_email;
+  if (status.trust?.abuse_note) abuseNote = status.trust.abuse_note;
+}
+---
+<Layout title="Report abuse" description="How to report copyright, harassment, or other abuse on PutterTalk." site={home.site} user={null}>
+  <div class="crumb">
+    <a href="/community">Community</a> › Report abuse
+  </div>
+
+  <section class="legal-card abuse-card">
+    <h1>Report abuse</h1>
+    <p>Use this page for copyright (DMCA), harassment, illegal content, or other serious violations — not routine forum moderation.</p>
+
+    {abuseNote && <p class="abuse-note">{abuseNote}</p>}
+
+    <h2>What to include</h2>
+    <ul>
+      <li>Link to the thread or post (or describe where it appears)</li>
+      <li>What happened and why it violates our terms</li>
+      <li>For copyright: your contact info and a statement of good faith</li>
+    </ul>
+
+    <p class="abuse-contact">
+      Email <a href={`mailto:${abuseEmail}`}>{abuseEmail}</a> — we aim to respond within a few business days.
+    </p>
+
+    <p class="abuse-muted">For spam or routine rule-breaking inside the forums, use <strong>Report</strong> on the post or contact a moderator via <a href="/mod/reports">Reports</a> if you are staff.</p>
+  </section>
+</Layout>
+
+<style>
+  .abuse-card { max-width: 52ch; }
+  .abuse-note {
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: var(--card);
+    border: var(--line);
+    margin: 0 0 20px;
+  }
+  .abuse-contact { font-size: 1.05rem; }
+  .abuse-muted { color: var(--muted); font-size: 0.95rem; }
+</style>

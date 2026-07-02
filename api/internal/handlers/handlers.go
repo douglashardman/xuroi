@@ -14,7 +14,6 @@ import (
 	"github.com/xuroi/xuroi/api/internal/auth"
 	"github.com/xuroi/xuroi/api/internal/dm"
 	"github.com/xuroi/xuroi/api/internal/friends"
-	"github.com/xuroi/xuroi/api/internal/markdown"
 	"github.com/xuroi/xuroi/api/internal/media"
 	"github.com/xuroi/xuroi/api/internal/netutil"
 	"github.com/xuroi/xuroi/api/internal/notify"
@@ -55,6 +54,8 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/categories", a.listCategories)
 	mux.HandleFunc("GET /v1/categories/{slug}", a.getCategory)
 	mux.HandleFunc("POST /v1/categories/{slug}/read", a.markCategoryRead)
+	mux.HandleFunc("GET /v1/categories/{slug}/email-watch", a.getCategoryEmailWatch)
+	mux.HandleFunc("PATCH /v1/categories/{slug}/email-watch", a.setCategoryEmailWatch)
 	mux.HandleFunc("GET /v1/threads/recent", a.listRecentThreads)
 	mux.HandleFunc("GET /v1/me/unread-threads", a.unreadThreadCount)
 	mux.HandleFunc("GET /v1/search", a.searchContent)
@@ -75,6 +76,10 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /v1/threads/{id}/llm.txt", a.getThreadLLMText)
 	mux.HandleFunc("POST /v1/preview", a.previewPost)
 	mux.HandleFunc("PATCH /v1/me/profile", a.patchMyProfile)
+	mux.HandleFunc("GET /v1/me/timezone", a.getMyTimezone)
+	mux.HandleFunc("PATCH /v1/me/timezone", a.setMyTimezone)
+	mux.HandleFunc("POST /v1/actors/{id}/block", a.blockActor)
+	mux.HandleFunc("DELETE /v1/actors/{id}/block", a.unblockActor)
 	mux.HandleFunc("GET /v1/me/export", a.exportMyData)
 	mux.HandleFunc("DELETE /v1/me/account", a.deleteMyAccount)
 	mux.HandleFunc("POST /v1/categories", a.createCategory)
@@ -237,6 +242,7 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		CategoryID   string `json:"category_id"`
 		Title        string `json:"title"`
+		TitlePrefix  string `json:"title_prefix"`
 		AuthorID     string `json:"author_id"`
 		BodyMarkdown string `json:"body_markdown"`
 		BodyHTML     string `json:"body_html"`
@@ -296,15 +302,40 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 		writeContentPolicyError(w, err)
 		return
 	}
+	catSlug, err := a.reader.CategorySlug(r.Context(), req.CategoryID)
+	if err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			writeError(w, http.StatusBadRequest, "category not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	titlePrefix := strings.ToUpper(strings.TrimSpace(req.TitlePrefix))
+	if site.IsClassifiedsForum(catSlug) {
+		if titlePrefix == "" {
+			writeError(w, http.StatusBadRequest, "choose a listing prefix (FS, WTT, WTB, or SOLD)")
+			return
+		}
+		if !site.ValidClassifiedsPrefix(titlePrefix) {
+			writeError(w, http.StatusBadRequest, "invalid listing prefix")
+			return
+		}
+	} else if titlePrefix != "" {
+		writeError(w, http.StatusBadRequest, "listing prefixes are only for classifieds forums")
+		return
+	}
+
 	var mentioned []string
 	req.BodyMarkdown, mentioned = a.processPostMentions(r, req.BodyMarkdown, req.AuthorID)
 	if req.BodyHTML == "" {
-		req.BodyHTML = markdown.ToHTML(req.BodyMarkdown)
+		req.BodyHTML = a.renderPostHTML(req.BodyMarkdown)
 	}
 
 	evt, err := a.forum.CreateThread(r.Context(), service.CreateThreadInput{
 		CategoryID:   req.CategoryID,
 		Title:        req.Title,
+		TitlePrefix:  titlePrefix,
 		AuthorID:     req.AuthorID,
 		BodyMarkdown: req.BodyMarkdown,
 		BodyHTML:     req.BodyHTML,
@@ -329,6 +360,9 @@ func (a *API) createThread(w http.ResponseWriter, r *http.Request) {
 
 	if payload.PostID != "" && len(mentioned) > 0 && a.notify != nil {
 		_ = a.notify.NotifyMentions(r.Context(), payload.PostID, payload.ThreadID, req.AuthorID, mentioned)
+	}
+	if payload.ThreadID != "" && a.notify != nil {
+		_ = a.notify.EnqueueCategoryNewThread(r.Context(), req.CategoryID, payload.ThreadID, req.AuthorID)
 	}
 
 	pending := false
@@ -413,7 +447,7 @@ func (a *API) createPost(w http.ResponseWriter, r *http.Request) {
 	var mentioned []string
 	req.BodyMarkdown, mentioned = a.processPostMentions(r, req.BodyMarkdown, req.AuthorID)
 	if req.BodyHTML == "" {
-		req.BodyHTML = markdown.ToHTML(req.BodyMarkdown)
+		req.BodyHTML = a.renderPostHTML(req.BodyMarkdown)
 	}
 
 	evt, err := a.forum.CreatePost(r.Context(), service.CreatePostInput{

@@ -73,6 +73,7 @@ type ReportReason struct {
 
 type ModerationPolicy struct {
 	ReportReasons []ReportReason `json:"report_reasons"`
+	WordFilter    []string       `json:"word_filter"`
 }
 
 func (p ModerationPolicy) Normalized() ModerationPolicy {
@@ -80,6 +81,35 @@ func (p ModerationPolicy) Normalized() ModerationPolicy {
 	if len(out.ReportReasons) == 0 {
 		out.ReportReasons = DefaultReportReasons()
 	}
+	if out.WordFilter == nil {
+		out.WordFilter = []string{}
+	}
+	return out
+}
+
+type ClassifiedsPolicy struct {
+	RulesURL   string `json:"rules_url"`
+	RulesTitle string `json:"rules_title"`
+}
+
+func (p ClassifiedsPolicy) Normalized() ClassifiedsPolicy {
+	out := p
+	if strings.TrimSpace(out.RulesTitle) == "" {
+		out.RulesTitle = "Classifieds rules"
+	}
+	out.RulesURL = strings.TrimSpace(out.RulesURL)
+	return out
+}
+
+type TrustPolicy struct {
+	AbuseEmail string `json:"abuse_email"`
+	AbuseNote  string `json:"abuse_note"`
+}
+
+func (p TrustPolicy) Normalized() TrustPolicy {
+	out := p
+	out.AbuseEmail = strings.TrimSpace(out.AbuseEmail)
+	out.AbuseNote = strings.TrimSpace(out.AbuseNote)
 	return out
 }
 
@@ -127,6 +157,9 @@ type Config struct {
 	Spam                 spam.Policy
 	SEO                  SEOPolicy
 	Maintenance          MaintenancePolicy
+	Notice               NoticePolicy
+	Classifieds          ClassifiedsPolicy
+	Trust                TrustPolicy
 	Registration         RegistrationPolicy
 	ReservedDisplayNames []string
 	SiteJSONPath         string
@@ -146,6 +179,9 @@ type fileConfig struct {
 	Spam                  spam.Policy           `json:"spam"`
 	SEO                   *SEOPolicy            `json:"seo"`
 	Maintenance           MaintenancePolicy     `json:"maintenance"`
+	Notice                NoticePolicy          `json:"notice"`
+	Classifieds           ClassifiedsPolicy     `json:"classifieds"`
+	Trust                 TrustPolicy           `json:"trust"`
 	Registration          RegistrationPolicy    `json:"registration"`
 	Features              struct {
 		ThreadIntelligence bool `json:"thread_intelligence"`
@@ -173,6 +209,9 @@ func Load() Config {
 		},
 		SEO:          DefaultSEOPolicy(),
 		Maintenance:  DefaultMaintenancePolicy(),
+		Notice:       DefaultNoticePolicy(),
+		Classifieds:  ClassifiedsPolicy{RulesTitle: "Classifieds rules"},
+		Trust:        TrustPolicy{AbuseEmail: "abuse@puttertalk.com"},
 		Registration: DefaultRegistrationPolicy(),
 	}
 
@@ -213,6 +252,9 @@ func Load() Config {
 				cfg.SEO = *f.SEO
 			}
 			cfg.Maintenance = f.Maintenance.Normalized()
+			cfg.Notice = f.Notice.Normalized()
+			cfg.Classifieds = f.Classifieds.Normalized()
+			cfg.Trust = f.Trust.Normalized()
 			cfg.Registration = f.Registration.Normalized()
 		}
 	}
@@ -234,6 +276,9 @@ func Load() Config {
 	cfg.NewUsers = cfg.NewUsers.Normalized()
 	cfg.Spam = cfg.Spam.Normalized()
 	cfg.Maintenance = cfg.Maintenance.Normalized()
+	cfg.Notice = cfg.Notice.Normalized()
+	cfg.Classifieds = cfg.Classifieds.Normalized()
+	cfg.Trust = cfg.Trust.Normalized()
 	cfg.Registration = cfg.Registration.Normalized()
 	return cfg
 }
@@ -264,6 +309,9 @@ func Save(cfg Config, path string) error {
 		"spam":                   cfg.Spam,
 		"seo":                    cfg.SEO,
 		"maintenance":            cfg.Maintenance,
+		"notice":                 cfg.Notice,
+		"classifieds":            cfg.Classifieds,
+		"trust":                  cfg.Trust,
 		"registration":           cfg.Registration,
 		"reserved_display_names": cfg.ReservedDisplayNames,
 	}

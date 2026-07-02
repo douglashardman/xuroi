@@ -130,7 +130,7 @@ func (s *Service) FinishPasskeySignup(ctx context.Context, sessionID string, cre
 		return Actor{}, "", err
 	}
 
-	token, err := s.insertSession(ctx, tx, user.ActorID)
+	token, err := s.insertSession(ctx, tx, user.ActorID, SessionDays)
 	if err != nil {
 		return Actor{}, "", err
 	}
@@ -270,7 +270,7 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, sessionID string, cred
 		return Actor{ID: wu.ActorID, DisplayName: wu.DisplayName, Email: wu.Email}, "", err
 	}
 
-	token, err := s.insertSession(ctx, s.pool, wu.ActorID)
+	token, err := s.insertSession(ctx, s.pool, wu.ActorID, SessionDays)
 	if err != nil {
 		return Actor{}, "", err
 	}

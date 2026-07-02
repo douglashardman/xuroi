@@ -81,10 +81,12 @@ func Search(ctx context.Context, pool *pgxpool.Pool, opts Options, viewer access
 		       ts_rank(sd.search_vector, query) AS rank,
 		       ts_headline('english', sd.body, query, 'MaxFragments=2,MaxWords=30,MinWords=8,StartSel=<mark>,StopSel=</mark>') AS headline
 		FROM search_documents sd
-		JOIN categories c ON c.id = sd.category_id,
+		JOIN categories c ON c.id = sd.category_id
+		LEFT JOIN posts p ON p.id = sd.entity_id AND sd.doc_type = 'post',
 		     plainto_tsquery('english', $1) query
 		WHERE sd.search_vector @@ query
 		  AND ($2 = '' OR c.slug = $2)
+		  AND NOT (sd.doc_type = 'post' AND COALESCE(p.is_op, FALSE))
 		ORDER BY rank DESC, sd.updated_at DESC
 		LIMIT $3
 	`, q, categorySlug, limit*3)
@@ -156,8 +158,10 @@ func searchByAuthor(ctx context.Context, pool *pgxpool.Pool, authorName, categor
 		       sd.author_name, sd.body, sd.access_level, c.name
 		FROM search_documents sd
 		JOIN categories c ON c.id = sd.category_id
+		LEFT JOIN posts p ON p.id = sd.entity_id AND sd.doc_type = 'post'
 		WHERE sd.author_name = $1
 		  AND ($2 = '' OR c.slug = $2)
+		  AND NOT (sd.doc_type = 'post' AND COALESCE(p.is_op, FALSE))
 		ORDER BY sd.updated_at DESC
 		LIMIT $3
 	`, authorName, categorySlug, limit*3)

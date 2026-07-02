@@ -65,6 +65,12 @@ func main() {
 		} else if m > 0 {
 			log.Printf("sent %d mention notification(s)", m)
 		}
+		c, err := svc.ProcessCategoryQueue(ctx, *limit)
+		if err != nil {
+			log.Printf("notify category: %v", err)
+		} else if c > 0 {
+			log.Printf("sent %d category watch notification(s)", c)
+		}
 	}
 
 	run()

@@ -26,7 +26,10 @@ func (a *API) siteSettingsPayload() map[string]any {
 		"seo":                    a.siteCfg.SEO,
 		"reserved_display_names": a.siteCfg.ReservedDisplayNames,
 		"maintenance":            a.siteCfg.Maintenance,
+		"notice":                 a.siteCfg.Notice,
 		"registration":           a.siteCfg.Registration,
+		"classifieds":            a.siteCfg.Classifieds,
+		"trust":                  a.siteCfg.Trust,
 	}
 }
 
@@ -56,7 +59,10 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 		SEO                   *site.SEOPolicy       `json:"seo"`
 		ReservedDisplayNames  *[]string              `json:"reserved_display_names"`
 		Maintenance           *site.MaintenancePolicy `json:"maintenance"`
+		Notice                *site.NoticePolicy      `json:"notice"`
 		Registration          *site.RegistrationPolicy `json:"registration"`
+		Classifieds           *site.ClassifiedsPolicy  `json:"classifieds"`
+		Trust                 *site.TrustPolicy        `json:"trust"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -122,8 +128,17 @@ func (a *API) patchAdminSiteSettings(w http.ResponseWriter, r *http.Request) {
 	if req.Maintenance != nil {
 		cfg.Maintenance = req.Maintenance.Normalized()
 	}
+	if req.Notice != nil {
+		cfg.Notice = req.Notice.Normalized()
+	}
 	if req.Registration != nil {
 		cfg.Registration = req.Registration.Normalized()
+	}
+	if req.Classifieds != nil {
+		cfg.Classifieds = req.Classifieds.Normalized()
+	}
+	if req.Trust != nil {
+		cfg.Trust = req.Trust.Normalized()
 	}
 	if req.ReservedDisplayNames != nil {
 		names := make([]string, 0, len(*req.ReservedDisplayNames))

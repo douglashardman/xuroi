@@ -23,7 +23,8 @@ import (
 
 const (
 	CookieName     = "xuroi_session"
-	SessionDays    = 30
+	SessionDays       = 30
+	RememberSessionDays = 90
 	tokenBytes     = 32
 )
 
@@ -128,7 +129,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Actor, string
 		return Actor{}, "", fmt.Errorf("insert password: %w", err)
 	}
 
-	token, err := s.insertSession(ctx, tx, actorID)
+	token, err := s.insertSession(ctx, tx, actorID, SessionDays)
 	if err != nil {
 		return Actor{}, "", err
 	}
@@ -140,7 +141,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Actor, string
 	return Actor{ID: actorID, DisplayName: displayName, Email: email}, token, nil
 }
 
-func (s *Service) LoginWithPassword(ctx context.Context, email, password string) (Actor, string, error) {
+func (s *Service) LoginWithPassword(ctx context.Context, email, password string, remember bool) (Actor, string, error) {
 	email = normalizeEmail(email)
 	if email == "" || password == "" {
 		return Actor{}, "", ErrInvalidInput
@@ -174,7 +175,11 @@ func (s *Service) LoginWithPassword(ctx context.Context, email, password string)
 		return actor, "", err
 	}
 
-	token, err := s.insertSession(ctx, s.pool, actor.ID)
+	days := SessionDays
+	if remember {
+		days = RememberSessionDays
+	}
+	token, err := s.insertSession(ctx, s.pool, actor.ID, days)
 	if err != nil {
 		return Actor{}, "", err
 	}
@@ -213,7 +218,7 @@ func (s *Service) LoginLegacy(ctx context.Context, email string) (Actor, string,
 		return actor, "", err
 	}
 
-	token, err := s.insertSession(ctx, s.pool, actor.ID)
+	token, err := s.insertSession(ctx, s.pool, actor.ID, SessionDays)
 	if err != nil {
 		return Actor{}, "", err
 	}
@@ -277,14 +282,17 @@ type sessionDB interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 }
 
-func (s *Service) insertSession(ctx context.Context, db sessionDB, actorID string) (string, error) {
+func (s *Service) insertSession(ctx context.Context, db sessionDB, actorID string, days int) (string, error) {
+	if days < 1 {
+		days = SessionDays
+	}
 	token, err := newToken()
 	if err != nil {
 		return "", err
 	}
 
 	sessionID := ids.New("ses_")
-	expires := time.Now().Add(SessionDays * 24 * time.Hour)
+	expires := time.Now().Add(time.Duration(days) * 24 * time.Hour)
 	_, err = db.Exec(ctx, `
 		INSERT INTO sessions (id, actor_id, token_hash, expires_at)
 		VALUES ($1, $2, $3, $4)

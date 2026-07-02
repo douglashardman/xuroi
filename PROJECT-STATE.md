@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — P1 Batch 2 (13 items)  
+**Last updated:** July 2, 2026 — P1 Batch 4 shipped (12/13)  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** P1 Batch 2 shipped · **Next:** Peck next P1/P2 from WISH-LIST (E9 spam verify · C6 2FA · A5 semantic)
+**Session status:** **P1 Batch 4** done — see `.grok/session/notes/2026-07-02-p1-batch-4-done.md` · Deferred: C6 2FA
 
 ---
 
@@ -202,7 +202,7 @@ go run ./cmd/intelligence         # thread summaries
 
 1. Read `../.grok/session/CHANGELOG.md` first
 2. Read this file + **WISH-LIST.md** P1 section
-3. Default next work: **P1/P2** — E9 spam scoring verify · B16 merge threads · C6 2FA
+3. Default next work: **P1** — C6 TOTP 2FA (staff) · B16 merge threads · P3 WITB UX
 4. **Admin rule:** every setting gets an Admin section at ship time
 5. End of session: update CHANGELOG + this file
 6. Execute yourself — run commands, don't just instruct Doug

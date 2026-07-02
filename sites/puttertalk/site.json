@@ -219,7 +219,16 @@
     "data_migration": false,
     "notes": "Greenfield relaunch. Domain recovered 2026. No DB backup found."
   },
+  "classifieds": {
+    "rules_title": "Classifieds rules",
+    "rules_url": ""
+  },
+  "trust": {
+    "abuse_email": "abuse@puttertalk.com",
+    "abuse_note": "For copyright (DMCA), harassment, or illegal content — not routine forum moderation."
+  },
   "moderation": {
+    "word_filter": [],
     "report_reasons": [
       {
         "id": "spam",

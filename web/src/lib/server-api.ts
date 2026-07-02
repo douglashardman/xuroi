@@ -30,6 +30,7 @@ export interface Actor {
   unread_threads?: number;
   pending_friend_requests?: number;
   dm_privacy?: 'everyone' | 'friends_only' | 'off';
+  timezone?: string;
   avatar_url?: string;
 }
 

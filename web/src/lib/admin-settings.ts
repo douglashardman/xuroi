@@ -123,11 +123,24 @@ export function buildSettingsPayload(baseAdmin: Record<string, unknown>, reasons
     },
     moderation: {
       report_reasons: collectReportReasons(reasonsRoot),
+      word_filter: splitLines(field<HTMLTextAreaElement>('set-word-filter').value),
+    },
+    classifieds: {
+      rules_title: field<HTMLInputElement>('set-classifieds-title').value.trim() || 'Classifieds rules',
+      rules_url: field<HTMLInputElement>('set-classifieds-url').value.trim(),
+    },
+    trust: {
+      abuse_email: field<HTMLInputElement>('set-abuse-email').value.trim(),
+      abuse_note: field<HTMLTextAreaElement>('set-abuse-note').value.trim(),
     },
     reserved_display_names: splitLines(field<HTMLTextAreaElement>('set-reserved-names').value),
     registration: {
       username_denylist: splitLines(field<HTMLTextAreaElement>('set-username-denylist').value),
       blocked_email_domains: splitLines(field<HTMLTextAreaElement>('set-blocked-domains').value),
+    },
+    notice: {
+      enabled: field<HTMLInputElement>('set-notice-enabled').checked,
+      message: field<HTMLTextAreaElement>('set-notice-message').value.trim(),
     },
     maintenance: {
       enabled: field<HTMLInputElement>('set-maintenance-enabled').checked,

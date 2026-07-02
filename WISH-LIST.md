@@ -95,7 +95,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | B15 | Move thread (category) | P1 | All | Mod gear picker · API + UI |
 | — | B16 | Merge threads | P2 | All | |
 | — | B17 | Split thread | P2 | [XF] | |
-| — | B18 | Thread prefixes / labels | P2 | [XF] | "FS", "WTT", "[SOLD]" for BST |
+| ✓ | B18 | Thread prefixes / labels | P2 | [XF] | FS/WTT/WTB/SOLD on classifieds new-thread |
 | — | B19 | Polls | P3 | All | |
 | — | B20 | Thread types (question, article, suggestion) | P2 | [XF] | Question → solution flow |
 | ✓ | B21 | Drafts (save post before submit) | P1 | All | Reply + new-thread composers · localStorage |
@@ -103,7 +103,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | B23 | @mentions | P1 | [XF][SMF] | `@slug`, `@"Name"`, `@[Name]` → profile links + notify |
 | ✓ | B24 | Markdown authoring → sanitized HTML | P0 | | goldmark + bluemonday UGC |
 | — | B25 | Link unfurl / embed preview | P2 | [XF] | |
-| — | B26 | Spoilers / collapsible sections | P2 | All | |
+| ✓ | B26 | Spoilers / collapsible sections | P2 | All | `>!text!<` markdown |
 | — | B27 | Code blocks with syntax highlight | P2 | All | Low priority for PutterTalk |
 | ✓ | B28 | Post reactions (like) | P0 | All | Single type v1 + karma |
 | — | B29 | Multi-reaction types | P3 | [XF] | |
@@ -117,7 +117,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | B37 | Mark forum read | P1 | All | `POST /v1/categories/{slug}/read` · button on forum page |
 | ✓ | B38 | Mark thread read | P1 | All | Badges on forum + whats-new · nav unread count |
 | ✓ | B39 | Thread watch / subscribe | P1 | All | Watch/mute toggle on thread · `email_thread_mutes` |
-| — | B40 | Category watch | P2 | All | |
+| ✓ | B40 | Category watch | P2 | All | Watch forum · email on new threads |
 | ✓ | B41 | Thread view counter | P1 | All | Member dedup 6h · `view_count` on thread |
 | — | B42 | Similar / related threads | P2 | [XU] | Semantic |
 | — | B43 | Featured / spotlight threads | P2 | [XF] | Homepage curation |
@@ -155,7 +155,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | C21 | Online now / last seen | P1 | All | Nav online count + panel · profile last seen · hide-online privacy · staff override |
 | ✓ | C22 | Member list | P2 | All | `/members` paginated directory |
 | ✓ | C23 | User search | P2 | All | `?q=` on `/members` · nav link |
-| — | C24 | Ignore / block user | P2 | [PB] | |
+| ✓ | C24 | Ignore / block user | P2 | [PB] | Profile block · hide posts · block DMs |
 | — | C25 | Follow user | P3 | [XF] | |
 | — | C26 | Privacy settings | P2 | [XF] | Profile visibility |
 | — | C27 | GDPR data export | P1 | [XF] | |
@@ -168,7 +168,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | C34 | OAuth2 provider (login with Xuroi) | P3 | [XF] | For product phase |
 | ✓ | C35 | User state: banned, discouraged, valid | P0 | All | `actors.state`; temp ban via `banned_until` |
 | ✓ | C36 | Login attempt throttling | P0 | [PB] | IP + per-email failed-login limits |
-| — | C37 | Remember me | P1 | All | 30-day session default; no explicit toggle |
+| ✓ | C37 | Remember me | P1 | All | Login checkbox · 90-day session |
 
 ---
 
@@ -202,7 +202,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | E10 | Spam scoring (ML / Akismet) | P2 | [XF] | |
 | ✓ | E11 | Flood control / rate limits | P0 | All | Post + thread + login limits; in-memory v1 |
 | — | E12 | Duplicate post detection | P2 | — | |
-| — | E13 | Word censor / filter | P2 | All | |
+| ✓ | E13 | Word censor / filter | P2 | All | Admin word list · RenderUGC |
 | — | E14 | Link domain allow/deny | P2 | — | |
 | ✓ | E15 | Force nofollow on user links | P1 | [XF] | `seo.nofollow_user_links` in Admin settings |
 | ✓ | E16 | Warn user | P2 | [XF] | 8h red border overlay; 3 strikes → 7-day auto-ban |
@@ -213,7 +213,7 @@ These are why we exist. Incumbents don't have them natively.
 | — | E21 | Thread reply ban | P2 | [XF] | |
 | — | E22 | Discourage mode (shadow throttle) | P3 | [XF] | |
 | — | E23 | Clean spammer (bulk delete) | P2 | [XF] | |
-| — | E24 | DMCA / abuse contact flow | P1 | — | Legal |
+| ✓ | E24 | DMCA / abuse contact flow | P1 | — | `/abuse` · Admin trust settings |
 | — | E25 | Cookie consent | P2 | [XF] | If EU traffic |
 | — | E26 | Moderated categories (pre-approval) | P2 | All | BST candidate |
 | ✓ | E27 | Edit post by mod | P1 | All | Mod gear · `POST /v1/mod/posts/{id}/edit` · revision tagged |
@@ -249,7 +249,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | G3 | Thumbnails / responsive sizes | P0 | [XU] | `_thumb.webp` on upload + lightbox |
 | ✓ | G4 | EXIF strip | P0 | [XU] | Decode → WebP re-encode drops metadata |
 | — | G5 | CDN delivery | P0 | [XU] | Local uploads; Cloudflare at cutover |
-| — | G6 | Alt-text (manual + auto) | P1 | [XU] | |
+| ✓ | G6 | Alt-text (manual + auto) | P1 | [XU] | Manual alt field per upload |
 | — | G7 | File attachments (PDF, etc.) | P2 | All | |
 | — | G8 | Attachment quota per user | P2 | All | |
 | — | G9 | Attachment permissions | P1 | [XF] | |
@@ -296,7 +296,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | I4 | In-app notification feed | P1 | [XF] | Bell · `/notifications` · mentions + thread_reply; auto-clear on view |
 | ✓ | I5 | Notification preferences | P1 | [XF] | `/settings/email` · thread replies + @mentions toggles · `GET/PATCH /v1/me/email-preferences` |
 | — | I6 | Push notifications (web push) | P3 | [XF] | |
-| partial | I7 | Email queue / retry | P1 | All | Queue tables + worker; retry/backoff basic |
+| ✓ | I7 | Email queue / retry | P1 | All | Thread digest + mention + category watch retry |
 | ✓ | I8 | Transactional email templates | P1 | — | thread_reply, magic_link, password_reset, mention |
 | ✓ | I9 | Unsubscribe links | P1 | — | `/email/unsubscribe` + per-thread mutes |
 | — | I10 | Admin notices / announcements | P2 | [XF] | |
@@ -353,7 +353,7 @@ These are why we exist. Incumbents don't have them natively.
 | ✓ | K19 | Reserved display names (anti-impersonation) | P0 | — | `reserved_display_names` in site.json |
 | — | K25 | Contact form | P2 | [XF] | Was duplicate K19 |
 | — | K20 | Multi-language / i18n | P4 | All | English v1 |
-| — | K21 | Timezone handling | P1 | All | |
+| ✓ | K21 | Timezone handling | P1 | All | Profile TZ · `formatDate` uses zone |
 | — | K22 | Import tool (XenForo) | P3 | [XF] | Others may want |
 | — | K23 | Import tool (phpBB / SMF) | P4 | — | |
 | — | K24 | Data export (full site) | P2 | — | |
@@ -441,7 +441,7 @@ These are why we exist. Incumbents don't have them natively.
 | Status | # | Item | Pri | Notes |
 |---|---|---|---|---|
 | ✓ | P1 | Category set (see site.json) | P0 | 7 sections · 22 forums seeded |
-| — | P2 | BST category rules + pinned FAQ | P1 | Buy/sell/trade |
+| ✓ | P2 | BST category rules + pinned FAQ | P1 | Classifieds banner · Admin rules URL |
 | — | P3 | WITB photo-first UX | P1 | Image pipeline priority |
 | — | P4 | Gear entity tags (Odyssey, Scotty, etc.) | P2 | |
 | ✓ | P5 | "We're back" landing narrative | P0 | Home hero — greenfield relaunch, no archive pretense |

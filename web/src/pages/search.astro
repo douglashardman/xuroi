@@ -4,6 +4,7 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import { getHome } from '../lib/api';
 import { getMe, sessionFromCookieHeader } from '../lib/server-api';
+import { ACCENT_VARS, accentIndex } from '../lib/theme';
 
 const q = Astro.url.searchParams.get('q')?.trim() ?? '';
 const author = Astro.url.searchParams.get('author')?.trim() ?? '';
@@ -13,14 +14,20 @@ const session = sessionFromCookieHeader(cookie);
 const [home, user] = await Promise.all([getHome(session), getMe(session)]);
 
 const runSearch = q.length >= 2 || author.length > 0;
+const hasFilters = q.length > 0 || author.length > 0 || category.length > 0;
 
 let results: Array<{
+  entity_id: string;
+  doc_type: string;
+  thread_id: string;
   thread_title: string;
   thread_url: string;
   category_name: string;
   author_name: string;
   excerpt: string;
 }> = [];
+let total = 0;
+let resolvedAuthor = author;
 
 if (runSearch) {
   const params = new URLSearchParams({ limit: '25' });
@@ -33,84 +40,157 @@ if (runSearch) {
   if (res.ok) {
     const data = await res.json();
     results = data.results ?? [];
+    total = data.total ?? results.length;
+    if (data.author) resolvedAuthor = data.author;
   }
 }
 
-const pageTitle = q
-  ? `Search: ${q}`
-  : author
-    ? `Posts by ${author}`
+const displayAuthor = resolvedAuthor || author;
+const authorOnly = author.length > 0 && q.length < 2;
+
+const pageTitle = authorOnly
+  ? `Posts by ${displayAuthor}`
+  : q.length >= 2
+    ? `Search: ${q}`
     : 'Search';
+
+const heroTitle = authorOnly
+  ? `Posts by ${displayAuthor}`
+  : runSearch
+    ? 'Search results'
+    : 'Search';
+
+const heroLead = authorOnly
+  ? `Every thread and reply by ${displayAuthor} across forums you can see — newest first.`
+  : runSearch && q.length >= 2
+    ? author
+      ? `Matches for “${q}” by ${displayAuthor}${category ? ` in ${category}` : ''}.`
+      : `Matches for “${q}”${category ? ` in the ${category} forum` : ' across the community'}.`
+    : 'Search threads and posts — putter models, brands, techniques, BST listings. Or open a profile and click Posts to see everything by that member.';
+
+const resultLabel = total === 1 ? 'result' : 'results';
+const showAuthorInMeta = !authorOnly;
 ---
-<Layout title={pageTitle} site={home.site} user={user}>
-  <div class="crumb"><a href="/community">Community</a> › Search</div>
 
-  <form class="search-form" method="get" action="/search">
-    <input type="search" name="q" value={q} placeholder="Search threads and posts…" />
-    <input type="text" name="author" value={author} placeholder="Author (optional)" />
-    <input type="text" name="category" value={category} placeholder="Forum slug (optional)" />
-    <button type="submit" class="btn btn--pink">Search</button>
-  </form>
+<Layout title={pageTitle} description="Search threads and posts across the community" site={home.site} user={user}>
+  <div class="crumb">
+    <a href="/community">Community</a>
+    › Search
+  </div>
 
-  {runSearch ? (
-    results.length === 0 ? (
-      <p class="mod-empty">
-        {author && !q
-          ? `No posts found for “${author}”.`
-          : `No results for “${q}”. Try different words or filters.`}
-      </p>
-    ) : (
-      <div class="search-results">
-        <p class="search-meta">
-          {results.length} result{results.length === 1 ? '' : 's'}
-          {author && !q ? ` by “${author}”` : q ? ` for “${q}”` : ''}
-        </p>
-        {results.map((r) => (
-          <article class="search-hit">
-            <h3><a href={r.thread_url}>{r.thread_title}</a></h3>
-            <p class="search-hit-meta">{r.category_name} · {r.author_name}</p>
-            <p class="search-hit-excerpt" set:html={r.excerpt} />
-          </article>
-        ))}
+  <div class="wn-page search-page">
+    <header class="wn-hero search-hero">
+      <div class="search-hero-top">
+        <div class="wn-hero-body">
+          <p class="ey lab">{authorOnly ? 'Member posts' : 'Community search'}</p>
+          <h1>{heroTitle}</h1>
+          <p class="wn-lead">{heroLead}</p>
+        </div>
       </div>
-    )
-  ) : (
-    <p class="mod-empty">Search the community — putter models, brands, techniques, BST listings. Or open a profile and click Posts to see everything by that member.</p>
-  )}
-</Layout>
+      <form class="search-form" method="get" action="/search" role="search">
+        <div class="search-primary">
+          <label class="search-label" for="search-q">Keywords</label>
+          <div class="search-primary-row">
+            <input
+              type="search"
+              id="search-q"
+              name="q"
+              value={q}
+              placeholder="Search threads and posts…"
+              autocomplete="off"
+            />
+            <button type="submit" class="btn btn--sm btn--pink">Search</button>
+            {hasFilters && <a class="btn btn--sm" href="/search">Clear</a>}
+          </div>
+        </div>
+        <div class="search-filters">
+          <div class="search-filter">
+            <label class="search-label" for="search-author">Author</label>
+            <input
+              type="text"
+              id="search-author"
+              name="author"
+              value={author}
+              placeholder="Display name or slug"
+              autocomplete="off"
+            />
+          </div>
+          <div class="search-filter">
+            <label class="search-label" for="search-category">Forum</label>
+            <input
+              type="text"
+              id="search-category"
+              name="category"
+              value={category}
+              placeholder="Forum slug (optional)"
+              autocomplete="off"
+            />
+          </div>
+        </div>
+      </form>
+    </header>
 
-<style>
-  .search-form {
-    display: grid;
-    grid-template-columns: 1fr 160px 160px auto;
-    gap: 10px;
-    margin: 16px 0 24px;
-    max-width: 900px;
-  }
-  @media (max-width: 720px) {
-    .search-form { grid-template-columns: 1fr 1fr; }
-    .search-form input[type='search'] { grid-column: 1 / -1; }
-    .search-form button { grid-column: 1 / -1; }
-  }
-  .search-form input {
-    padding: 10px 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--ink);
-  }
-  .search-meta { color: var(--muted); margin-bottom: 12px; }
-  .search-hit {
-    padding: 14px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .search-hit h3 { margin: 0 0 4px; font-size: 1.05rem; }
-  .search-hit-meta { margin: 0; font-size: 0.85rem; color: var(--muted); }
-  .search-hit-excerpt { margin: 6px 0 0; color: var(--ink); line-height: 1.45; }
-  .search-hit-excerpt :global(mark) {
-    background: color-mix(in srgb, var(--pink) 28%, transparent);
-    color: inherit;
-    padding: 0 2px;
-    border-radius: 3px;
-  }
-</style>
+    {runSearch ? (
+      <>
+        <div class="wn-summary">
+          <span class="wn-count">
+            <strong>{total}</strong>
+            {resultLabel}
+            {authorOnly && <span class="search-filter-note">by {displayAuthor}</span>}
+            {!authorOnly && q.length >= 2 && <span class="search-filter-note">for “{q}”</span>}
+          </span>
+          <a class="wn-back" href="/community">Browse forums →</a>
+        </div>
+
+        {results.length === 0 ? (
+          <div class="empty-state wn-empty">
+            <strong>No matches</strong>
+            <p>
+              {authorOnly
+                ? `No posts found for “${displayAuthor}”. Check the spelling or try their profile slug.`
+                : `Nothing matched “${q}”. Try different words or fewer filters.`}
+            </p>
+            {hasFilters ? (
+              <a class="btn btn--sm" href="/search">Start a new search</a>
+            ) : (
+              <a class="btn btn--sm btn--pink" href="/community">Browse forums</a>
+            )}
+          </div>
+        ) : (
+          <div class="threads wn-threads">
+            {results.map((r) => {
+              const accent = ACCENT_VARS[accentIndex(r.thread_id)];
+              const typeLabel = r.doc_type === 'post' ? 'Reply' : 'Thread';
+              return (
+                <a class="thr wn-row search-row" href={r.thread_url}>
+                  <span class="dot" style={`background:${accent}`} aria-hidden="true"></span>
+                  <div class="wn-main">
+                    <div class="t">{r.thread_title}</div>
+                    <div class="wn-meta">
+                      <span class="wn-cat">{r.category_name}</span>
+                      {showAuthorInMeta && (
+                        <>
+                          <span class="wn-sep" aria-hidden="true">·</span>
+                          <span>{r.author_name}</span>
+                        </>
+                      )}
+                    </div>
+                    <p class="wn-excerpt" set:html={r.excerpt} />
+                  </div>
+                  <div class="wn-side">
+                    <span class="rep">{typeLabel}</span>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        )}
+      </>
+    ) : (
+      <div class="empty-state wn-empty search-idle">
+        <strong>Start searching</strong>
+        <p>Enter at least two characters, or an author name, then hit Search.</p>
+      </div>
+    )}
+  </div>
+</Layout>

@@ -92,6 +92,19 @@ func (s *Service) CanMessage(ctx context.Context, senderID, recipientID string, 
 	if senderID == recipientID {
 		return ErrSelfDM
 	}
+	var blocked bool
+	if err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM actor_blocks
+			WHERE (blocker_id = $1 AND blocked_id = $2)
+			   OR (blocker_id = $2 AND blocked_id = $1)
+		)
+	`, senderID, recipientID).Scan(&blocked); err != nil {
+		return err
+	}
+	if blocked {
+		return ErrBlocked
+	}
 	var senderPrivacy, recipientPrivacy string
 	err := s.pool.QueryRow(ctx, `
 		SELECT s.dm_privacy, r.dm_privacy FROM actors s, actors r

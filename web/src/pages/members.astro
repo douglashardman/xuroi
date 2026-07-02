@@ -23,72 +23,113 @@ const data = res.ok ? await res.json() : { members: [], total: 0 };
 const members = data.members ?? [];
 const total = data.total ?? 0;
 const totalPages = Math.max(1, Math.ceil(total / limit));
+
+function pageHref(p: number) {
+  const pms = new URLSearchParams();
+  if (q) pms.set('q', q);
+  if (p > 1) pms.set('page', String(p));
+  const qs = pms.toString();
+  return qs ? `/members?${qs}` : '/members';
+}
 ---
-<Layout title="Members" site={home.site} user={user}>
+<Layout title="Members" description="Browse and search community members" site={home.site} user={user} navActive="community">
   <div class="crumb">
     <a href="/community">Community</a>
     › Members
   </div>
 
-  <div class="shead" style="margin-top:8px">
-    <h2>Member directory</h2>
-    <span class="lab">{total} members</span>
-  </div>
+  <div class="mem-page">
+    <header class="mem-hero">
+      <div class="mem-hero-body">
+        <p class="ey lab">Community</p>
+        <h1>Members</h1>
+        <p class="mem-lead">
+          {q
+            ? `Showing results for “${q}” — click a name to view their profile.`
+            : 'Everyone who has joined PutterTalk — search by display name or browse the directory.'}
+        </p>
+      </div>
+      <form class="mem-search" method="get" role="search">
+        <label class="mem-search-label" for="mem-q">Search members</label>
+        <div class="mem-search-row">
+          <input type="search" id="mem-q" name="q" value={q} placeholder="Display name…" autocomplete="off" />
+          <button type="submit" class="btn btn--sm btn--pink">Search</button>
+          {q && <a class="btn btn--sm" href="/members">Clear</a>}
+        </div>
+      </form>
+    </header>
 
-  <form class="admin-search" method="get">
-    <input type="search" name="q" value={q} placeholder="Search by display name" />
-    <button type="submit" class="btn btn--sm btn--pink">Search</button>
-  </form>
-
-  {members.length === 0 ? (
-    <p class="mod-empty">No members match that search.</p>
-  ) : (
-    <div class="member-directory">
-      {members.map((m: {
-        id: string;
-        display_name: string;
-        url: string;
-        avatar_url?: string;
-        post_count: number;
-        joined_at: string;
-      }) => (
-        <a class="member-directory-row" href={m.url}>
-          <Avatar name={m.display_name} avatarUrl={m.avatar_url} accentClass={PAV_CLASSES[accentIndex(m.id)]} size="md" />
-          <span class="member-directory-name">{m.display_name}</span>
-          <span class="lab">{m.post_count} posts</span>
-          <span class="lab">Joined {formatDate(m.joined_at)}</span>
-        </a>
-      ))}
+    <div class="mem-summary">
+      <span class="mem-count">
+        <strong>{total.toLocaleString()}</strong>
+        {total === 1 ? 'member' : 'members'}
+        {q && <span class="mem-filter-note">matching “{q}”</span>}
+      </span>
+      {totalPages > 1 && (
+        <span class="mem-page-label">Page {page} of {totalPages}</span>
+      )}
     </div>
-  )}
 
-  {totalPages > 1 && (
-    <nav class="pagination" aria-label="Members pages">
-      {page > 1 && (
-        <a class="btn btn--sm" href={`/members?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page - 1) })}`}>← Prev</a>
-      )}
-      <span class="lab">Page {page} of {totalPages}</span>
-      {page < totalPages && (
-        <a class="btn btn--sm" href={`/members?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page + 1) })}`}>Next →</a>
-      )}
-    </nav>
-  )}
+    {members.length === 0 ? (
+      <div class="empty-state mem-empty">
+        {q ? (
+          <>
+            <strong>No matches</strong>
+            <p>Try a shorter or different spelling of the display name.</p>
+            <a class="btn btn--sm" href="/members">Show all members</a>
+          </>
+        ) : (
+          <>
+            <strong>No members yet</strong>
+            <p>Be the first — <a href="/join">create an account</a> and say hello.</p>
+          </>
+        )}
+      </div>
+    ) : (
+      <div class="threads mem-threads">
+        {members.map((m: {
+          id: string;
+          display_name: string;
+          url: string;
+          avatar_url?: string;
+          post_count: number;
+          joined_at: string;
+        }) => (
+          <a class="thr mem-row" href={m.url}>
+            <Avatar
+              name={m.display_name}
+              avatarUrl={m.avatar_url}
+              accentClass={PAV_CLASSES[accentIndex(m.id)]}
+              size="dm"
+            />
+            <div class="mem-main">
+              <div class="t">{m.display_name}</div>
+              <div class="mem-meta">
+                <span>Joined {formatDate(m.joined_at)}</span>
+              </div>
+            </div>
+            <span class="rep mem-posts">
+              {m.post_count.toLocaleString()} {m.post_count === 1 ? 'post' : 'posts'}
+            </span>
+          </a>
+        ))}
+      </div>
+    )}
+
+    {totalPages > 1 && (
+      <nav class="pager mem-pager" aria-label="Members pages">
+        {page > 1 ? (
+          <a href={pageHref(page - 1)}>← Previous</a>
+        ) : (
+          <span class="pager-disabled">← Previous</span>
+        )}
+        <span>Page {page} of {totalPages}</span>
+        {page < totalPages ? (
+          <a href={pageHref(page + 1)}>Next →</a>
+        ) : (
+          <span class="pager-disabled">Next →</span>
+        )}
+      </nav>
+    )}
+  </div>
 </Layout>
-
-<style>
-  .member-directory { display: grid; gap: 8px; margin-top: 16px; }
-  .member-directory-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px 16px;
-    align-items: center;
-    padding: 12px 14px;
-    border: var(--line);
-    border-radius: 10px;
-    background: var(--card);
-    text-decoration: none;
-    color: inherit;
-  }
-  .member-directory-row:hover { border-color: var(--pink); }
-  .member-directory-name { font-weight: 600; flex: 1; min-width: 140px; }
-</style>

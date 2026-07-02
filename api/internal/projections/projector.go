@@ -145,10 +145,10 @@ func (p *Projector) applyThreadCreated(ctx context.Context, tx pgx.Tx, evt event
 	}
 
 	_, err := tx.Exec(ctx, `
-		INSERT INTO threads (id, category_id, title, slug, author_id, reply_count, created_at, last_activity_at)
-		VALUES ($1, $2, $3, $4, $5, 0, $6, $6)
+		INSERT INTO threads (id, category_id, title, title_prefix, slug, author_id, reply_count, created_at, last_activity_at)
+		VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $7)
 		ON CONFLICT (id) DO NOTHING
-	`, payload.ThreadID, payload.CategoryID, payload.Title, payload.Slug, payload.AuthorID, evt.CreatedAt)
+	`, payload.ThreadID, payload.CategoryID, payload.Title, payload.TitlePrefix, payload.Slug, payload.AuthorID, evt.CreatedAt)
 	if err != nil {
 		return err
 	}

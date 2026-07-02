@@ -68,3 +68,5 @@ type policyError string
 func (e policyError) Error() string { return string(e) }
 
 var ErrLinksRestricted = policyError(LinkRestrictionMessage(24))
+
+var ErrDMRestricted = policyError(DMRestrictionMessage(72))

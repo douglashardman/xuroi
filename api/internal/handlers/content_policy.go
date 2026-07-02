@@ -54,9 +54,29 @@ func (a *API) checkPostContent(ctx context.Context, authorID, markdown string, i
 	return contentCheckResult{ForcePending: result.Hold}, nil
 }
 
+func (a *API) checkDMSenderPolicy(ctx context.Context, authorID string, isStaff, isAdmin bool) error {
+	if policy.IsStaffOrAdmin(isStaff, isAdmin) {
+		return nil
+	}
+	var createdAt time.Time
+	err := a.pool.QueryRow(ctx, `SELECT created_at FROM actors WHERE id = $1`, authorID).Scan(&createdAt)
+	if err != nil {
+		return fmt.Errorf("actor age: %w", err)
+	}
+	nu := a.siteCfg.NewUsers.Normalized()
+	if nu.DMRestricted(time.Since(createdAt)) {
+		return policy.ErrDMRestricted
+	}
+	return nil
+}
+
 func writeContentPolicyError(w http.ResponseWriter, err error) {
 	if errors.Is(err, policy.ErrLinksRestricted) {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if errors.Is(err, policy.ErrDMRestricted) {
+		writeError(w, http.StatusForbidden, err.Error())
 		return
 	}
 	writeError(w, http.StatusBadRequest, err.Error())

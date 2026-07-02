@@ -130,7 +130,7 @@ func (a *API) previewPost(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	html := markdown.ToHTML(strings.TrimSpace(req.BodyMarkdown))
+	html := a.renderPostHTML(strings.TrimSpace(req.BodyMarkdown))
 	if a.siteCfg.SEO.NofollowUserLinks {
 		html = markdown.ApplyNofollow(html)
 	}

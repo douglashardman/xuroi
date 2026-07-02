@@ -4,7 +4,7 @@ export const prerender = false;
 import Layout from '../../layouts/Layout.astro';
 import Pagination from '../../components/Pagination.astro';
 import { formatDate } from '../../lib/api';
-import { getCategory, getMe, sessionFromCookieHeader } from '../../lib/server-api';
+import { backendFetch, getCategory, getMe, sessionFromCookieHeader } from '../../lib/server-api';
 import { ACCENT_VARS } from '../../lib/theme';
 
 const { slug } = Astro.params;
@@ -23,6 +23,17 @@ try {
 }
 const user = await getMe(session);
 const threads = data.threads ?? [];
+
+const classifiedsSlugs = new Set(['free-classifieds', 'wanted-trade', 'ebay-items']);
+const isClassifieds = classifiedsSlugs.has(slug!);
+let classifiedsRules: { rules_title?: string; rules_url?: string } | null = null;
+if (isClassifieds) {
+  const statusRes = await backendFetch('/v1/site/status', {}, session);
+  if (statusRes.ok) {
+    const status = await statusRes.json();
+    classifiedsRules = status.classifieds ?? null;
+  }
+}
 ---
 <Layout title={data.category.name} description={data.category.description} site={data.site} user={user}>
   <div class="crumb">
@@ -43,12 +54,32 @@ const threads = data.threads ?? [];
         {(data.category.unread_count ?? 0) > 0 && (
           <button type="button" class="btn btn--sm btn--ghost" id="mark-forum-read" data-slug={slug}>Mark forum read</button>
         )}
+        <button
+          type="button"
+          class:list={['btn', 'btn--sm', data.category.email_watching ? 'btn--pink' : 'btn--ghost']}
+          id="category-email-watch"
+          data-slug={slug}
+          data-watching={data.category.email_watching ? '1' : '0'}
+        >
+          {data.category.email_watching ? 'Watching' : 'Watch forum'}
+        </button>
         <a href={`/c/${slug}/new`}>New thread →</a>
       </>
     ) : (
       <a href="/community">All forums →</a>
     )}
   </div>
+
+  {isClassifieds && classifiedsRules && (
+    <div class="classifieds-banner">
+      <strong>{classifiedsRules.rules_title ?? 'Classifieds rules'}</strong>
+      {' — '}
+      Read the rules before posting.
+      {classifiedsRules.rules_url && (
+        <> <a href={classifiedsRules.rules_url}>View rules &amp; FAQ →</a></>
+      )}
+    </div>
+  )}
 
   {data.category.description && (
     <p style="color:var(--muted);margin:0 0 24px;max-width:60ch">{data.category.description}</p>
@@ -64,7 +95,7 @@ const threads = data.threads ?? [];
           <div>
             <div class="t">
               {thread.is_unread && <span class="unread-pill">New</span>}
-              {thread.title}
+              {thread.display_title ?? thread.title}
               {thread.is_pinned && ' 📌'}
               {thread.is_locked && ' 🔒'}
             </div>
@@ -82,9 +113,37 @@ const threads = data.threads ?? [];
   <Pagination pagination={data.pagination} />
 </Layout>
 
-{user && (data.category.unread_count ?? 0) > 0 && (
+{user && (
   <script>
     import { showToast } from '../../lib/toast';
+
+    document.getElementById('category-email-watch')?.addEventListener('click', async () => {
+      const btn = document.getElementById('category-email-watch') as HTMLButtonElement;
+      const slug = btn.dataset.slug;
+      if (!slug) return;
+      const watching = btn.dataset.watching === '1';
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/categories/${slug}/email-watch`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: !watching }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        const nowWatching = !!data.watching;
+        btn.dataset.watching = nowWatching ? '1' : '0';
+        btn.textContent = nowWatching ? 'Watching' : 'Watch forum';
+        btn.classList.toggle('btn--pink', nowWatching);
+        btn.classList.toggle('btn--ghost', !nowWatching);
+        showToast(nowWatching ? 'You will get email when new threads are posted here' : 'Forum watch off', 'success');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Failed', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
     document.getElementById('mark-forum-read')?.addEventListener('click', async () => {
       const btn = document.getElementById('mark-forum-read') as HTMLButtonElement;
       const slug = btn.dataset.slug;

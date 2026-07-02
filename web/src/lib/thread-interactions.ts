@@ -72,6 +72,18 @@ function setThreadPinned(pinned: boolean) {
 type PanelFn = (title: string, html: string) => void;
 type ClosePanelFn = () => void;
 
+/** Popovers float on `document.body` — resolve thread context from popover or gear wrap. */
+function modThreadBar(el: HTMLElement): HTMLElement | null {
+  return el.closest('[data-mod-popover]') || el.closest('[data-thread-id]');
+}
+
+function threadIdFromModEl(el: HTMLElement): string | null {
+  const bar = modThreadBar(el);
+  return bar?.getAttribute('data-thread-id')
+    ?? document.getElementById('thread-posts')?.getAttribute('data-thread-id')
+    ?? null;
+}
+
 function loadReportReasons(): ReportReason[] {
   const root = document.getElementById('thread-posts');
   const raw = root?.getAttribute('data-report-reasons');
@@ -362,7 +374,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
     initLightbox(postsRoot);
   }
 
-  postsRoot?.addEventListener('click', async (e) => {
+  const handlePostsClick = async (e: Event) => {
     const target = e.target as HTMLElement;
 
     const editOpenBtn = target.closest('[data-edit]') as HTMLButtonElement | null;
@@ -474,8 +486,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
     const reportsBtn = target.closest('[data-thread-reports]') as HTMLButtonElement | null;
     if (reportsBtn) {
       closeAllModPopovers();
-      const bar = reportsBtn.closest('[data-thread-id]');
-      const threadId = bar?.getAttribute('data-thread-id');
+      const threadId = threadIdFromModEl(reportsBtn);
       if (!threadId) return;
       openPanel('Thread reports', '<p>Loading…</p>');
       try {
@@ -801,6 +812,14 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
         likeBtn.removeAttribute('disabled');
       }
     }
+  };
+
+  postsRoot?.addEventListener('click', handlePostsClick);
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-mod-popover]')) {
+      handlePostsClick(e);
+    }
   });
 
   postsRoot?.addEventListener('submit', async (e) => {
@@ -866,8 +885,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
   document.querySelector('[data-thread-pin]')?.addEventListener('click', async (e) => {
     closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;
-    const bar = btn.closest('[data-thread-id]');
-    const threadId = bar?.getAttribute('data-thread-id');
+    const threadId = threadIdFromModEl(btn);
     const pinned = btn.getAttribute('data-pinned') === '1';
     if (!threadId) return;
     btn.setAttribute('disabled', 'true');
@@ -892,8 +910,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
   document.querySelector('[data-thread-delete]')?.addEventListener('click', async (e) => {
     closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;
-    const bar = btn.closest('[data-thread-id]');
-    const threadId = bar?.getAttribute('data-thread-id');
+    const threadId = threadIdFromModEl(btn);
     if (!threadId) return;
     const ok = await confirm('This removes the entire thread from the forum.', {
       title: 'Delete thread?',
@@ -918,8 +935,8 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
   document.querySelector('[data-thread-move]')?.addEventListener('click', async (e) => {
     closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;
-    const bar = btn.closest('[data-thread-id]');
-    const threadId = bar?.getAttribute('data-thread-id');
+    const bar = modThreadBar(btn);
+    const threadId = threadIdFromModEl(btn);
     const currentCategory = bar?.getAttribute('data-current-category') || '';
     const raw = bar?.getAttribute('data-move-forums') || '[]';
     if (!threadId) return;
@@ -992,8 +1009,7 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
   document.querySelector('[data-thread-lock]')?.addEventListener('click', async (e) => {
     closeAllModPopovers();
     const btn = e.currentTarget as HTMLButtonElement;
-    const bar = btn.closest('[data-thread-id]');
-    const threadId = bar?.getAttribute('data-thread-id');
+    const threadId = threadIdFromModEl(btn);
     const locked = btn.getAttribute('data-locked') === '1';
     if (!threadId) return;
     let lockReason = '';

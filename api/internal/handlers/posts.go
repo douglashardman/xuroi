@@ -8,7 +8,6 @@ import (
 
 	"github.com/xuroi/xuroi/api/internal/auth"
 	"github.com/xuroi/xuroi/api/internal/events"
-	"github.com/xuroi/xuroi/api/internal/markdown"
 	"github.com/xuroi/xuroi/api/internal/ratelimit"
 	"github.com/xuroi/xuroi/api/internal/service"
 )
@@ -36,7 +35,7 @@ func (a *API) editPost(w http.ResponseWriter, r *http.Request) {
 	var mentioned []string
 	req.BodyMarkdown, mentioned = a.processPostMentions(r, req.BodyMarkdown, actor.ID)
 	if req.BodyHTML == "" {
-		req.BodyHTML = markdown.ToHTML(req.BodyMarkdown)
+		req.BodyHTML = a.renderPostHTML(req.BodyMarkdown)
 	}
 
 	evt, err := a.forum.EditPost(r.Context(), service.EditPostInput{

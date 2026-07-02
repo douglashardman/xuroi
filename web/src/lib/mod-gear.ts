@@ -66,11 +66,20 @@ function positionFloatingPopover(toggle: HTMLElement, popover: HTMLElement) {
   popover.style.visibility = '';
 }
 
+function syncPopoverContext(wrap: HTMLElement, popover: HTMLElement) {
+  for (const key of ['data-thread-id', 'data-current-category', 'data-move-forums'] as const) {
+    const value = wrap.getAttribute(key);
+    if (value) popover.setAttribute(key, value);
+    else popover.removeAttribute(key);
+  }
+}
+
 function openModPopover(toggle: HTMLElement, popover: HTMLElement) {
   const wrap = toggle.closest('.mod-gear-wrap');
   if (!wrap) return;
 
   rememberPopoverHome(popover, wrap);
+  syncPopoverContext(wrap, popover);
   document.body.appendChild(popover);
   popover.classList.add('mod-popover--floating');
   positionFloatingPopover(toggle, popover);

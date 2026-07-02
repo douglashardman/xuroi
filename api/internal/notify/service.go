@@ -128,9 +128,10 @@ func (s *Service) ProcessQueue(ctx context.Context, limit int) (int, error) {
 	}
 
 	rows, err := s.pool.Query(ctx, `
-		SELECT q.id, q.actor_id, q.thread_id
+		SELECT q.id, q.actor_id, q.thread_id, q.attempts
 		FROM email_notification_queue q
 		WHERE q.scheduled_at <= now()
+		  AND (q.next_retry_at IS NULL OR q.next_retry_at <= now())
 		ORDER BY q.scheduled_at ASC
 		LIMIT $1
 	`, limit)
@@ -141,11 +142,12 @@ func (s *Service) ProcessQueue(ctx context.Context, limit int) (int, error) {
 
 	type item struct {
 		id, actorID, threadID string
+		attempts              int
 	}
 	var items []item
 	for rows.Next() {
 		var it item
-		if err := rows.Scan(&it.id, &it.actorID, &it.threadID); err != nil {
+		if err := rows.Scan(&it.id, &it.actorID, &it.threadID, &it.attempts); err != nil {
 			return 0, err
 		}
 		items = append(items, it)
@@ -156,7 +158,7 @@ func (s *Service) ProcessQueue(ctx context.Context, limit int) (int, error) {
 
 	sent := 0
 	for _, it := range items {
-		ok, err := s.sendThreadDigest(ctx, it.id, it.actorID, it.threadID)
+		ok, err := s.sendThreadDigest(ctx, it.id, it.actorID, it.threadID, it.attempts)
 		if err != nil {
 			return sent, err
 		}
@@ -167,7 +169,7 @@ func (s *Service) ProcessQueue(ctx context.Context, limit int) (int, error) {
 	return sent, nil
 }
 
-func (s *Service) sendThreadDigest(ctx context.Context, queueID, actorID, threadID string) (bool, error) {
+func (s *Service) sendThreadDigest(ctx context.Context, queueID, actorID, threadID string, attempts int) (bool, error) {
 	var emailAddr, displayName string
 	err := s.pool.QueryRow(ctx, `
 		SELECT e.email, a.display_name
@@ -232,8 +234,8 @@ func (s *Service) sendThreadDigest(ctx context.Context, queueID, actorID, thread
 		return false, err
 	}
 
-	_, _ = s.pool.Exec(ctx, `DELETE FROM email_notification_queue WHERE id = $1`, queueID)
 	if len(posts) == 0 {
+		_, _ = s.pool.Exec(ctx, `DELETE FROM email_notification_queue WHERE id = $1`, queueID)
 		return false, nil
 	}
 
@@ -292,7 +294,9 @@ func (s *Service) sendThreadDigest(ctx context.Context, queueID, actorID, thread
 		MessageType:        "thread_reply",
 		ListUnsubscribeURL: unsubscribeURL,
 	}); err != nil {
-		return false, err
+		_ = s.scheduleThreadReplyRetry(ctx, queueID, attempts+1, err)
+		return false, nil
 	}
+	_, _ = s.pool.Exec(ctx, `DELETE FROM email_notification_queue WHERE id = $1`, queueID)
 	return true, nil
 }

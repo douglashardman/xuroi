@@ -31,11 +31,16 @@ const sections = [
   { id: 'settings-seo', label: 'SEO' },
   { id: 'settings-names', label: 'Reserved names' },
   { id: 'settings-registration', label: 'Registration' },
+  { id: 'settings-notice', label: 'Notice' },
   { id: 'settings-maintenance', label: 'Maintenance' },
   { id: 'settings-reports', label: 'Reports' },
+  { id: 'settings-moderation-extra', label: 'Word filter' },
+  { id: 'settings-classifieds', label: 'Classifieds' },
+  { id: 'settings-trust', label: 'Trust & abuse' },
 ];
 const usernameDenylist = (s.registration?.username_denylist ?? []).join('\n');
 const blockedDomains = (s.registration?.blocked_email_domains ?? []).join('\n');
+const wordFilter = (s.moderation?.word_filter ?? []).join('\n');
 ---
 <Layout title="Site settings" site={home.site} user={user} noIndex={true} skipBanCheck={true} adminPage={true}>
   <div class="crumb">
@@ -274,6 +279,23 @@ const blockedDomains = (s.registration?.blocked_email_domains ?? []).join('\n');
         </div>
       </section>
 
+      <section class="admin-settings-card" id="settings-notice">
+        <header class="admin-settings-card-head">
+          <h3>Site notice</h3>
+          <p>Banner below the nav on every public page — launches, outages, BST reminders.</p>
+        </header>
+        <div class="admin-settings-grid">
+          <label class="admin-settings-check admin-settings-field--wide">
+            <input type="checkbox" id="set-notice-enabled" checked={s.notice?.enabled === true} />
+            <span>Show site notice</span>
+          </label>
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>Message</span>
+            <textarea class="admin-settings-input admin-settings-textarea" id="set-notice-message" rows="2" placeholder="e.g. Classifieds forums require mod approval — read the rules before posting.">{s.notice?.message ?? ''}</textarea>
+          </label>
+        </div>
+      </section>
+
       <section class="admin-settings-card" id="settings-maintenance">
         <header class="admin-settings-card-head">
           <h3>Maintenance mode</h3>
@@ -287,6 +309,54 @@ const blockedDomains = (s.registration?.blocked_email_domains ?? []).join('\n');
           <label class="admin-settings-field admin-settings-field--wide">
             <span>Message</span>
             <textarea class="admin-settings-input admin-settings-textarea" id="set-maintenance-message" rows="3">{s.maintenance?.message ?? ''}</textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-settings-card" id="settings-moderation-extra">
+        <header class="admin-settings-card-head">
+          <h3>Word filter</h3>
+          <p>Replaces listed words in post HTML (case-insensitive whole words).</p>
+        </header>
+        <div class="admin-settings-grid">
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>Filtered words</span>
+            <textarea class="admin-settings-input admin-settings-textarea" id="set-word-filter" rows="4" placeholder="badword&#10;another">{wordFilter}</textarea>
+            <span class="admin-settings-hint">One word per line. Replaced with asterisks in rendered posts.</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-settings-card" id="settings-classifieds">
+        <header class="admin-settings-card-head">
+          <h3>Classifieds (BST)</h3>
+          <p>Rules banner on classifieds forum pages and new-thread flow.</p>
+        </header>
+        <div class="admin-settings-grid">
+          <label class="admin-settings-field">
+            <span>Rules link title</span>
+            <input class="admin-settings-input" type="text" id="set-classifieds-title" value={s.classifieds?.rules_title ?? 'Classifieds rules'} />
+          </label>
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>Rules / FAQ URL</span>
+            <input class="admin-settings-input" type="url" id="set-classifieds-url" value={s.classifieds?.rules_url ?? ''} placeholder="/t/rules--thr_… or https://…" />
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-settings-card" id="settings-trust">
+        <header class="admin-settings-card-head">
+          <h3>Trust &amp; abuse</h3>
+          <p>Public <code>/abuse</code> page and footer link.</p>
+        </header>
+        <div class="admin-settings-grid">
+          <label class="admin-settings-field">
+            <span>Abuse email</span>
+            <input class="admin-settings-input" type="email" id="set-abuse-email" value={s.trust?.abuse_email ?? 'abuse@puttertalk.com'} />
+          </label>
+          <label class="admin-settings-field admin-settings-field--wide">
+            <span>Abuse page note (optional)</span>
+            <textarea class="admin-settings-input admin-settings-textarea" id="set-abuse-note" rows="2">{s.trust?.abuse_note ?? ''}</textarea>
           </label>
         </div>
       </section>

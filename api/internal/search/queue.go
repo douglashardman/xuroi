@@ -61,6 +61,7 @@ func EnqueueAllPending(ctx context.Context, pool *pgxpool.Pool) (int, error) {
 		JOIN threads t ON t.id = p.thread_id
 		WHERE p.deleted_at IS NULL AND t.deleted_at IS NULL
 		  AND p.moderation_status = 'approved'
+		  AND NOT p.is_op
 	`)
 	if err != nil {
 		return 0, err

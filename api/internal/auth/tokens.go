@@ -123,7 +123,7 @@ func (s *Service) ResetPasswordWithToken(ctx context.Context, rawToken, password
 	if err := s.CheckSignInAllowed(ctx, actorID); err != nil {
 		return actor, "", err
 	}
-	sessionToken, err := s.insertSession(ctx, s.pool, actorID)
+	sessionToken, err := s.insertSession(ctx, s.pool, actorID, SessionDays)
 	if err != nil {
 		return Actor{}, "", err
 	}
@@ -143,7 +143,7 @@ func (s *Service) LoginWithMagicLink(ctx context.Context, rawToken string) (Acto
 	if err := s.CheckSignInAllowed(ctx, actorID); err != nil {
 		return actor, "", err
 	}
-	sessionToken, err := s.insertSession(ctx, s.pool, actorID)
+	sessionToken, err := s.insertSession(ctx, s.pool, actorID, SessionDays)
 	if err != nil {
 		return Actor{}, "", err
 	}

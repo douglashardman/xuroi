@@ -31,6 +31,7 @@ export interface CategorySummary {
   thread_count: number;
   post_count: number;
   unread_count?: number;
+  email_watching?: boolean;
   latest?: CategoryLatestThread | null;
 }
 
@@ -46,6 +47,8 @@ export interface CategoryGroup {
 export interface ThreadSummary {
   id: string;
   title: string;
+  title_prefix?: string;
+  display_title?: string;
   slug: string;
   url: string;
   author_name: string;
@@ -187,6 +190,8 @@ export interface UserProfile {
   friendship?: 'none' | 'friends' | 'pending_sent' | 'pending_received';
   incoming_friend_request_id?: string;
   can_message?: boolean;
+  blocked_by_me?: boolean;
+  blocks_me?: boolean;
 }
 
 export function getUser(slug: string) {
@@ -217,11 +222,31 @@ export function formatLastSeen(iso: string) {
   return formatDate(iso);
 }
 
-export function formatDate(iso: string) {
+export function userTimeZone(): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const tz = document.documentElement.dataset.userTimezone;
+  return tz || undefined;
+}
+
+export function formatDate(iso: string, timeZone?: string) {
+  const tz = timeZone ?? userTimeZone();
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: tz || undefined,
+  });
+}
+
+export function formatDateTime(iso: string, timeZone?: string) {
+  const tz = timeZone ?? userTimeZone();
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: tz || undefined,
   });
 }
 

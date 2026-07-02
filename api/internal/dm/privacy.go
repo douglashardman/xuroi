@@ -11,6 +11,7 @@ const (
 var (
 	ErrSelfDM         = errors.New("cannot message yourself")
 	ErrDMDisabled     = errors.New("this member is not accepting messages")
+	ErrBlocked        = errors.New("messaging blocked")
 	ErrDMFriendsOnly  = errors.New("this member only accepts messages from existing contacts")
 	ErrSenderDMOff    = errors.New("enable messages in your privacy settings to send DMs")
 	ErrNotParticipant = errors.New("not a participant in this conversation")

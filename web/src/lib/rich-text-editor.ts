@@ -71,6 +71,15 @@ function renderAttachments(editor: HTMLElement) {
     img.alt = att.alt;
     img.className = 'rt-attachment-thumb';
 
+    const altLabel = document.createElement('label');
+    altLabel.className = 'rt-attachment-alt';
+    altLabel.innerHTML = `Alt text <input type="text" class="rt-attachment-alt-input" value="${att.alt.replace(/"/g, '&quot;')}" maxlength="200" placeholder="Describe the image" />`;
+
+    const altInput = altLabel.querySelector('input') as HTMLInputElement;
+    altInput.addEventListener('input', () => {
+      att.alt = altInput.value.trim() || fileAlt(att.file);
+    });
+
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'rt-attachment-remove';
@@ -78,7 +87,7 @@ function renderAttachments(editor: HTMLElement) {
     remove.textContent = '×';
     remove.addEventListener('click', () => removeAttachment(editor, att.id));
 
-    item.append(img, remove);
+    item.append(img, altLabel, remove);
     listEl.append(item);
   }
 

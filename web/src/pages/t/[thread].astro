@@ -72,7 +72,7 @@ if (quoteParam) {
 const jsonLd = threadJsonLd(data, data.site.url);
 ---
 <Layout
-  title={data.thread.title}
+  title={data.thread.display_title ?? data.thread.title}
   description={`${data.thread.reply_count} replies in ${data.category.name} — ${data.site.name}`}
   site={data.site}
   user={user}
@@ -85,11 +85,11 @@ const jsonLd = threadJsonLd(data, data.site.url);
   <div class="crumb">
     <a href="/community">Community</a>
     › <a href={data.category.url}>{data.category.name}</a>
-    › {data.thread.title}
+    › {data.thread.display_title ?? data.thread.title}
   </div>
 
   <div class="thead">
-    <h1>{data.thread.title}</h1>
+    <h1>{data.thread.display_title ?? data.thread.title}</h1>
     {data.thread.summary && (
       <div class="thread-summary">
         <strong>{data.ui?.summary_label ?? 'Summary'}</strong>

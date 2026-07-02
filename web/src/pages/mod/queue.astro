@@ -47,6 +47,7 @@ const items = data.items ?? [];
         author_name: string;
         excerpt: string;
         is_op: boolean;
+        spam_hold?: boolean;
         created_at: string;
       }) => (
         <article class="mod-report-card" data-queue-id={item.post_id}>
@@ -54,6 +55,7 @@ const items = data.items ?? [];
             <time datetime={item.created_at}>{formatDate(item.created_at)}</time>
             · <strong>{item.author_name}</strong>
             {item.is_op && ' · new thread'}
+            {item.spam_hold && ' · spam hold'}
             · {item.category_name}
           </div>
           <h3 class="mod-report-thread">
