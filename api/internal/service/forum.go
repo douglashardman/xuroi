@@ -41,12 +41,13 @@ func NewForum(pool *pgxpool.Pool, systemActorID string, postPolicy site.PostPoli
 }
 
 type CreateCategoryInput struct {
-	Slug        string
-	Name        string
-	Description string
-	SortOrder   int
-	ParentID    *string
+	Slug           string
+	Name           string
+	Description    string
+	SortOrder      int
+	ParentID       *string
 	AccessLevel    string
+	AccessLevels   []string
 	ListPublic     *bool
 	PostModeration *bool
 	ActorID        string
@@ -82,14 +83,16 @@ func (f *Forum) EnsureSystemActor(ctx context.Context) error {
 
 func (f *Forum) CreateCategory(ctx context.Context, in CreateCategoryInput) (events.Event, error) {
 	categoryID := ids.New("cat_")
+	levels, level := access.ResolveCategoryAccess(in.AccessLevel, in.AccessLevels)
 	payload := events.CategoryCreated{
-		CategoryID:  categoryID,
-		Slug:        in.Slug,
-		Name:        in.Name,
-		Description: in.Description,
-		SortOrder:   in.SortOrder,
-		ParentID:    in.ParentID,
-		AccessLevel:    access.NormalizeLevel(in.AccessLevel),
+		CategoryID:     categoryID,
+		Slug:           in.Slug,
+		Name:           in.Name,
+		Description:    in.Description,
+		SortOrder:      in.SortOrder,
+		ParentID:       in.ParentID,
+		AccessLevel:    level,
+		AccessLevels:   levels,
 		ListPublic:     in.ListPublic,
 		PostModeration: in.PostModeration,
 	}
@@ -103,13 +106,14 @@ func (f *Forum) CreateCategory(ctx context.Context, in CreateCategoryInput) (eve
 }
 
 type UpdateCategoryInput struct {
-	CategoryID  string
-	Slug        string
-	Name        string
-	Description string
-	SortOrder   int
-	ParentID    *string
+	CategoryID     string
+	Slug           string
+	Name           string
+	Description    string
+	SortOrder      int
+	ParentID       *string
 	AccessLevel    string
+	AccessLevels   []string
 	ListPublic     *bool
 	PostModeration *bool
 	ActorID        string
@@ -122,14 +126,16 @@ func (f *Forum) UpdateCategory(ctx context.Context, in UpdateCategoryInput) (eve
 	if err := f.validateCategoryParent(ctx, in.CategoryID, in.ParentID); err != nil {
 		return events.Event{}, err
 	}
+	levels, level := access.ResolveCategoryAccess(in.AccessLevel, in.AccessLevels)
 	payload := events.CategoryUpdated{
-		CategoryID:  in.CategoryID,
-		Slug:        in.Slug,
-		Name:        in.Name,
-		Description: in.Description,
-		SortOrder:   in.SortOrder,
-		ParentID:    in.ParentID,
-		AccessLevel:    access.NormalizeLevel(in.AccessLevel),
+		CategoryID:     in.CategoryID,
+		Slug:           in.Slug,
+		Name:           in.Name,
+		Description:    in.Description,
+		SortOrder:      in.SortOrder,
+		ParentID:       in.ParentID,
+		AccessLevel:    level,
+		AccessLevels:   levels,
 		ListPublic:     in.ListPublic,
 		PostModeration: in.PostModeration,
 	}
@@ -141,7 +147,7 @@ func (f *Forum) UpdateCategory(ctx context.Context, in UpdateCategoryInput) (eve
 	})
 }
 
-func (f *Forum) DeleteCategory(ctx context.Context, categoryID, actorID string) (events.Event, error) {
+func (f *Forum) DeleteCategory(ctx context.Context, categoryID, actorID string, cascade bool) (events.Event, error) {
 	if categoryID == "" {
 		return events.Event{}, errors.New("category_id required")
 	}
@@ -155,7 +161,26 @@ func (f *Forum) DeleteCategory(ctx context.Context, categoryID, actorID string) 
 		return events.Event{}, fmt.Errorf("category usage: %w", err)
 	}
 	if childCount > 0 {
-		return events.Event{}, errors.New("category has child forums")
+		if !cascade {
+			return events.Event{}, errors.New("category has child forums")
+		}
+		rows, err := f.pool.Query(ctx, `SELECT id FROM categories WHERE parent_id = $1 ORDER BY sort_order`, categoryID)
+		if err != nil {
+			return events.Event{}, fmt.Errorf("list child forums: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var childID string
+			if err := rows.Scan(&childID); err != nil {
+				return events.Event{}, err
+			}
+			if _, err := f.DeleteCategory(ctx, childID, actorID, false); err != nil {
+				return events.Event{}, err
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return events.Event{}, err
+		}
 	}
 	if threadCount > 0 {
 		return events.Event{}, errors.New("category has threads")
@@ -180,10 +205,11 @@ func (f *Forum) ReorderCategories(ctx context.Context, in ReorderCategoriesInput
 	var out []events.Event
 	for _, item := range in.Items {
 		var slug, name, description, accessLevel string
+		var accessLevels []string
 		var listPublic, postModeration bool
 		err := f.pool.QueryRow(ctx, `
-			SELECT slug, name, description, access_level, list_public, post_moderation FROM categories WHERE id = $1
-		`, item.CategoryID).Scan(&slug, &name, &description, &accessLevel, &listPublic, &postModeration)
+			SELECT slug, name, description, access_level, access_levels, list_public, post_moderation FROM categories WHERE id = $1
+		`, item.CategoryID).Scan(&slug, &name, &description, &accessLevel, &accessLevels, &listPublic, &postModeration)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("category %s not found", item.CategoryID)
 		}
@@ -202,6 +228,7 @@ func (f *Forum) ReorderCategories(ctx context.Context, in ReorderCategoriesInput
 			SortOrder:      item.SortOrder,
 			ParentID:       item.ParentID,
 			AccessLevel:    accessLevel,
+			AccessLevels:   accessLevels,
 			ListPublic:     &listPublic,
 			PostModeration: &pm,
 			ActorID:        in.ActorID,

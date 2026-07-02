@@ -106,17 +106,11 @@ function shortId(id: string) {
                 <button
                   type="button"
                   class="btn btn--sm btn--ghost"
-                  data-perms={u.id}
+                  data-groups={u.id}
                   data-name={u.display_name}
                   data-permissions={JSON.stringify(u.permissions ?? [])}
-                >Permissions…</button>
-                <button
-                  type="button"
-                  class="btn btn--sm btn--ghost"
-                  data-ents={u.id}
-                  data-name={u.display_name}
                   data-entitlements={JSON.stringify(u.entitlements ?? [])}
-                >Entitlements…</button>
+                >Groups…</button>
               </>
             )}
           </div>
@@ -179,11 +173,13 @@ function shortId(id: string) {
     </form>
   </dialog>
 
-  <dialog id="perms-dialog" class="ban-dialog">
-    <form method="dialog" id="perms-form">
-      <h3>Staff permissions — <span id="perms-target-name"></span></h3>
-      <p class="form-hint">Assign per-member. Works for moderators and agents. Admins always have full access.</p>
-      <div class="perms-checklist" id="perms-checklist">
+  <dialog id="groups-dialog" class="ban-dialog">
+    <form method="dialog" id="groups-form">
+      <h3>Member groups — <span id="groups-target-name"></span></h3>
+      <p class="form-hint">Staff roles and paid tiers used by forum access rules. Site admins are configured in site settings.</p>
+
+      <h4 class="groups-section-title">Staff</h4>
+      <div class="perms-checklist">
         {permissionCatalog.map((perm) => (
           <label class="perms-option">
             <input type="checkbox" name="permission" value={perm.id} />
@@ -194,19 +190,9 @@ function shortId(id: string) {
           </label>
         ))}
       </div>
-      <p class="form-error" id="perms-error" hidden></p>
-      <div class="ban-dialog-actions">
-        <button type="button" class="btn btn--ghost" id="perms-cancel">Cancel</button>
-        <button type="submit" class="btn btn--pink" id="perms-submit">Save permissions</button>
-      </div>
-    </form>
-  </dialog>
 
-  <dialog id="ents-dialog" class="ban-dialog">
-    <form method="dialog" id="ents-form">
-      <h3>Entitlements — <span id="ents-target-name"></span></h3>
-      <p class="form-hint">Grant supporter/sponsor access to private forums. Stripe/Patreon sync ships later — manual for now.</p>
-      <div class="perms-checklist" id="ents-checklist">
+      <h4 class="groups-section-title">Paid tiers</h4>
+      <div class="perms-checklist">
         {entitlementCatalog.map((ent) => (
           <label class="perms-option">
             <input type="checkbox" name="entitlement" value={ent.id} />
@@ -217,10 +203,11 @@ function shortId(id: string) {
           </label>
         ))}
       </div>
-      <p class="form-error" id="ents-error" hidden></p>
+
+      <p class="form-error" id="groups-error" hidden></p>
       <div class="ban-dialog-actions">
-        <button type="button" class="btn btn--ghost" id="ents-cancel">Cancel</button>
-        <button type="submit" class="btn btn--pink" id="ents-submit">Save entitlements</button>
+        <button type="button" class="btn btn--ghost" id="groups-cancel">Cancel</button>
+        <button type="submit" class="btn btn--pink" id="groups-submit">Save groups</button>
       </div>
     </form>
   </dialog>
@@ -240,18 +227,13 @@ function shortId(id: string) {
   const warnNameEl = document.getElementById('warn-target-name') as HTMLSpanElement;
   const warnHintEl = document.getElementById('warn-hint') as HTMLParagraphElement;
   const warnErrorEl = document.getElementById('warn-error') as HTMLElement;
-  const permsDialog = document.getElementById('perms-dialog') as HTMLDialogElement;
-  const permsForm = document.getElementById('perms-form') as HTMLFormElement;
-  const permsNameEl = document.getElementById('perms-target-name') as HTMLSpanElement;
-  const permsErrorEl = document.getElementById('perms-error') as HTMLElement;
+  const groupsDialog = document.getElementById('groups-dialog') as HTMLDialogElement;
+  const groupsForm = document.getElementById('groups-form') as HTMLFormElement;
+  const groupsNameEl = document.getElementById('groups-target-name') as HTMLSpanElement;
+  const groupsErrorEl = document.getElementById('groups-error') as HTMLElement;
   let banUserId: string | null = null;
   let warnUserId: string | null = null;
-  let permsUserId: string | null = null;
-  const entsDialog = document.getElementById('ents-dialog') as HTMLDialogElement;
-  const entsForm = document.getElementById('ents-form') as HTMLFormElement;
-  const entsNameEl = document.getElementById('ents-target-name') as HTMLSpanElement;
-  const entsErrorEl = document.getElementById('ents-error') as HTMLElement;
-  let entsUserId: string | null = null;
+  let groupsUserId: string | null = null;
 
   async function adminAction(path: string, body: Record<string, unknown>) {
     const res = await fetch(path, {
@@ -357,89 +339,62 @@ function shortId(id: string) {
     }
   });
 
-  document.querySelectorAll('[data-perms]').forEach((btn) => {
+  document.querySelectorAll('[data-groups]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      permsUserId = btn.getAttribute('data-perms');
-      permsNameEl.textContent = btn.getAttribute('data-name') ?? 'member';
-      const current = JSON.parse(btn.getAttribute('data-permissions') ?? '[]') as string[];
-      permsForm.querySelectorAll<HTMLInputElement>('input[name="permission"]').forEach((input) => {
-        input.checked = current.includes(input.value);
+      groupsUserId = btn.getAttribute('data-groups');
+      groupsNameEl.textContent = btn.getAttribute('data-name') ?? 'member';
+      const permissions = JSON.parse(btn.getAttribute('data-permissions') ?? '[]') as string[];
+      const entitlements = JSON.parse(btn.getAttribute('data-entitlements') ?? '[]') as string[];
+      groupsForm.querySelectorAll<HTMLInputElement>('input[name="permission"]').forEach((input) => {
+        input.checked = permissions.includes(input.value);
       });
-      permsErrorEl.hidden = true;
-      permsDialog.showModal();
+      groupsForm.querySelectorAll<HTMLInputElement>('input[name="entitlement"]').forEach((input) => {
+        input.checked = entitlements.includes(input.value);
+      });
+      groupsErrorEl.hidden = true;
+      groupsDialog.showModal();
     });
   });
 
-  document.getElementById('perms-cancel')?.addEventListener('click', () => permsDialog.close());
+  document.getElementById('groups-cancel')?.addEventListener('click', () => groupsDialog.close());
 
-  permsForm?.addEventListener('submit', async (e) => {
+  groupsForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!permsUserId) return;
+    if (!groupsUserId) return;
     const permissions = Array.from(
-      permsForm.querySelectorAll<HTMLInputElement>('input[name="permission"]:checked'),
+      groupsForm.querySelectorAll<HTMLInputElement>('input[name="permission"]:checked'),
     ).map((el) => el.value);
-    permsErrorEl.hidden = true;
-    const submit = document.getElementById('perms-submit') as HTMLButtonElement;
-    submit.disabled = true;
-    try {
-      const res = await fetch(`/api/admin/users/${permsUserId}/permissions`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? 'Save failed');
-      showToast('Permissions updated');
-      permsDialog.close();
-      location.reload();
-    } catch (err) {
-      permsErrorEl.textContent = err instanceof Error ? err.message : 'Save failed';
-      permsErrorEl.hidden = false;
-    } finally {
-      submit.disabled = false;
-    }
-  });
-
-  document.querySelectorAll('[data-ents]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      entsUserId = btn.getAttribute('data-ents');
-      entsNameEl.textContent = btn.getAttribute('data-name') ?? 'member';
-      const current = JSON.parse(btn.getAttribute('data-entitlements') ?? '[]') as string[];
-      entsForm.querySelectorAll<HTMLInputElement>('input[name="entitlement"]').forEach((input) => {
-        input.checked = current.includes(input.value);
-      });
-      entsErrorEl.hidden = true;
-      entsDialog.showModal();
-    });
-  });
-
-  document.getElementById('ents-cancel')?.addEventListener('click', () => entsDialog.close());
-
-  entsForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!entsUserId) return;
     const entitlements = Array.from(
-      entsForm.querySelectorAll<HTMLInputElement>('input[name="entitlement"]:checked'),
+      groupsForm.querySelectorAll<HTMLInputElement>('input[name="entitlement"]:checked'),
     ).map((el) => el.value);
-    entsErrorEl.hidden = true;
-    const submit = document.getElementById('ents-submit') as HTMLButtonElement;
+    groupsErrorEl.hidden = true;
+    const submit = document.getElementById('groups-submit') as HTMLButtonElement;
     submit.disabled = true;
     try {
-      const res = await fetch(`/api/admin/users/${entsUserId}/entitlements`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entitlements }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? 'Save failed');
-      showToast('Entitlements updated');
-      entsDialog.close();
+      const [permRes, entRes] = await Promise.all([
+        fetch(`/api/admin/users/${groupsUserId}/permissions`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ permissions }),
+        }),
+        fetch(`/api/admin/users/${groupsUserId}/entitlements`, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entitlements }),
+        }),
+      ]);
+      const permData = await permRes.json().catch(() => ({}));
+      const entData = await entRes.json().catch(() => ({}));
+      if (!permRes.ok) throw new Error(permData.error ?? 'Permissions save failed');
+      if (!entRes.ok) throw new Error(entData.error ?? 'Entitlements save failed');
+      showToast('Member groups updated');
+      groupsDialog.close();
       location.reload();
     } catch (err) {
-      entsErrorEl.textContent = err instanceof Error ? err.message : 'Save failed';
-      entsErrorEl.hidden = false;
+      groupsErrorEl.textContent = err instanceof Error ? err.message : 'Save failed';
+      groupsErrorEl.hidden = false;
     } finally {
       submit.disabled = false;
     }
@@ -526,6 +481,16 @@ function shortId(id: string) {
     color: var(--muted);
     font-size: 0.85rem;
     margin-top: 2px;
+  }
+  .groups-section-title {
+    margin: 16px 0 8px;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .groups-section-title:first-of-type {
+    margin-top: 0;
   }
   .admin-ban-reason { margin: 8px 0 0; font-size: 0.9rem; }
   .admin-user-actions { margin-top: 10px; }

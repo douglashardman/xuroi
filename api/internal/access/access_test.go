@@ -31,3 +31,16 @@ func TestDefaultListPublic(t *testing.T) {
 		t.Fatal("default list public")
 	}
 }
+
+func TestCanViewAny(t *testing.T) {
+	supporter := Viewer{IsMember: true, Entitlements: map[string]bool{EntSupporter: true}}
+	sponsor := Viewer{IsMember: true, Entitlements: map[string]bool{EntSponsor: true}}
+	levels := []string{LevelSupporters, LevelSponsors}
+	if !supporter.CanViewAny(levels) || !sponsor.CanViewAny(levels) {
+		t.Fatal("either group should grant access")
+	}
+	member := Viewer{IsMember: true, Entitlements: map[string]bool{}}
+	if member.CanViewAny(levels) {
+		t.Fatal("plain member should not pass multi-group gate")
+	}
+}

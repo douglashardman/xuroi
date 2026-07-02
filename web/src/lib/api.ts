@@ -23,6 +23,7 @@ export interface CategorySummary {
   sort_order: number;
   is_group: boolean;
   access_level: string;
+  access_levels?: string[];
   list_public: boolean;
   can_view: boolean;
   can_post?: boolean;

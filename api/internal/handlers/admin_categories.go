@@ -38,13 +38,14 @@ func (a *API) updateAdminCategory(w http.ResponseWriter, r *http.Request) {
 
 	categoryID := r.PathValue("id")
 	var req struct {
-		Slug        string  `json:"slug"`
-		Name        string  `json:"name"`
-		Description string  `json:"description"`
-		SortOrder   int     `json:"sort_order"`
-		ParentID    *string `json:"parent_id"`
-		AccessLevel string `json:"access_level"`
-		ListPublic  *bool  `json:"list_public"`
+		Slug         string   `json:"slug"`
+		Name         string   `json:"name"`
+		Description  string   `json:"description"`
+		SortOrder    int      `json:"sort_order"`
+		ParentID     *string  `json:"parent_id"`
+		AccessLevel  string   `json:"access_level"`
+		AccessLevels []string `json:"access_levels"`
+		ListPublic   *bool    `json:"list_public"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -58,15 +59,16 @@ func (a *API) updateAdminCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	evt, err := a.forum.UpdateCategory(r.Context(), service.UpdateCategoryInput{
-		CategoryID:  categoryID,
-		Slug:        req.Slug,
-		Name:        req.Name,
-		Description: req.Description,
-		SortOrder:   req.SortOrder,
-		ParentID:    req.ParentID,
-		AccessLevel: req.AccessLevel,
-		ListPublic:  req.ListPublic,
-		ActorID:     admin.ID,
+		CategoryID:   categoryID,
+		Slug:         req.Slug,
+		Name:         req.Name,
+		Description:  req.Description,
+		SortOrder:    req.SortOrder,
+		ParentID:     req.ParentID,
+		AccessLevel:  req.AccessLevel,
+		AccessLevels: req.AccessLevels,
+		ListPublic:   req.ListPublic,
+		ActorID:      admin.ID,
 	})
 	if err != nil {
 		writeCategoryError(w, err)
@@ -82,7 +84,8 @@ func (a *API) deleteAdminCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	categoryID := r.PathValue("id")
-	evt, err := a.forum.DeleteCategory(r.Context(), categoryID, admin.ID)
+	cascade := r.URL.Query().Get("cascade") == "true"
+	evt, err := a.forum.DeleteCategory(r.Context(), categoryID, admin.ID, cascade)
 	if err != nil {
 		writeCategoryError(w, err)
 		return

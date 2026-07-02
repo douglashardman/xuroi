@@ -34,13 +34,18 @@ const accessLevels = accessCatalog.levels ?? [];
     <button type="button" class="btn btn--sm btn--pink" id="add-group-btn">Add section</button>
   </div>
 
-  <p id="reorder-status" class="admin-reorder-hint">Drag sections or forums to reorder</p>
+  <p id="reorder-status" class="admin-reorder-hint">
+    Drag sections or forums to reorder · assign multiple access groups per forum ·
+    <a href="/admin/users">manage member groups on Users</a>
+  </p>
 
   <div class="admin-cat-list" id="cat-tree">
     {groups.length === 0 ? (
       <p class="mod-empty">No categories yet. Add a section to get started.</p>
     ) : (
-      groups.map((group) => (
+      groups.map((group) => {
+        const groupHasThreads = group.forums.some((f) => f.thread_count > 0);
+        return (
         <section class="admin-cat-group" data-group-id={group.id}>
           <div class="admin-cat-group-head admin-bar">
             <div class="admin-cat-group-title">
@@ -66,6 +71,16 @@ const accessLevels = accessCatalog.levels ?? [];
                 data-add-forum={group.id}
                 data-group-name={group.name}
               >Add forum</button>
+              <button
+                type="button"
+                class="btn btn--sm btn--ghost btn--danger"
+                data-delete-group={group.id}
+                data-name={group.name}
+                data-forum-count={group.forums.length}
+                data-has-threads={groupHasThreads ? '1' : '0'}
+                disabled={groupHasThreads}
+                title={groupHasThreads ? 'Move or delete threads in child forums first' : group.forums.length > 0 ? 'Deletes section and empty forums' : 'Delete empty section'}
+              >Delete section</button>
             </div>
           </div>
           <ul class="admin-cat-forums" data-group-id={group.id}>
@@ -75,14 +90,20 @@ const accessLevels = accessCatalog.levels ?? [];
                 <div class="admin-cat-forum-main">
                   <a href={forum.url}><strong>{forum.name}</strong></a>
                   <span class="lab">/{forum.slug}</span>
-                  {forum.access_level && forum.access_level !== 'public' && (
-                    <>
-                      <span class="access-badge">{accessLevels.find((l) => l.id === forum.access_level)?.label ?? forum.access_level}</span>
-                      <span class={`vis-badge ${forum.list_public ? 'vis-badge--listed' : 'vis-badge--hidden'}`}>
-                        {forum.list_public ? 'Listed' : 'Hidden'}
-                      </span>
-                    </>
-                  )}
+                  {(() => {
+                    const levels = (forum.access_levels?.length ? forum.access_levels : (forum.access_level && forum.access_level !== 'public' ? [forum.access_level] : []));
+                    if (levels.length === 0) return null;
+                    return (
+                      <>
+                        {levels.map((level) => (
+                          <span class="access-badge">{accessLevels.find((l) => l.id === level)?.label ?? level}</span>
+                        ))}
+                        <span class={`vis-badge ${forum.list_public ? 'vis-badge--listed' : 'vis-badge--hidden'}`}>
+                          {forum.list_public ? 'Listed' : 'Hidden'}
+                        </span>
+                      </>
+                    );
+                  })()}
                   {forum.description && <p>{forum.description}</p>}
                   <span class="lab">{forum.thread_count} threads · {forum.post_count} posts</span>
                 </div>
@@ -96,7 +117,7 @@ const accessLevels = accessCatalog.levels ?? [];
                     data-description={forum.description}
                     data-sort={forum.sort_order}
                     data-parent={group.id}
-                    data-access-level={forum.access_level ?? 'public'}
+                    data-access-levels={JSON.stringify(forum.access_levels?.length ? forum.access_levels : (forum.access_level && forum.access_level !== 'public' ? [forum.access_level] : []))}
                     data-list-public={forum.list_public ? '1' : '0'}
                   >Edit</button>
                   <button
@@ -112,7 +133,8 @@ const accessLevels = accessCatalog.levels ?? [];
             ))}
           </ul>
         </section>
-      ))
+        );
+      })
     )}
   </div>
 
@@ -137,14 +159,18 @@ const accessLevels = accessCatalog.levels ?? [];
         Sort order
         <input type="number" name="sort_order" id="cat-sort" min="1" value="1" />
       </label>
-      <label id="cat-access-wrap">
-        Access
-        <select name="access_level" id="cat-access">
-          {accessLevels.map((level) => (
-            <option value={level.id}>{level.label}</option>
+      <fieldset id="cat-access-wrap" class="cat-access-fieldset">
+        <legend>Access groups</legend>
+        <p class="check-hint">Members need any one of the selected groups. Leave all unchecked for public access.</p>
+        <div class="cat-access-levels" id="cat-access-levels">
+          {accessLevels.filter((level) => level.id !== 'public').map((level) => (
+            <label class="check-label cat-access-option">
+              <input type="checkbox" name="access_level" value={level.id} />
+              {level.label}
+            </label>
           ))}
-        </select>
-      </label>
+        </div>
+      </fieldset>
       <label id="cat-list-public-wrap" class="check-label">
         <input type="checkbox" id="cat-list-public" />
         Show on community index
@@ -170,22 +196,35 @@ const accessLevels = accessCatalog.levels ?? [];
   const slugEl = document.getElementById('cat-slug') as HTMLInputElement;
   const descEl = document.getElementById('cat-description') as HTMLTextAreaElement;
   const sortEl = document.getElementById('cat-sort') as HTMLInputElement;
-  const accessEl = document.getElementById('cat-access') as HTMLSelectElement;
   const accessWrap = document.getElementById('cat-access-wrap')!;
+  const accessInputs = () => Array.from(document.querySelectorAll<HTMLInputElement>('#cat-access-levels input[name="access_level"]'));
   const listPublicWrap = document.getElementById('cat-list-public-wrap')!;
   const listPublicEl = document.getElementById('cat-list-public') as HTMLInputElement;
   let mode: 'create' | 'edit' = 'create';
   let listPublicTouched = false;
 
-  function defaultListPublic(level: string) {
-    return level !== 'staff' && level !== 'admin';
+  function selectedAccessLevels(): string[] {
+    const checked = accessInputs().filter((el) => el.checked).map((el) => el.value);
+    return checked.length ? checked : ['public'];
+  }
+
+  function defaultListPublic(levels: string[]) {
+    return !levels.some((level) => level === 'staff' || level === 'admin');
+  }
+
+  function setAccessLevels(levels: string[]) {
+    const active = new Set(levels.filter((level) => level !== 'public'));
+    accessInputs().forEach((input) => {
+      input.checked = active.has(input.value);
+    });
   }
 
   function syncListPublicUI() {
-    const restricted = !!parentEl.value && accessEl.value !== 'public';
+    const levels = selectedAccessLevels();
+    const restricted = !!parentEl.value && !levels.every((level) => level === 'public');
     listPublicWrap.style.display = restricted ? '' : 'none';
     if (restricted && !listPublicTouched) {
-      listPublicEl.checked = defaultListPublic(accessEl.value);
+      listPublicEl.checked = defaultListPublic(levels);
     }
   }
 
@@ -202,7 +241,7 @@ const accessLevels = accessCatalog.levels ?? [];
     slug?: string;
     description?: string;
     sortOrder?: number;
-    accessLevel?: string;
+    accessLevels?: string[];
     listPublic?: boolean;
   }) {
     mode = opts.mode;
@@ -214,8 +253,8 @@ const accessLevels = accessCatalog.levels ?? [];
     descEl.value = opts.description ?? '';
     sortEl.value = String(opts.sortOrder ?? 1);
     accessWrap.style.display = opts.kind === 'forum' ? '' : 'none';
-    accessEl.value = opts.accessLevel ?? 'public';
-    listPublicEl.checked = opts.listPublic ?? defaultListPublic(accessEl.value);
+    setAccessLevels(opts.accessLevels ?? []);
+    listPublicEl.checked = opts.listPublic ?? defaultListPublic(selectedAccessLevels());
     syncListPublicUI();
     titleEl.textContent =
       opts.mode === 'create'
@@ -237,9 +276,11 @@ const accessLevels = accessCatalog.levels ?? [];
     slugEl.dataset.touched = '1';
   });
 
-  accessEl.addEventListener('change', () => {
-    listPublicTouched = false;
-    syncListPublicUI();
+  accessInputs().forEach((input) => {
+    input.addEventListener('change', () => {
+      listPublicTouched = false;
+      syncListPublicUI();
+    });
   });
   listPublicEl.addEventListener('change', () => {
     listPublicTouched = true;
@@ -291,9 +332,29 @@ const accessLevels = accessCatalog.levels ?? [];
         slug: editForum.dataset.slug,
         description: editForum.dataset.description,
         sortOrder: Number(editForum.dataset.sort),
-        accessLevel: editForum.dataset.accessLevel,
+        accessLevels: JSON.parse(editForum.dataset.accessLevels ?? '[]') as string[],
         listPublic: editForum.dataset.listPublic === '1',
       });
+      return;
+    }
+    const delGroup = t.closest('[data-delete-group]') as HTMLButtonElement | null;
+    if (delGroup && !delGroup.disabled) {
+      const id = delGroup.dataset.deleteGroup;
+      const name = delGroup.dataset.name;
+      const forumCount = Number(delGroup.dataset.forumCount ?? 0);
+      if (!id) return;
+      const msg = forumCount > 0
+        ? `Delete section "${name}" and ${forumCount} empty forum${forumCount === 1 ? '' : 's'}? This cannot be undone.`
+        : `Delete section "${name}"? This cannot be undone.`;
+      if (!confirm(msg)) return;
+      const cascade = forumCount > 0 ? '?cascade=true' : '';
+      fetch(`/api/admin/categories/${id}${cascade}`, { method: 'DELETE' })
+        .then((res) => res.json().then((body) => ({ res, body })))
+        .then(({ res, body }) => {
+          if (!res.ok) throw new Error(body.error ?? 'Delete failed');
+          location.reload();
+        })
+        .catch((err) => alert(err.message));
       return;
     }
     const del = t.closest('[data-delete]') as HTMLElement | null;
@@ -315,14 +376,15 @@ const accessLevels = accessCatalog.levels ?? [];
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const levels = parentEl.value ? selectedAccessLevels() : ['public'];
     const payload = {
       name: nameEl.value.trim(),
       slug: slugEl.value.trim(),
       description: descEl.value.trim(),
       sort_order: Number(sortEl.value) || 1,
       parent_id: parentEl.value || null,
-      access_level: parentEl.value ? accessEl.value : 'public',
-      list_public: parentEl.value && accessEl.value !== 'public' ? listPublicEl.checked : true,
+      access_levels: levels,
+      list_public: parentEl.value && !levels.every((level) => level === 'public') ? listPublicEl.checked : true,
     };
     const id = idEl.value;
     const url = id ? `/api/admin/categories/${id}` : '/api/admin/categories';
@@ -476,5 +538,25 @@ const accessLevels = accessCatalog.levels ?? [];
     color: var(--muted);
     font-size: 0.82rem;
     line-height: 1.4;
+  }
+  .cat-access-fieldset {
+    border: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .cat-access-fieldset legend {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .cat-access-levels {
+    display: grid;
+    gap: 6px;
+  }
+  .cat-access-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 </style>

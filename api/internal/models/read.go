@@ -40,8 +40,9 @@ type CategorySummary struct {
 	ParentID    *string `json:"parent_id,omitempty"`
 	SortOrder   int     `json:"sort_order"`
 	IsGroup     bool    `json:"is_group"`
-	AccessLevel string  `json:"access_level"`
-	ListPublic  bool    `json:"list_public"`
+	AccessLevel  string   `json:"access_level"`
+	AccessLevels []string `json:"access_levels,omitempty"`
+	ListPublic   bool     `json:"list_public"`
 	CanView     bool    `json:"can_view"`
 	CanPost     bool    `json:"can_post,omitempty"`
 	LockedLabel string  `json:"locked_label,omitempty"`

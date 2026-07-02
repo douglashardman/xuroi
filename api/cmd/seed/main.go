@@ -298,7 +298,7 @@ func migrateLegacyCategory(ctx context.Context, pool *pgxpool.Pool, forum *servi
 		log.Printf("moved %d thread(s) from %s to %s", threadCount, fromSlug, toSlug)
 	}
 
-	if _, err := forum.DeleteCategory(ctx, fromID, "act_system"); err != nil {
+	if _, err := forum.DeleteCategory(ctx, fromID, "act_system", false); err != nil {
 		log.Printf("skip delete %s: %v", fromSlug, err)
 		return nil
 	}

@@ -227,7 +227,7 @@ These are why we exist. Incumbents don't have them natively.
 | Status | # | Item | Pri | Incumbent | Notes |
 |---|---|---|---|---|---|
 | partial | F1 | 5-role model (Guest/Member/Mod/Admin/Agent) | P0 | — | Guest implicit; mod/admin via site.json |
-| partial | F2 | Category-level permission overrides | P2 | All | `access_level` on forums; admin picker |
+| partial | F2 | Category-level permission overrides | P2 | All | `access_levels[]` multi-group OR logic · admin checkbox picker · member groups on Users |
 | ✓ | F3 | Private categories | P2 | All | Locked rows + 403; staff rooms stealth; supporter entitlements |
 | ✓ | F4 | Guest read-only mode | P0 | All | `guests.read_only` in site.json; sign-in to post |
 | ✓ | F5 | Guest can't attach | P0 | All | Upload requires verified session |

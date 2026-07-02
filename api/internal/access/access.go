@@ -1,6 +1,9 @@
 package access
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 const (
 	LevelPublic     = "public"
@@ -64,6 +67,136 @@ func NormalizeLevel(level string) string {
 		return level
 	}
 	return LevelPublic
+}
+
+// NormalizeLevels deduplicates and validates access groups. Empty → public only.
+func NormalizeLevels(levels []string) []string {
+	if len(levels) == 0 {
+		return []string{LevelPublic}
+	}
+	seen := make(map[string]struct{}, len(levels))
+	out := make([]string, 0, len(levels))
+	for _, level := range levels {
+		n := NormalizeLevel(level)
+		if _, ok := seen[n]; ok {
+			continue
+		}
+		seen[n] = struct{}{}
+		out = append(out, n)
+	}
+	if len(out) == 1 && out[0] == LevelPublic {
+		return out
+	}
+	// Public is redundant when other restrictions exist.
+	filtered := out[:0]
+	for _, n := range out {
+		if n != LevelPublic {
+			filtered = append(filtered, n)
+		}
+	}
+	if len(filtered) == 0 {
+		return []string{LevelPublic}
+	}
+	return filtered
+}
+
+// PrimaryLevel is the stored access_level column (most restrictive assigned group).
+func PrimaryLevel(levels []string) string {
+	normalized := NormalizeLevels(levels)
+	if len(normalized) == 0 {
+		return LevelPublic
+	}
+	best := normalized[0]
+	bestRank := levelRestrictiveness(best)
+	for _, level := range normalized[1:] {
+		if r := levelRestrictiveness(level); r > bestRank {
+			best = level
+			bestRank = r
+		}
+	}
+	return best
+}
+
+func levelRestrictiveness(level string) int {
+	switch NormalizeLevel(level) {
+	case LevelPublic:
+		return 0
+	case LevelMembers:
+		return 1
+	case LevelSupporters, LevelSponsors:
+		return 2
+	case LevelStaff:
+		return 3
+	case LevelAdmin:
+		return 4
+	default:
+		return 0
+	}
+}
+
+func (v Viewer) CanViewAny(levels []string) bool {
+	for _, level := range NormalizeLevels(levels) {
+		if v.CanView(level) {
+			return true
+		}
+	}
+	return false
+}
+
+func (v Viewer) CanPostAny(levels []string) bool {
+	for _, level := range NormalizeLevels(levels) {
+		if v.CanPost(level) {
+			return true
+		}
+	}
+	return false
+}
+
+func LockedLabels(levels []string) string {
+	normalized := NormalizeLevels(levels)
+	if len(normalized) == 1 && normalized[0] == LevelPublic {
+		return ""
+	}
+	labels := make([]string, 0, len(normalized))
+	for _, level := range normalized {
+		if label := LockedLabel(level); label != "" {
+			labels = append(labels, label)
+		}
+	}
+	if len(labels) == 0 {
+		return ""
+	}
+	if len(labels) == 1 {
+		return labels[0]
+	}
+	return strings.Join(labels, " or ")
+}
+
+func DefaultListPublicAny(levels []string) bool {
+	for _, level := range NormalizeLevels(levels) {
+		if !DefaultListPublic(level) {
+			return false
+		}
+	}
+	return true
+}
+
+// ResolveListPublicAny picks list_public from explicit override or group defaults.
+func ResolveListPublicAny(levels []string, explicit *bool) bool {
+	if explicit != nil {
+		return *explicit
+	}
+	return DefaultListPublicAny(levels)
+}
+
+// ResolveCategoryAccess normalizes access_levels from payload (array preferred, legacy string fallback).
+func ResolveCategoryAccess(level string, levels []string) ([]string, string) {
+	if len(levels) > 0 {
+		normalized := NormalizeLevels(levels)
+		return normalized, PrimaryLevel(normalized)
+	}
+	n := NormalizeLevel(level)
+	return []string{n}, n
 }
 
 type Viewer struct {

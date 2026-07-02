@@ -50,11 +50,12 @@ func (r *Reader) Home(ctx context.Context, viewer access.Viewer) (models.HomeRes
 func (r *Reader) CategoryBySlug(ctx context.Context, slug string, page, perPage int, viewer access.Viewer) (models.CategoryPageResponse, error) {
 	var cat models.CategorySummary
 	var accessLevel string
+	var accessLevels []string
 	var listPublic bool
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, slug, name, description, parent_id, sort_order, thread_count, post_count, access_level, list_public
+		SELECT id, slug, name, description, parent_id, sort_order, thread_count, post_count, access_level, access_levels, list_public
 		FROM categories WHERE slug = $1
-	`, slug).Scan(&cat.ID, &cat.Slug, &cat.Name, &cat.Description, &cat.ParentID, &cat.SortOrder, &cat.ThreadCount, &cat.PostCount, &accessLevel, &listPublic)
+	`, slug).Scan(&cat.ID, &cat.Slug, &cat.Name, &cat.Description, &cat.ParentID, &cat.SortOrder, &cat.ThreadCount, &cat.PostCount, &accessLevel, &accessLevels, &listPublic)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return models.CategoryPageResponse{}, ErrNotFound
 	}
@@ -71,7 +72,7 @@ func (r *Reader) CategoryBySlug(ctx context.Context, slug string, page, perPage 
 		return models.CategoryPageResponse{}, ErrNotFound
 	}
 
-	cat = applyCategoryAccess(cat, accessLevel, listPublic, viewer)
+	cat = applyCategoryAccess(cat, accessLevel, accessLevels, listPublic, viewer)
 	if !cat.CanView {
 		return models.CategoryPageResponse{}, ErrForbidden
 	}
@@ -122,17 +123,18 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	var thread models.ThreadDetail
 	var cat models.CategoryRef
 	var accessLevel string
+	var accessLevels []string
 	err := r.pool.QueryRow(ctx, `
 		SELECT t.id, t.title, t.slug, t.reply_count, t.is_locked, t.is_pinned,
 		       t.created_at, t.last_activity_at,
-		       c.name, c.slug, c.access_level
+		       c.name, c.slug, c.access_level, c.access_levels
 		FROM threads t
 		JOIN categories c ON c.id = t.category_id
 		WHERE t.id = $1 AND t.deleted_at IS NULL
 	`, id).Scan(
 		&thread.ID, &thread.Title, &thread.Slug, &thread.ReplyCount,
 		&thread.IsLocked, &thread.IsPinned, &thread.CreatedAt, &thread.LastActivityAt,
-		&cat.Name, &cat.Slug, &accessLevel,
+		&cat.Name, &cat.Slug, &accessLevel, &accessLevels,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return models.ThreadPageResponse{}, ErrNotFound
@@ -140,7 +142,11 @@ func (r *Reader) ThreadByID(ctx context.Context, id string, page, perPage int, v
 	if err != nil {
 		return models.ThreadPageResponse{}, fmt.Errorf("thread: %w", err)
 	}
-	if !viewer.CanView(accessLevel) {
+	levels := access.NormalizeLevels(accessLevels)
+	if len(levels) == 0 {
+		levels = []string{access.NormalizeLevel(accessLevel)}
+	}
+	if !viewer.CanViewAny(levels) {
 		return models.ThreadPageResponse{}, ErrForbidden
 	}
 	visible, err := r.threadVisibleToViewer(ctx, id, viewer.ActorID, viewer.IsStaff)
@@ -298,7 +304,7 @@ func (r *Reader) RecentThreads(ctx context.Context, limit int, viewer access.Vie
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT t.id, t.title, t.slug, t.reply_count, t.last_activity_at, c.name, c.slug, c.access_level
+		SELECT t.id, t.title, t.slug, t.reply_count, t.last_activity_at, c.name, c.slug, c.access_level, c.access_levels
 		FROM threads t
 		JOIN categories c ON c.id = t.category_id
 		JOIN posts op ON op.thread_id = t.id AND op.is_op AND op.deleted_at IS NULL
@@ -315,12 +321,17 @@ func (r *Reader) RecentThreads(ctx context.Context, limit int, viewer access.Vie
 	for rows.Next() {
 		var t models.RecentThread
 		var accessLevel string
+		var accessLevels []string
 		if err := rows.Scan(
-			&t.ID, &t.Title, &t.Slug, &t.ReplyCount, &t.LastActivityAt, &t.CategoryName, &t.CategorySlug, &accessLevel,
+			&t.ID, &t.Title, &t.Slug, &t.ReplyCount, &t.LastActivityAt, &t.CategoryName, &t.CategorySlug, &accessLevel, &accessLevels,
 		); err != nil {
 			return models.RecentThreadsResponse{}, fmt.Errorf("scan recent thread: %w", err)
 		}
-		if !viewer.CanView(accessLevel) {
+		levels := access.NormalizeLevels(accessLevels)
+		if len(levels) == 0 {
+			levels = []string{access.NormalizeLevel(accessLevel)}
+		}
+		if !viewer.CanViewAny(levels) {
 			continue
 		}
 		t.URL = models.ThreadURL(t.Slug, t.ID)
@@ -372,7 +383,7 @@ func (r *Reader) listCategories(ctx context.Context, viewer access.Viewer) ([]mo
 
 func (r *Reader) listCategoryTree(ctx context.Context, viewer access.Viewer) ([]models.CategoryGroup, []models.CategorySummary, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, slug, name, description, parent_id, sort_order, thread_count, post_count, access_level, list_public
+		SELECT id, slug, name, description, parent_id, sort_order, thread_count, post_count, access_level, access_levels, list_public
 		FROM categories
 		ORDER BY sort_order, name
 	`)
@@ -386,14 +397,15 @@ func (r *Reader) listCategoryTree(ctx context.Context, viewer access.Viewer) ([]
 	for rows.Next() {
 		var c categoryRow
 		var accessLevel string
+		var accessLevels []string
 		var listPublic bool
 		if err := rows.Scan(
 			&c.ID, &c.Slug, &c.Name, &c.Description, &c.ParentID, &c.SortOrder,
-			&c.ThreadCount, &c.PostCount, &accessLevel, &listPublic,
+			&c.ThreadCount, &c.PostCount, &accessLevel, &accessLevels, &listPublic,
 		); err != nil {
 			return nil, nil, fmt.Errorf("scan category: %w", err)
 		}
-		c.CategorySummary = applyCategoryAccess(c.CategorySummary, accessLevel, listPublic, viewer)
+		c.CategorySummary = applyCategoryAccess(c.CategorySummary, accessLevel, accessLevels, listPublic, viewer)
 		byID[c.ID] = c
 		if c.ParentID == nil {
 			roots = append(roots, c)
@@ -494,15 +506,19 @@ func (r *Reader) CategoryAccessLevel(ctx context.Context, categoryID string) (st
 	return level, err
 }
 
-func applyCategoryAccess(cat models.CategorySummary, level string, listPublic bool, viewer access.Viewer) models.CategorySummary {
-	cat.AccessLevel = access.NormalizeLevel(level)
+func applyCategoryAccess(cat models.CategorySummary, level string, levels []string, listPublic bool, viewer access.Viewer) models.CategorySummary {
+	cat.AccessLevels = access.NormalizeLevels(levels)
+	if len(cat.AccessLevels) == 0 {
+		cat.AccessLevels = []string{access.NormalizeLevel(level)}
+	}
+	cat.AccessLevel = access.PrimaryLevel(cat.AccessLevels)
 	cat.ListPublic = listPublic
-	cat.CanView = viewer.CanView(cat.AccessLevel)
-	cat.CanPost = viewer.CanPost(cat.AccessLevel)
+	cat.CanView = viewer.CanViewAny(cat.AccessLevels)
+	cat.CanPost = viewer.CanPostAny(cat.AccessLevels)
 	if cat.CanView {
 		cat.URL = models.CategoryURL(cat.Slug)
 	} else {
-		cat.LockedLabel = access.LockedLabel(cat.AccessLevel)
+		cat.LockedLabel = access.LockedLabels(cat.AccessLevels)
 		cat.URL = ""
 		cat.Latest = nil
 	}

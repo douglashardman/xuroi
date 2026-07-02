@@ -14,9 +14,10 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   });
 };
 
-export const DELETE: APIRoute = async ({ params, request }) => {
+export const DELETE: APIRoute = async ({ params, request, url }) => {
   const session = sessionFromCookieHeader(request.headers.get('cookie'));
-  const res = await backendFetch(`/v1/admin/categories/${params.id}`, { method: 'DELETE' }, session);
+  const cascade = url.searchParams.get('cascade') === 'true' ? '?cascade=true' : '';
+  const res = await backendFetch(`/v1/admin/categories/${params.id}${cascade}`, { method: 'DELETE' }, session);
   const data = await res.json().catch(() => ({}));
   return new Response(JSON.stringify(data), {
     status: res.status,

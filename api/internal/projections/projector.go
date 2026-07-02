@@ -84,17 +84,17 @@ func (p *Projector) applyCategoryCreated(ctx context.Context, tx pgx.Tx, evt eve
 		return fmt.Errorf("unmarshal category.created: %w", err)
 	}
 
-	level := access.NormalizeLevel(payload.AccessLevel)
-	listPublic := access.ResolveListPublic(level, payload.ListPublic)
+	levels, level := access.ResolveCategoryAccess(payload.AccessLevel, payload.AccessLevels)
+	listPublic := access.ResolveListPublicAny(levels, payload.ListPublic)
 	postMod := false
 	if payload.PostModeration != nil {
 		postMod = *payload.PostModeration
 	}
 	_, err := tx.Exec(ctx, `
-		INSERT INTO categories (id, slug, name, description, sort_order, parent_id, access_level, list_public, post_moderation, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO categories (id, slug, name, description, sort_order, parent_id, access_level, access_levels, list_public, post_moderation, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (id) DO NOTHING
-	`, payload.CategoryID, payload.Slug, payload.Name, payload.Description, payload.SortOrder, payload.ParentID, level, listPublic, postMod, evt.CreatedAt)
+	`, payload.CategoryID, payload.Slug, payload.Name, payload.Description, payload.SortOrder, payload.ParentID, level, levels, listPublic, postMod, evt.CreatedAt)
 	return err
 }
 
@@ -104,17 +104,17 @@ func (p *Projector) applyCategoryUpdated(ctx context.Context, tx pgx.Tx, evt eve
 		return fmt.Errorf("unmarshal category.updated: %w", err)
 	}
 
-	level := access.NormalizeLevel(payload.AccessLevel)
-	listPublic := access.ResolveListPublic(level, payload.ListPublic)
+	levels, level := access.ResolveCategoryAccess(payload.AccessLevel, payload.AccessLevels)
+	listPublic := access.ResolveListPublicAny(levels, payload.ListPublic)
 	postMod := false
 	if payload.PostModeration != nil {
 		postMod = *payload.PostModeration
 	}
 	_, err := tx.Exec(ctx, `
 		UPDATE categories
-		SET slug = $2, name = $3, description = $4, sort_order = $5, parent_id = $6, access_level = $7, list_public = $8, post_moderation = $9
+		SET slug = $2, name = $3, description = $4, sort_order = $5, parent_id = $6, access_level = $7, access_levels = $8, list_public = $9, post_moderation = $10
 		WHERE id = $1
-	`, payload.CategoryID, payload.Slug, payload.Name, payload.Description, payload.SortOrder, payload.ParentID, level, listPublic, postMod)
+	`, payload.CategoryID, payload.Slug, payload.Name, payload.Description, payload.SortOrder, payload.ParentID, level, levels, listPublic, postMod)
 	return err
 }
 

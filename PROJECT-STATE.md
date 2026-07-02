@@ -2,9 +2,9 @@
 
 **Grok: read `.grok/session/CHANGELOG.md` first** (local `Forum-Idea/.grok/session/`) — then this file.
 
-**Last updated:** July 2, 2026 — E3 thread report + E5 mod gear (partial)  
+**Last updated:** July 2, 2026 — Admin section delete + multi-group access + member groups UI  
 **Repo:** [github.com/douglashardman/xuroi](https://github.com/douglashardman/xuroi) (public)  
-**Session status:** E3 thread report shipped · E5 mod gear popover (partial) · **Next:** E5 polish, spam scoring (E9)
+**Session status:** Admin categories polish shipped · **Next:** E5 polish, spam scoring (E9)
 
 ---
 
@@ -45,7 +45,7 @@
 
 ```
 xuroi/                    ← git root on GitHub
-  api/                    Go API, auth, events, migrations (001–026)
+  api/                    Go API, auth, events, migrations (001–027)
   web/                    Astro SSR — production UI for launch
   worker/                 README only; jobs run via api/cmd/* for now
   theme-contract/         Schema, fixtures, THEMING.md
@@ -96,7 +96,7 @@ Local workspace also has `Forum-Idea/phpBB3/`, `xenforo_*`, `smf_*` (reference o
 ### Moderation & admin
 - [x] Report post · **report thread (E3)** · mod queue `/mod/reports` · **configurable report reasons (E4)** in `site.json`
 - [x] **Post approval queue** `/mod/queue` — classifieds forums moderated (E2)
-- [x] Admin panel `/admin` — overview, users, categories CRUD, ban/restore/warn
+- [x] Admin panel `/admin` — overview, users, categories CRUD (section delete, multi-group access), ban/restore/warn, member groups editor
 - [x] Post author IP audit · email verification resend
 
 ### SEO, legal, marketing

@@ -167,8 +167,9 @@ func (a *API) createCategory(w http.ResponseWriter, r *http.Request) {
 		Description string  `json:"description"`
 		SortOrder   int     `json:"sort_order"`
 		ParentID    *string `json:"parent_id"`
-		AccessLevel string `json:"access_level"`
-		ListPublic  *bool  `json:"list_public"`
+		AccessLevel  string   `json:"access_level"`
+		AccessLevels []string `json:"access_levels"`
+		ListPublic   *bool    `json:"list_public"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -182,14 +183,15 @@ func (a *API) createCategory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	evt, err := a.forum.CreateCategory(r.Context(), service.CreateCategoryInput{
-		Slug:        req.Slug,
-		Name:        req.Name,
-		Description: req.Description,
-		SortOrder:   req.SortOrder,
-		ParentID:    req.ParentID,
-		AccessLevel: req.AccessLevel,
-		ListPublic:  req.ListPublic,
-		ActorID:     admin.ID,
+		Slug:         req.Slug,
+		Name:         req.Name,
+		Description:  req.Description,
+		SortOrder:    req.SortOrder,
+		ParentID:     req.ParentID,
+		AccessLevel:  req.AccessLevel,
+		AccessLevels: req.AccessLevels,
+		ListPublic:   req.ListPublic,
+		ActorID:      admin.ID,
 	})
 	if err != nil {
 		writeCategoryError(w, err)

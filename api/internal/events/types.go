@@ -53,21 +53,23 @@ type CategoryCreated struct {
 	Description string  `json:"description"`
 	SortOrder   int     `json:"sort_order"`
 	ParentID    *string `json:"parent_id"`
-	AccessLevel     string `json:"access_level,omitempty"`
-	ListPublic      *bool  `json:"list_public,omitempty"`
-	PostModeration  *bool  `json:"post_moderation,omitempty"`
+	AccessLevel     string   `json:"access_level,omitempty"`
+	AccessLevels    []string `json:"access_levels,omitempty"`
+	ListPublic      *bool    `json:"list_public,omitempty"`
+	PostModeration  *bool    `json:"post_moderation,omitempty"`
 }
 
 type CategoryUpdated struct {
-	CategoryID     string  `json:"category_id"`
-	Slug           string  `json:"slug"`
-	Name           string  `json:"name"`
-	Description    string  `json:"description"`
-	SortOrder      int     `json:"sort_order"`
-	ParentID       *string `json:"parent_id"`
-	AccessLevel    string  `json:"access_level,omitempty"`
-	ListPublic     *bool   `json:"list_public,omitempty"`
-	PostModeration *bool   `json:"post_moderation,omitempty"`
+	CategoryID     string   `json:"category_id"`
+	Slug           string   `json:"slug"`
+	Name           string   `json:"name"`
+	Description    string   `json:"description"`
+	SortOrder      int      `json:"sort_order"`
+	ParentID       *string  `json:"parent_id"`
+	AccessLevel    string   `json:"access_level,omitempty"`
+	AccessLevels   []string `json:"access_levels,omitempty"`
+	ListPublic     *bool    `json:"list_public,omitempty"`
+	PostModeration *bool    `json:"post_moderation,omitempty"`
 }
 
 type CategoryDeleted struct {
