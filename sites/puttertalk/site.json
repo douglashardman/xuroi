@@ -185,7 +185,7 @@
     "delete_enabled": false
   },
   "admin": {
-    "emails": ["tester@puttertalk.dev", "doug@puttertalk.com"],
+    "emails": ["tester@puttertalk.dev", "doug@puttertalk.com", "doug@mrdoug.com"],
     "moderator_emails": [],
     "perm_ban_moderator_emails": []
   },
