@@ -17,6 +17,7 @@ import {
 } from '../../lib/server-api';
 import Avatar from '../../components/Avatar.astro';
 import PostModGear from '../../components/PostModGear.astro';
+import PostReportBtn from '../../components/PostReportBtn.astro';
 import ThreadModGear from '../../components/ThreadModGear.astro';
 import { ACCENT_CLASSES, PAV_CLASSES, accentIndex } from '../../lib/theme';
 
@@ -142,19 +143,22 @@ const jsonLd = threadJsonLd(data, data.site.url);
         </div>
         <div class="pbody">
           <div class="pdate">
-            <time datetime={post.created_at}>{formatDate(post.created_at)}</time>
-            {post.pending_moderation && (
-              <span class="post-pending-badge" title="Awaiting moderator approval">Pending approval</span>
-            )}
-            {post.edited_at && (post.can_edit || user?.is_admin) ? (
-              <button type="button" class="post-edited-stamp" data-history={post.id} title="View edit history">
-                Edited
-              </button>
-            ) : post.edited_at ? (
-              <span class="post-edited-stamp" title={`Last edited ${formatDate(post.edited_at)}`}>
-                Edited
-              </span>
-            ) : null}
+            <div class="pdate-meta">
+              <time datetime={post.created_at}>{formatDate(post.created_at)}</time>
+              {post.pending_moderation && (
+                <span class="post-pending-badge" title="Awaiting moderator approval">Pending approval</span>
+              )}
+              {post.edited_at && (post.can_edit || user?.is_admin) ? (
+                <button type="button" class="post-edited-stamp" data-history={post.id} title="View edit history">
+                  Edited
+                </button>
+              ) : post.edited_at ? (
+                <span class="post-edited-stamp" title={`Last edited ${formatDate(post.edited_at)}`}>
+                  Edited
+                </span>
+              ) : null}
+            </div>
+            {user && <PostReportBtn postId={post.id} />}
           </div>
           {post.quote && (
             <a href={post.quote.url} class="post-quote-link" title="Jump to quoted post">
@@ -186,11 +190,6 @@ const jsonLd = threadJsonLd(data, data.site.url);
                 data-quote-excerpt={excerpt}
               >
                 Quote
-              </button>
-            )}
-            {user && (
-              <button type="button" class="post-action post-action--muted" data-report={post.id}>
-                Report
               </button>
             )}
             <button

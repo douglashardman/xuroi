@@ -311,6 +311,54 @@
   color: var(--faint);
 }
 
+.pdate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pdate-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.post-report-btn {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  opacity: 0.3;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.post:hover .post-report-btn,
+.post-report-btn:focus-visible {
+  opacity: 1;
+}
+
+.post-report-btn:hover:not(:disabled) {
+  color: var(--pink);
+  background: var(--mist);
+}
+
+.post-report-btn.is-reported,
+.post-report-btn:disabled {
+  opacity: 1;
+  color: var(--pink);
+  cursor: default;
+}
+
 button.post-edited-stamp {
   cursor: pointer;
   font: inherit;

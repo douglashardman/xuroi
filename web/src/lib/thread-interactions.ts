@@ -5,6 +5,7 @@ import {
   syncThreadPinLabel,
   syncThreadReportCount,
 } from './mod-gear';
+import { markPostReported } from './post-report';
 import { initLightbox } from './lightbox';
 import { findPostEditor } from './post-edit-form';
 import {
@@ -87,7 +88,7 @@ function pickReportReason(openPanel: PanelFn, closePanel: ClosePanelFn): Promise
   const reasons = loadReportReasons();
   if (!reasons.length) {
     return promptDialog('Add an optional reason for moderators.', {
-      title: 'Report post',
+      title: 'Flag for moderators',
       placeholder: 'Reason (optional)',
       defaultValue: '',
     }).then((reason) => (reason === null ? null : { reason_id: '', detail: reason.trim() }));
@@ -102,7 +103,7 @@ function pickReportReason(openPanel: PanelFn, closePanel: ClosePanelFn): Promise
   `).join('');
 
   return new Promise((resolve) => {
-    openPanel('Report post', `
+    openPanel('Flag for moderators', `
       <p class="report-reason-intro">Tell moderators what’s wrong with this post.</p>
       <form class="report-reason-form" id="report-reason-form">
         <div class="report-reason-list">${radios}</div>
@@ -609,7 +610,6 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
       if (!postId) return;
       const picked = await pickReportReason(openPanel, closePanel);
       if (picked === null) return;
-      reportBtn.setAttribute('disabled', 'true');
       try {
         const payload = picked.reason_id
           ? { reason_id: picked.reason_id, detail: picked.detail }
@@ -621,8 +621,8 @@ export function initThreadInteractions(openPanel: PanelFn, closePanel: ClosePane
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Report failed');
-        reportBtn.textContent = 'Reported';
-        showToast('Report submitted — thanks.', 'success');
+        markPostReported(reportBtn);
+        showToast('Flagged for moderators — thanks.', 'success');
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Report failed', 'error');
         reportBtn.removeAttribute('disabled');

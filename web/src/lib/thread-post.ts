@@ -2,6 +2,7 @@ import type { Post } from './api';
 import { formatDate } from './api';
 import { postEditFormHTML } from './post-edit-form';
 import { postModGearHTML } from './mod-gear';
+import { postReportButtonHTML } from './post-report';
 import { ACCENT_CLASSES, PAV_CLASSES, accentIndex, avatarSrc, initials } from './theme';
 
 function escapeText(s: string): string {
@@ -46,9 +47,7 @@ export function renderPostArticle(post: Post, opts: { signedIn: boolean; isStaff
   const quoteBtn = opts.signedIn
     ? `<button type="button" class="post-action" data-quote="${post.id}" data-quote-author="${escapeText(post.author.name)}" data-quote-excerpt="${escapeText(excerpt)}">Quote</button>`
     : '';
-  const reportBtn = opts.signedIn
-    ? `<button type="button" class="post-action post-action--muted" data-report="${post.id}">Report</button>`
-    : '';
+  const reportBtn = opts.signedIn ? postReportButtonHTML(post.id) : '';
   const modGear = opts.isStaff ? postModGearHTML(post.id, !!post.is_warned) : '';
 
   const editForm = post.can_edit ? postEditFormHTML(post.id) : '';
@@ -68,7 +67,10 @@ export function renderPostArticle(post: Post, opts: { signedIn: boolean; isStaff
     </div>
     <div class="pbody">
       <div class="pdate">
-        <time datetime="${post.created_at}">${formatDate(post.created_at)}</time>
+        <div class="pdate-meta">
+          <time datetime="${post.created_at}">${formatDate(post.created_at)}</time>
+        </div>
+        ${reportBtn}
       </div>
       ${quote}
       <div class="post-body" data-post-body="${post.id}">${post.body_html}</div>
@@ -77,7 +79,6 @@ export function renderPostArticle(post: Post, opts: { signedIn: boolean; isStaff
         ${editBtn}
         ${deleteBtn}
         ${quoteBtn}
-        ${reportBtn}
         <button type="button" class="post-like" data-post-id="${post.id}" data-liked="0" title="Like this post">
           ♥ <span class="like-count">0</span>
         </button>
