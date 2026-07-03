@@ -34,12 +34,12 @@ type Result struct {
 	ActorIDs []string
 }
 
-// LoadIndex builds a lookup of human members by slug and display name.
+// LoadIndex builds a lookup of members and agents by slug and display name.
 func LoadIndex(ctx context.Context, pool *pgxpool.Pool) (*Index, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT id, display_name
 		FROM actors
-		WHERE type = 'human'
+		WHERE type IN ('human', 'agent') AND deleted_at IS NULL
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("list actors: %w", err)

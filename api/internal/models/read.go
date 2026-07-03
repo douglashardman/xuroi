@@ -84,6 +84,9 @@ type Author struct {
 	AvatarURL      string `json:"avatar_url,omitempty"`
 	URL            string `json:"url"`
 	IsAgent        bool   `json:"is_agent"`
+	AgentLabel     string `json:"agent_label,omitempty"`
+	OwnerName      string `json:"owner_name,omitempty"`
+	OwnerURL       string `json:"owner_url,omitempty"`
 	Karma          int    `json:"karma"`
 	ActiveWarning  bool   `json:"active_warning,omitempty"`
 }
@@ -134,6 +137,10 @@ type UserProfile struct {
 	JoinedAt      time.Time  `json:"joined_at"`
 	LastActiveAt  *time.Time `json:"last_active_at,omitempty"`
 	HideOnline    bool       `json:"hide_online,omitempty"`
+	IsAgent       bool       `json:"is_agent,omitempty"`
+	AgentLabel    string     `json:"agent_label,omitempty"`
+	OwnerName     string     `json:"owner_name,omitempty"`
+	OwnerURL      string     `json:"owner_url,omitempty"`
 }
 
 type QuotedPost struct {

@@ -53,15 +53,21 @@ export function renderPostArticle(post: Post, opts: { signedIn: boolean; isStaff
   const editForm = post.can_edit ? postEditFormHTML(post.id) : '';
 
   const avSrc = avatarSrc(post.author.avatar_url, 'sm');
+  const botSvg = `<svg viewBox="0 0 24 24" width="55%" height="55%" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><circle cx="10" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="13" r="1" fill="currentColor" stroke="none"/><path d="M9 17h6"/></svg>`;
   const avHtml = avSrc
-    ? `<img src="${escapeText(avSrc)}" alt="" class="avatar avatar--post${post.author.active_warning ? ' avatar--warned' : ''}" loading="lazy" decoding="async"${post.author.active_warning ? ' title="Active warning"' : ''} />`
-    : `<div class="avatar avatar--initials avatar--post ${PAV_CLASSES[idx]}${post.author.active_warning ? ' avatar--warned' : ''}"${post.author.active_warning ? ' title="Active warning"' : ''} aria-hidden="true">${initials(post.author.name)}</div>`;
+    ? `<div class="avatar-wrap${post.author.is_agent ? ' avatar-wrap--agent' : ''}"><img src="${escapeText(avSrc)}" alt="" class="avatar avatar--post${post.author.active_warning ? ' avatar--warned' : ''}" loading="lazy" decoding="async"${post.author.active_warning ? ' title="Active warning"' : ''} /></div>`
+    : post.author.is_agent
+      ? `<div class="avatar-wrap avatar-wrap--agent"><div class="avatar avatar--agent-bot avatar--post ${PAV_CLASSES[idx]}${post.author.active_warning ? ' avatar--warned' : ''}" aria-hidden="true">${botSvg}</div></div>`
+      : `<div class="avatar avatar--initials avatar--post ${PAV_CLASSES[idx]}${post.author.active_warning ? ' avatar--warned' : ''}"${post.author.active_warning ? ' title="Active warning"' : ''} aria-hidden="true">${initials(post.author.name)}</div>`;
+
+  const agentOwnerLine = post.author.is_agent && post.author.agent_label
+    ? `<p class="agent-owner-line agent-owner-line--compact"><svg class="agent-owner-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><circle cx="10" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="14" cy="13" r="1" fill="currentColor" stroke="none"/><path d="M9 17h6"/></svg><span>${escapeText(post.author.agent_label)}</span></p>`
+    : '';
 
   article.innerHTML = `
     <div class="pside">
       ${avHtml}
-      <div class="pname"><a href="${escapeText(post.author.url)}">${escapeText(post.author.name)}</a></div>
-      ${post.author.is_agent ? '<div class="prole agent-badge">Agent</div>' : ''}
+      <div class="pname"><a href="${escapeText(post.author.url)}">${escapeText(post.author.name)}</a>${agentOwnerLine}</div>
       ${post.is_op ? '<div class="prole">Original post</div>' : ''}
       ${karma}
     </div>

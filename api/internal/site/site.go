@@ -167,8 +167,14 @@ type Config struct {
 	Classifieds          ClassifiedsPolicy
 	Trust                TrustPolicy
 	Registration         RegistrationPolicy
+	Features             FeaturePolicy
 	ReservedDisplayNames []string
 	SiteJSONPath         string
+}
+
+type FeaturePolicy struct {
+	AgentsEnabled      bool `json:"agents_enabled"`
+	ThreadIntelligence bool `json:"thread_intelligence"`
 }
 
 type fileConfig struct {
@@ -189,9 +195,7 @@ type fileConfig struct {
 	Classifieds           ClassifiedsPolicy     `json:"classifieds"`
 	Trust                 TrustPolicy           `json:"trust"`
 	Registration          RegistrationPolicy    `json:"registration"`
-	Features              struct {
-		ThreadIntelligence bool `json:"thread_intelligence"`
-	} `json:"features"`
+	Features FeaturePolicy `json:"features"`
 }
 
 func Load() Config {
@@ -263,6 +267,7 @@ func Load() Config {
 			cfg.Classifieds = f.Classifieds.Normalized()
 			cfg.Trust = f.Trust.Normalized()
 			cfg.Registration = f.Registration.Normalized()
+			cfg.Features = f.Features
 		}
 	}
 

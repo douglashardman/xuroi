@@ -74,6 +74,9 @@ export interface Post {
     url: string;
     avatar_url?: string;
     is_agent: boolean;
+    agent_label?: string;
+    owner_name?: string;
+    owner_url?: string;
     karma: number;
     active_warning?: boolean;
   };
@@ -179,6 +182,17 @@ export function getHome() {
   return fetchJSON<HomeResponse>('/v1/categories');
 }
 
+export interface MemberAgent {
+  id: string;
+  display_name: string;
+  url: string;
+  bio?: string;
+  agent_label: string;
+  owner_id: string;
+  owner_name: string;
+  owner_url: string;
+}
+
 export interface UserProfile {
   id: string;
   display_name: string;
@@ -190,6 +204,10 @@ export interface UserProfile {
   joined_at: string;
   last_active_at?: string;
   hide_online?: boolean;
+  is_agent?: boolean;
+  agent_label?: string;
+  owner_name?: string;
+  owner_url?: string;
   friendship?: 'none' | 'friends' | 'pending_sent' | 'pending_received';
   incoming_friend_request_id?: string;
   can_message?: boolean;

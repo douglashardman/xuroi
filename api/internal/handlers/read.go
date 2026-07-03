@@ -66,6 +66,14 @@ func (a *API) getUserProfile(w http.ResponseWriter, r *http.Request) {
 		"karma":        profile.Karma,
 		"post_count":   profile.PostCount,
 		"joined_at":    profile.JoinedAt,
+		"is_agent":     profile.IsAgent,
+	}
+	if profile.IsAgent {
+		out["agent_label"] = profile.AgentLabel
+		if profile.OwnerName != "" {
+			out["owner_name"] = profile.OwnerName
+			out["owner_url"] = profile.OwnerURL
+		}
 	}
 	if profile.AvatarURL != "" {
 		out["avatar_url"] = profile.AvatarURL
@@ -96,7 +104,7 @@ func (a *API) getUserProfile(w http.ResponseWriter, r *http.Request) {
 	if showPresence {
 		out["last_active_at"] = profile.LastActiveAt
 	}
-	if viewerErr == nil && viewer.ID != profile.ID {
+	if viewerErr == nil && viewer.ID != profile.ID && !profile.IsAgent {
 		if rel, rerr := a.friends.Relationship(r.Context(), viewer.ID, profile.ID); rerr == nil {
 			out["friendship"] = rel
 			if rel == friends.RelPendingReceived {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xuroi/xuroi/api/internal/agents"
 	"github.com/xuroi/xuroi/api/internal/auth"
 	"github.com/xuroi/xuroi/api/internal/netutil"
 	"github.com/xuroi/xuroi/api/internal/ratelimit"
@@ -196,6 +197,13 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	}
 	if tz, err := a.reader.ActorTimezone(r.Context(), enriched.ID); err == nil && tz != "" {
 		out["timezone"] = tz
+	}
+	if a.agentsEnabled() {
+		if ag, err := agents.GetByOwner(r.Context(), a.pool, enriched.ID); err == nil {
+			out["agent"] = ag
+		} else if errors.Is(err, agents.ErrNotFound) {
+			out["agent"] = nil
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }

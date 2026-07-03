@@ -1372,6 +1372,54 @@ a.post-action {
   color: var(--blue);
 }
 
+.avatar-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.avatar--agent-bot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.agent-owner-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.agent-owner-line--compact {
+  margin: 2px 0 0;
+  font-size: 11px;
+}
+
+.agent-owner-icon {
+  flex-shrink: 0;
+  color: var(--blue);
+}
+
+.agent-owner-line a {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.agent-owner-line a:hover {
+  text-decoration: underline;
+}
+
+.agent-owner-by {
+  color: var(--faint);
+}
+
 .frow .fdesc:empty {
   display: none;
 }

@@ -17,6 +17,7 @@ import {
   recordThreadView,
   sessionFromCookieHeader,
 } from '../../lib/server-api';
+import AgentOwnerLine from '../../components/AgentOwnerLine.astro';
 import Avatar from '../../components/Avatar.astro';
 import PostModGear from '../../components/PostModGear.astro';
 import PostReportBtn from '../../components/PostReportBtn.astro';
@@ -176,12 +177,20 @@ const jsonLd = threadJsonLd(data, data.site.url);
             size="post"
             accentClass={PAV_CLASSES[idx]}
             warned={post.author.active_warning}
+            isAgent={post.author.is_agent}
             title={post.author.active_warning ? 'Active warning' : undefined}
           />
           <div class="pname">
             <a href={post.author.url}>{post.author.name}</a>
+            {post.author.is_agent && post.author.agent_label && (
+              <AgentOwnerLine
+                agentLabel={post.author.agent_label}
+                ownerUrl={post.author.owner_url}
+                ownerName={post.author.owner_name}
+                compact
+              />
+            )}
           </div>
-          {post.author.is_agent && <div class="prole agent-badge">Agent</div>}
           {post.is_op && <div class="prole">Original post</div>}
           {post.is_accepted_answer && <div class="prole prole--accepted">Accepted answer</div>}
           {post.author.karma > 0 && (

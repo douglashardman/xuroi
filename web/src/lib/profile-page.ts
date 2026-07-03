@@ -266,6 +266,51 @@ export function initOwnProfileActions() {
     showToast('Message privacy updated', 'success');
   });
 
+  document.getElementById('profile-agent-invite-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const fd = new FormData(form);
+    const display_name = String(fd.get('display_name') ?? '').trim();
+    const bio = String(fd.get('bio') ?? '').trim();
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/me/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name, bio }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not invite agent');
+      showToast(`${display_name} is ready — tag @${display_name} in posts`, 'success');
+      window.setTimeout(() => window.location.reload(), 700);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Invite failed', 'error');
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  document.getElementById('profile-agent-remove')?.addEventListener('click', async () => {
+    const ok = await confirm('Remove your agent? Their profile will be hidden.', {
+      title: 'Remove agent?',
+      confirmLabel: 'Remove',
+      dangerous: true,
+    });
+    if (!ok) return;
+    const btn = document.getElementById('profile-agent-remove') as HTMLButtonElement | null;
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/me/agent', { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not remove agent');
+      showToast('Agent removed', 'warning');
+      window.setTimeout(() => window.location.reload(), 600);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Remove failed', 'error');
+      if (btn) btn.disabled = false;
+    }
+  });
+
   document.getElementById('export-data-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('export-data-btn') as HTMLButtonElement;
     btn.disabled = true;

@@ -7,6 +7,7 @@ interface Props {
   size?: 'nav' | 'post' | 'profile' | 'dm';
   accentClass?: string;
   warned?: boolean;
+  isAgent?: boolean;
   title?: string;
 }
 
@@ -16,6 +17,7 @@ const {
   size = 'post',
   accentClass = '',
   warned = false,
+  isAgent = false,
   title,
 } = Astro.props;
 
@@ -24,21 +26,37 @@ const sizeClass = `avatar--${size}`;
 const warnClass = warned ? ' avatar--warned' : '';
 ---
 
-{src ? (
-  <img
-    src={src}
-    alt=""
-    class={`avatar ${sizeClass}${warnClass}`}
-    loading="lazy"
-    decoding="async"
-    title={title}
-  />
-) : (
-  <div
-    class={`avatar avatar--initials ${sizeClass} ${accentClass}${warnClass}`}
-    title={title}
-    aria-hidden="true"
-  >
-    {initials(name)}
-  </div>
-)}
+<div class:list={['avatar-wrap', isAgent && 'avatar-wrap--agent']}>
+  {src ? (
+    <img
+      src={src}
+      alt=""
+      class={`avatar ${sizeClass}${warnClass}`}
+      loading="lazy"
+      decoding="async"
+      title={title}
+    />
+  ) : isAgent ? (
+    <div
+      class={`avatar avatar--agent-bot ${sizeClass} ${accentClass}${warnClass}`}
+      title={title}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 24 24" width="55%" height="55%" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="5" y="8" width="14" height="11" rx="2"/>
+        <path d="M9 8V6a3 3 0 0 1 6 0v2"/>
+        <circle cx="10" cy="13" r="1" fill="currentColor" stroke="none"/>
+        <circle cx="14" cy="13" r="1" fill="currentColor" stroke="none"/>
+        <path d="M9 17h6"/>
+      </svg>
+    </div>
+  ) : (
+    <div
+      class={`avatar avatar--initials ${sizeClass} ${accentClass}${warnClass}`}
+      title={title}
+      aria-hidden="true"
+    >
+      {initials(name)}
+    </div>
+  )}
+</div>

@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 
+import AgentOwnerLine from '../../components/AgentOwnerLine.astro';
 import ProfileAvatar from '../../components/ProfileAvatar.astro';
 import Layout from '../../layouts/Layout.astro';
 import { formatDate, formatLastSeen, getHome } from '../../lib/api';
@@ -29,12 +30,22 @@ const avIdx = accentIndex(profile.id);
         name={profile.display_name}
         avatarUrl={profile.avatar_url}
         accentClass={PAV_CLASSES[avIdx]}
-        editable={isOwnProfile}
+        editable={isOwnProfile && !profile.is_agent}
+        isAgent={profile.is_agent}
       />
       <div class="profile-identity-body">
         <div class="profile-identity-top">
-          <h1>{profile.display_name}</h1>
-          {!isOwnProfile && user && (
+          <div>
+            <h1>{profile.display_name}</h1>
+            {profile.is_agent && profile.agent_label && (
+              <AgentOwnerLine
+                agentLabel={profile.agent_label}
+                ownerUrl={profile.owner_url}
+                ownerName={profile.owner_name}
+              />
+            )}
+          </div>
+          {!isOwnProfile && user && !profile.is_agent && (
             <div class="profile-actions" id="profile-actions">
               {profile.friendship === 'friends' ? (
                 <button type="button" class="btn btn--sm btn--pending" disabled>Friends</button>
@@ -65,7 +76,11 @@ const avIdx = accentIndex(profile.id);
         {profile.bio && (
           <p class="profile-bio">{profile.bio}</p>
         )}
-        <p class="profile-note">Karma comes from likes on your posts — liking your own posts doesn't count.</p>
+        {profile.is_agent ? (
+          <p class="profile-note">Automated assistant — posts are labeled and attributed to the member who invited this agent.</p>
+        ) : (
+          <p class="profile-note">Karma comes from likes on your posts — liking your own posts doesn't count.</p>
+        )}
       </div>
     </section>
 
@@ -175,6 +190,35 @@ const avIdx = accentIndex(profile.id);
             </label>
             <button type="submit" class="btn btn--sm">Save privacy</button>
           </form>
+        </article>
+
+        <article class="profile-card profile-card--blue" id="profile-agent-card">
+          <header class="profile-card-head">
+            <h2>Your agent</h2>
+            <p class="profile-card-desc">Invite an assistant that posts on your behalf — clearly labeled as your agent.</p>
+          </header>
+          {user?.agent ? (
+            <div class="profile-agent-existing" id="profile-agent-existing">
+              <p><strong><a href={user.agent.url}>{user.agent.display_name}</a></strong> — {user.agent.agent_label}</p>
+              {user.agent.bio && <p class="profile-card-desc">{user.agent.bio}</p>}
+              <div class="profile-agent-actions">
+                <a class="btn btn--sm" href={user.agent.url}>View profile</a>
+                <button type="button" class="btn btn--sm btn--ghost btn--danger" id="profile-agent-remove">Remove agent</button>
+              </div>
+            </div>
+          ) : (
+            <form id="profile-agent-invite-form" class="profile-agent-form">
+              <label>
+                Agent name
+                <input type="text" name="display_name" maxlength="40" placeholder="Marshall" required />
+              </label>
+              <label>
+                Short bio (optional)
+                <textarea name="bio" rows="2" maxlength="500" placeholder="Putter expert assistant"></textarea>
+              </label>
+              <button type="submit" class="btn btn--sm btn--pink">Invite agent</button>
+            </form>
+          )}
         </article>
 
         <article class="profile-card profile-card--pink">
@@ -454,6 +498,35 @@ const avIdx = accentIndex(profile.id);
     padding: 9px 12px;
     font: inherit;
     background: var(--paper);
+  }
+
+  .profile-agent-form {
+    display: grid;
+    gap: 10px;
+  }
+
+  .profile-agent-form label {
+    display: grid;
+    gap: 6px;
+    font-family: Poppins, sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .profile-agent-form input,
+  .profile-agent-form textarea {
+    border: 2px solid var(--hair);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font: inherit;
+    background: var(--paper);
+  }
+
+  .profile-agent-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
   }
 
   .btn--pending {

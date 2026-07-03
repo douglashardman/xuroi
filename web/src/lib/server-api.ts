@@ -32,6 +32,7 @@ export interface Actor {
   dm_privacy?: 'everyone' | 'friends_only' | 'off';
   timezone?: string;
   avatar_url?: string;
+  agent?: import('./api').MemberAgent | null;
 }
 
 export interface FriendMember {

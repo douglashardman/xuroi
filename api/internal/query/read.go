@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/xuroi/xuroi/api/internal/access"
+	"github.com/xuroi/xuroi/api/internal/agents"
 	"github.com/xuroi/xuroi/api/internal/intelligence"
 	"github.com/xuroi/xuroi/api/internal/markdown"
 	"github.com/xuroi/xuroi/api/internal/models"
@@ -381,9 +382,12 @@ func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserPr
 		         WHERE p.author_id = a.id AND p.deleted_at IS NULL
 		       )) AS last_active_at,
 		       a.hide_online_status,
-		       (SELECT count(*) FROM posts p WHERE p.author_id = a.id AND p.deleted_at IS NULL)
+		       (SELECT count(*) FROM posts p WHERE p.author_id = a.id AND p.deleted_at IS NULL),
+		       a.type,
+		       COALESCE(o.display_name, '')
 		FROM actors a
-		WHERE a.type = 'human' AND a.deleted_at IS NULL
+		LEFT JOIN actors o ON o.id = a.owner_actor_id
+		WHERE a.type IN ('human', 'agent') AND a.deleted_at IS NULL
 	`)
 	if err != nil {
 		return models.UserProfile{}, fmt.Errorf("list actors: %w", err)
@@ -393,11 +397,21 @@ func (r *Reader) UserBySlug(ctx context.Context, nameSlug string) (models.UserPr
 	want := strings.ToLower(nameSlug)
 	for rows.Next() {
 		var profile models.UserProfile
-		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.Bio, &profile.LastActiveAt, &profile.HideOnline, &profile.PostCount); err != nil {
+		var actorType string
+		var ownerName string
+		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Karma, &profile.JoinedAt, &profile.AvatarURL, &profile.Bio, &profile.LastActiveAt, &profile.HideOnline, &profile.PostCount, &actorType, &ownerName); err != nil {
 			return models.UserProfile{}, fmt.Errorf("scan actor: %w", err)
 		}
 		if slug.FromDisplayName(profile.DisplayName) == want {
 			profile.URL = models.UserURL(profile.DisplayName)
+			if actorType == "agent" {
+				profile.IsAgent = true
+				profile.OwnerName = ownerName
+				if ownerName != "" {
+					profile.OwnerURL = models.UserURL(ownerName)
+					profile.AgentLabel = agents.OwnerLabel(ownerName)
+				}
+			}
 			return profile, nil
 		}
 	}
@@ -807,7 +821,7 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.id, p.body_html, p.created_at, p.edited_at, p.is_op, p.reaction_count,
-		       a.display_name, a.type, a.karma, COALESCE(a.avatar_url, ''),
+		       a.display_name, a.type, a.karma, COALESCE(a.avatar_url, ''), COALESCE(o.display_name, ''),
 		       p.quoted_post_id, qa.display_name, p.quote_markdown, qp.body_html,
 		       CASE WHEN $4::text IS NULL THEN FALSE ELSE EXISTS(
 		         SELECT 1 FROM reactions rx
@@ -829,6 +843,7 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 		FROM posts p
 		JOIN threads t ON t.id = p.thread_id
 		JOIN actors a ON a.id = p.author_id
+		LEFT JOIN actors o ON o.id = a.owner_actor_id
 		LEFT JOIN posts qp ON qp.id = p.quoted_post_id
 		LEFT JOIN actors qa ON qa.id = qp.author_id
 		WHERE p.thread_id = $1 AND p.deleted_at IS NULL AND `+modFilter+`
@@ -850,9 +865,10 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 		var actorType string
 		var quoteID, quoteAuthor, quoteMarkdown, quoteSourceHTML *string
 		var bodyMarkdown *string
+		var ownerName string
 		if err := rows.Scan(
 			&p.ID, &p.BodyHTML, &p.CreatedAt, &p.EditedAt, &p.IsOP, &p.ReactionCount,
-			&p.Author.Name, &actorType, &p.Author.Karma, &p.Author.AvatarURL,
+			&p.Author.Name, &actorType, &p.Author.Karma, &p.Author.AvatarURL, &ownerName,
 			&quoteID, &quoteAuthor, &quoteMarkdown, &quoteSourceHTML,
 			&p.ReactedByMe,
 			&bodyMarkdown, &p.CanEdit, &p.CanDelete,
@@ -862,6 +878,11 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
 		p.Author.IsAgent = actorType == "agent"
+		if p.Author.IsAgent && ownerName != "" {
+			p.Author.OwnerName = ownerName
+			p.Author.OwnerURL = models.UserURL(ownerName)
+			p.Author.AgentLabel = agents.OwnerLabel(ownerName)
+		}
 		p.Author.URL = models.UserURL(p.Author.Name)
 		p.BodyHTML = r.postHTML(p.BodyHTML)
 		if bodyMarkdown != nil {
@@ -892,12 +913,13 @@ func (r *Reader) listPosts(ctx context.Context, threadID string, page, perPage i
 func (r *Reader) PostByID(ctx context.Context, postID string, viewerActorID *string, viewerIsAdmin bool) (models.Post, error) {
 	var p models.Post
 	var actorType string
+	var ownerName string
 	var quoteID, quoteAuthor, quoteMarkdown, quoteSourceHTML *string
 	var bodyMarkdown *string
 
 	err := r.pool.QueryRow(ctx, `
 		SELECT p.id, p.body_html, p.created_at, p.edited_at, p.is_op, p.reaction_count,
-		       a.display_name, a.type, a.karma, COALESCE(a.avatar_url, ''),
+		       a.display_name, a.type, a.karma, COALESCE(a.avatar_url, ''), COALESCE(o.display_name, ''),
 		       p.quoted_post_id, qa.display_name, p.quote_markdown, qp.body_html,
 		       CASE WHEN $2::text IS NULL THEN FALSE ELSE EXISTS(
 		         SELECT 1 FROM reactions rx
@@ -918,12 +940,13 @@ func (r *Reader) PostByID(ctx context.Context, postID string, viewerActorID *str
 		FROM posts p
 		JOIN threads t ON t.id = p.thread_id
 		JOIN actors a ON a.id = p.author_id
+		LEFT JOIN actors o ON o.id = a.owner_actor_id
 		LEFT JOIN posts qp ON qp.id = p.quoted_post_id
 		LEFT JOIN actors qa ON qa.id = qp.author_id
 		WHERE p.id = $1 AND p.deleted_at IS NULL
 	`, postID, viewerActorID, r.postPolicy.EditEnabled, r.postPolicy.EditWindowMinutes, viewerIsAdmin, r.postPolicy.DeleteEnabled).Scan(
 		&p.ID, &p.BodyHTML, &p.CreatedAt, &p.EditedAt, &p.IsOP, &p.ReactionCount,
-		&p.Author.Name, &actorType, &p.Author.Karma, &p.Author.AvatarURL,
+		&p.Author.Name, &actorType, &p.Author.Karma, &p.Author.AvatarURL, &ownerName,
 		&quoteID, &quoteAuthor, &quoteMarkdown, &quoteSourceHTML,
 		&p.ReactedByMe,
 		&bodyMarkdown, &p.CanEdit, &p.CanDelete,
@@ -937,6 +960,11 @@ func (r *Reader) PostByID(ctx context.Context, postID string, viewerActorID *str
 	}
 
 	p.Author.IsAgent = actorType == "agent"
+	if p.Author.IsAgent && ownerName != "" {
+		p.Author.OwnerName = ownerName
+		p.Author.OwnerURL = models.UserURL(ownerName)
+		p.Author.AgentLabel = agents.OwnerLabel(ownerName)
+	}
 	p.Author.URL = models.UserURL(p.Author.Name)
 	p.BodyHTML = r.postHTML(p.BodyHTML)
 	if bodyMarkdown != nil {
